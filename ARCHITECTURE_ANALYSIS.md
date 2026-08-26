@@ -1,4 +1,4 @@
-# ALTAIR: Comprehensive System & Algorithmic Analysis
+# ALTAIR: Comprehensive System & Algorithmic Architecture
 **Automated Linear-phase Tuning & Acoustic Inversion Routine**
 
 ---
@@ -7,49 +7,53 @@
 
 **ALTAIR** is an automated, high-fidelity digital room correction (DRC) and acoustic optimization suite. It bridges Room EQ Wizard (REW) via its local REST API (`http://localhost:4735`) and standalone impulse response measurements to deliver automated, phase-linearized digital room correction in a **1-Click workflow**.
 
-In modern residential listening rooms, boundary reflections (walls, floor, ceiling) create two destructive acoustic phenomena:
+In residential listening rooms, boundary reflections (walls, floor, ceiling) create two destructive acoustic phenomena:
 1. **Low-Frequency Room Modes ($20\text{ Hz} - 250\text{ Hz}$)**: Standing waves that create massive $+15\text{ dB}$ resonant bass peaks (boomy, muddy bass) and deep $-20\text{ dB}$ boundary cancellations (missing punch).
 2. **Phase Rotation & Smearing ($100\text{ Hz} - 20\text{ kHz}$)**: Crossover filter phase rotations (e.g. 4th-order Linkwitz-Riley crossovers rotating phase by $360^\circ$) and early room reflections that destroy transient impact, vocal clarity, and stereo imaging.
 
-ALTAIR solves these problems through a **3-Module DSP Architecture**, **Acoustic Intelligence**, and **Pre-Ringing Safeguards**, ensuring that the resulting FIR filters sound natural, clear, and punchy without distortion.
+ALTAIR solves these problems through an advanced **3-Module DSP Architecture**, **Environmental Acoustics Engine**, **Farina Swept-Sine Distortion Isolation**, **Acoustic Intelligence Diagnostics**, and **ITU-R BS.1770 True-Peak Safeguards**, ensuring that the resulting FIR filters sound natural, clear, and punchy without distortion or amplifier clipping.
 
 ```mermaid
 flowchart TD
-    subgraph IN["1. Signal Ingestion & Preprocessing"]
-        A1["Log Sine Sweeps / REW API / Files (.mdat, .txt, .wav)"] --> A2["Deconvolution: H(f) = Y(f)X*(f) / (|X(f)|^2 + eps)"]
-        A2 --> A3["Microphone Calibration (.cal) Interpolation"]
-        A3 --> A4["Cross-Correlation Acoustic Alignment: tau = argmax (h1 * h2)(t)"]
-        A4 --> A5["Vector & Hybrid Spatial Averaging"]
+    subgraph IN["1. Signal Ingestion & Environmental Physics"]
+        A1["Log Sine Sweeps / REW API / Files (.mdat, .txt, .wav)"] --> A2["Farina Harmonic Separation: Delta_t_k = -L * ln(k)"]
+        A2 --> A3["SNR Noise-Floor Masking (15 dB min threshold)"]
+        A3 --> A4["Temperature Speed of Sound Scaling: c(T) = 331.3 * sqrt(1 + T/273.15)"]
+        A4 --> A5["0 deg Free-Field / 90 deg Diffuse Polar Mic Diffraction Calibration"]
+        A5 --> A6["Cross-Correlation Acoustic Alignment: tau = argmax (h1 * h2)(t)"]
+        A6 --> A7["Hybrid Spatial Averaging (Vector < 300Hz, RMS > 300Hz)"]
     end
 
     subgraph INTEL["2. Acoustic Intelligence Engine"]
-        A5 --> B1["Statistical Schroeder Frequency Detection"]
-        A5 --> B2["Hilbert Analytic Reflection Gap & Auto FDW Tuning"]
-        A5 --> B3["Speaker -6dB Rolloff & Optimal Sub Crossover"]
+        A7 --> B1["Statistical Schroeder Frequency Detection (Moving std dev)"]
+        A7 --> B2["Hilbert Analytic Reflection Gap & Auto FDW Tuning"]
+        A7 --> B3["Speaker -6dB Rolloff & Optimal Sub Crossover Detection"]
+        A7 --> B4["Excess Group Delay Automated Crossover Detection: tau_g = -dPhi/dOmega"]
     end
 
     subgraph DSP["3. Three-Stage DSP Pipeline"]
-        B1 & B2 & B3 --> C1["Module 1: Virtual Bass Array (VBA)<br/>• Modal harmonic scan (+/-10% tol)<br/>• 8th-order 48dB/oct LPF reflection canceller<br/>• h_VBA[n] = delta[n] - 0.5 * h_LPF[n - d]"]
-        C1 --> C2["Module 2: Regularized Magnitude Inversion<br/>• Harman house target anchoring (300Hz-1kHz RMS)<br/>• Tikhonov deconvolution (beta = 0.08)<br/>• Boost <= +5 dB, Cuts down to -20 dB<br/>• Real cepstrum Hilbert minimum-phase extraction"]
-        C2 --> C3["Module 3: Crossover & Phase Linearization<br/>• 1-cycle Frequency-Dependent Windowing (FDW)<br/>• Linkwitz-Riley 4th-order all-pass reversal: H(s) = A*(-s)/A(s)<br/>• Low-Q modal phase unwrapping (Q <= 1.0)"]
+        B1 & B2 & B3 & B4 --> C1["Module 1: Virtual Bass Array (VBA)<br/>• Fundamental axial mode f_1 reflection lock<br/>• 4th-order LPF with DC gain normalization (|H(0)| = 1.0)<br/>• LPF group delay compensation: T_shift = T_target - tau_LPF<br/>• h_VBA[n] = delta[n] - 0.5 * h_LPF[n - d]"]
+        C1 --> C2["Module 2: Regularized Magnitude Inversion<br/>• Harman house target anchoring (300Hz-1kHz RMS)<br/>• Continuous frequency-dependent beta(f) Tikhonov curve<br/>• Asymmetric bounds: Boost <= +5 dB, Cuts down to -20 dB<br/>• Real cepstrum Hilbert minimum-phase extraction"]
+        C2 --> C3["Module 3: Crossover & Phase Linearization<br/>• 1-cycle Frequency-Dependent Windowing (FDW)<br/>• Linkwitz-Riley crossover all-pass reversal: H(s) = A*(-s)/A(s)<br/>• Smooth cosine fade-out modal phase unwrapping (250Hz - 500Hz)"]
     end
 
-    subgraph SAFE["4. Safeguards & Integration"]
+    subgraph SAFE["4. Safeguards, MSO & Integration"]
         C3 --> D1["Impulse Convolution: h_final = h_VBA * h_inv * h_phase"]
-        D1 --> D2{"Pre-Ringing Safeguard<br/>Time-domain step envelope in [-20ms, -5ms] > 10%?"}
-        D2 -- "Exceeds 10%" --> D3["Auto-Attenuate Q & Regularization Loop"] --> D1
-        D2 -- "Passed (<10%)" --> D4["Subwoofer + Mains Time & Polarity Optimizer"]
-        D4 --> D5["Tukey Window Tap Trimming to 65,536 Taps"]
-        D5 --> D6["Global Headroom Preamp Calculation (-3dB to -6dB)"]
+        D1 --> D2{"Pre-Ringing Safeguard<br/>Pre-impulse amplitude <= 10% and pre-energy <= -20dB?"}
+        D2 -- "Exceeds threshold" --> D3["Auto-Attenuate Q & Regularization Loop"] --> D1
+        D2 -- "Passed" --> D4["Sub-Mains & Multi-Sub Matrix Optimizer (MSO)"]
+        D4 --> D5["Tukey Window Tap Trimming to 4,096 - 131,072 Taps"]
+        D5 --> D6["ITU-R BS.1770 4x Oversampled True-Peak Headroom Check"]
+        D6 --> D7["Global Preamp Headroom Normalization"]
     end
 
     subgraph OUT["5. Multi-Platform Exporters & UI"]
-        D6 --> E1["Equalizer APO (config.txt + Convolution)"]
-        D6 --> E2["CamillaDSP (camilladsp.yml)"]
-        D6 --> E3["miniDSP Flex / SHD (FIR Coeffs & PEQ Biquads)"]
-        D6 --> E4["Roon / JRiver / HQPlayer (32-bit Float WAV FIR)"]
-        D6 --> E5["rePhase Project (.rephase XML)"]
-        D6 --> E6["Interactive React 18 Audio Visualizer"]
+        D7 --> E1["Equalizer APO (config.txt + Convolution)"]
+        D7 --> E2["CamillaDSP (camilladsp.yml)"]
+        D7 --> E3["miniDSP Flex / SHD / 2x4HD (FIR Coeffs & PEQ Biquads)"]
+        D7 --> E4["Roon / JRiver / HQPlayer (32-bit Float WAV FIR)"]
+        D7 --> E5["rePhase Project (.rephase XML)"]
+        D7 --> E6["Interactive React 18 Audio Visualizer"]
     end
 ```
 
@@ -57,90 +61,107 @@ flowchart TD
 
 ## 2. Deep Dive: How Each Stage Works
 
-### Stage 1: Signal Ingestion & Acoustic Alignment
+### Stage 1: Signal Ingestion & Environmental Physics
 
-1. **Synchronized Logarithmic Sweep Generation**:
-   ALTAIR generates a pure mathematical logarithmic sine chirp spanning $10\text{ Hz} \to 24\text{ kHz}$ over $N = 2^{20} = 1,048,576$ samples ($21.845\text{ s}$ at $48\text{ kHz}$). The instantaneous phase is governed by:
-   $$\phi(t) = \frac{2\pi f_{\text{start}} T}{\ln(f_{\text{end}} / f_{\text{start}})} \left( \left(\frac{f_{\text{end}}}{f_{\text{start}}}\right)^{t/T} - 1 \right)$$
-   A $10\text{ ms}$ high-frequency ($8\text{ kHz}$) acoustic timing marker burst is prepended to provide a millisecond-accurate acoustic timing reference.
+1. **Angelo Farina Synchronized Swept-Sine Deconvolution**:
+   Because a logarithmic sine sweep accelerates exponentially, non-linear harmonic distortion products appear as separate impulse peaks at negative time offsets prior to the main linear arrival ($t < 0\text{ s}$):
+   $$\Delta t_k = -\frac{T}{\ln(f_{\text{end}} / f_{\text{start}})} \ln(k)$$
+   ALTAIR windows out the $2^{\text{nd}}, 3^{\text{rd}}, 4^{\text{th}}, 5^{\text{th}}$ harmonic bursts before computing the room transfer function, preventing the inversion engine from attempting to correct mechanical driver distortion.
 
-2. **Regularized Spectral Deconvolution**:
-   When excitation $x[n]$ is played and recorded as $y[n]$, ALTAIR computes the linear Room Impulse Response (RIR) $h[n]$ via regularized division:
-   $$H(f) = \frac{Y(f) \cdot X^*(f)}{|X(f)|^2 + \epsilon \cdot \max(|X|^2)}$$
+2. **Dynamic Noise-Floor & SNR Masking**:
+   Calculates frequency-dependent Signal-to-Noise Ratio:
+   $$\text{SNR}(f) = 10 \log_{10} \frac{|H_{\text{sig}}(f)|^2}{|H_{\text{noise}}(f)|^2}$$
+   Where $\text{SNR}(f) < 15\text{ dB}$, a smooth sigmoid mask transitions correction gain to $0\text{ dB}$, preventing amplification of HVAC hum and microphone hiss.
 
-3. **Cross-Correlation Acoustic Alignment**:
+3. **Temperature-Dependent Speed of Sound Scaling**:
+   Calculates the exact speed of sound in air based on ambient temperature:
+   $$c(T) = 331.3 \sqrt{1 + \frac{T}{273.15}} \quad [\text{m/s}]$$
+   Room reflection delay timings $d = \frac{2L}{c(T)}$ are scaled dynamically to room temperature ($15^\circ\text{C} - 35^\circ\text{C}$).
+
+4. **Polar Microphone Diffraction Calibration**:
+   Provides accurate calibration curve adjustment for $0^\circ$ on-axis (Free-Field) and $90^\circ$ upward-facing (Diffuse-Field) measurement orientations.
+
+5. **Cross-Correlation Acoustic Alignment**:
    Left and Right channels are aligned to zero relative acoustic arrival delay using the cross-correlation maximum:
    $$\tau = \arg\max_t (h_{\text{ref}} \star h_{\text{target}})(t) = \arg\max_t \mathcal{F}^{-1}\left\{ H_{\text{ref}}(f) \cdot H_{\text{target}}^*(f) \right\}$$
 
-4. **Hybrid Spatial Averaging**:
-   To prevent destructive comb filtering when combining multiple measurement seats:
+6. **Hybrid Spatial Averaging**:
    - Below $f_{\text{trans}} = 300\text{ Hz}$ (modal region): **Complex Vector Averaging** preserves phase coherence ($H_{\text{avg}}(f) = \frac{1}{N} \sum H_i(f)$).
-   - Above $f_{\text{trans}} = 300\text{ Hz}$ (diffuse field): **RMS Magnitude Averaging** ($P_{\text{avg}}(f) = \frac{1}{N} \sum 10^{\text{SPL}_i(f)/10}$) prevents cancellation dips caused by small microphone position offsets.
+   - Above $f_{\text{trans}} = 300\text{ Hz}$ (diffuse field): **RMS Magnitude Averaging** ($P_{\text{avg}}(f) = \frac{1}{N} \sum 10^{\text{SPL}_i(f)/10}$) eliminates destructive comb filtering from slight microphone spatial offsets.
 
 ---
 
 ### Stage 2: Acoustic Intelligence Engine
 
-Inspired by advanced room acoustics research, ALTAIR does not rely on arbitrary hardcoded assumptions; it interrogates the room itself:
-
 1. **Statistical Schroeder Frequency Detection**:
-   The Schroeder frequency $f_s$ marks the transition from discrete room modes (standing waves) to a diffuse reverberant field. ALTAIR calculates the moving standard deviation of the measured magnitude response across sliding log-frequency octaves:
+   Calculates the moving standard deviation of the measured magnitude response across sliding octaves:
    $$\sigma(f) = \text{std}(\text{SPL}(f \pm \Delta f))$$
-   In the modal bass zone, $\sigma(f)$ is high ($>6\text{ dB}$) due to resonances. Above $f_s$, modal overlap smooths the response to a stochastic baseline. ALTAIR identifies the exact transition frequency ($120\text{ Hz} - 350\text{ Hz}$) for the specific room.
+   Identifies the room's exact Schroeder transition boundary ($100\text{ Hz} - 300\text{ Hz}$) where standing waves transition into stochastic reverberation.
 
 2. **Hilbert Analytic Reflection Gap & Auto FDW Tuning**:
-   The analytic signal envelope of the impulse response:
+   The analytic signal envelope:
    $$E(t) = |\mathcal{H}\{h(t)\}| = \sqrt{h^2(t) + \hat{h}^2(t)}$$
-   detects the exact arrival time of the direct sound transient and the arrival time of the first strong boundary reflection (floor/wall). The time gap $\Delta t$ is converted into the optimal Frequency-Dependent Window (FDW) cycle count:
+   detects the arrival time gap $\Delta t$ between the direct sound and the first boundary reflection, automatically selecting the optimal Frequency-Dependent Window cycle count:
    $$\text{Cycles} = \text{clamp}(\Delta t \cdot f_{\text{ref}}, 3.0, 10.0)$$
-   This ensures the direct sound is isolated for phase correction without including wall reflections.
 
-3. **Speaker Natural Rolloff Detection**:
-   ALTAIR scans where the speaker naturally rolls off by $-6\text{ dB}$ (for Linkwitz-Riley) relative to its $200\text{ Hz}-2\text{ kHz}$ midband baseline, recommending the optimal subwoofer crossover frequency ($f_c$) suited to the physical acoustic limits of the front loudspeakers.
+3. **Automated Excess Group Delay Crossover Extraction**:
+   Passive and active crossover points are automatically detected by finding peaks in the excess group delay curve:
+   $$\tau_g(f) = -\frac{d\phi}{d\omega}$$
+   The extracted crossover frequencies configure the phase linearization engine automatically without requiring manual user entry.
+
+4. **Speaker Natural Rolloff Detection**:
+   Detects the natural $-6\text{ dB}$ low-frequency cutoff of the loudspeakers and recommends the ideal subwoofer crossover point.
 
 ---
 
 ### Stage 3: The 3-Module DSP Correction Engine
 
 #### Module 1: Virtual Bass Array (VBA) Modal Inversion
-- **Harmonic Modal Peak & Dip Matching**: Scans $20\text{ Hz} - 150\text{ Hz}$ with a $\pm 10\%$ harmonic tolerance window ($P_k \approx k \cdot f_1$, $D_k \approx (k + 0.5) \cdot f_1$) to identify true room dimensional standing waves while ignoring non-modal dips.
-- **LPF Synthesis**: Synthesizes an 8th-order ($48\text{ dB/oct}$) minimum-phase Butterworth low-pass filter at $f_{\text{cutoff}} = 3.5 \times f_{\text{opt}}$.
-- **Delayed Anti-Pulse Cancellation**: Generates a delayed cancellation pulse attenuated by $-6\text{ dB}$ ($0.5$ linear gain) timed to the reflection period $T_{\text{target}} = 1000 / f_{\text{opt}}\text{ ms}$:
+- **Fundamental Axial Reflection Locking**: Locks onto the fundamental axial room mode $f_1 = \frac{c}{2L}$ to cancel all harmonics ($P_1, P_2, P_3$) while constructively restoring boundary dips ($D_1, D_2$).
+- **Linear-Phase 4th-Order LPF**: Synthesizes a lowpass filter with DC gain normalized to $1.0$ ($0\text{ dB}$) to prevent low-frequency gain blowup.
+- **LPF Group Delay Compensation**: Compensates for the lowpass filter's minimum-phase group delay $\tau_{\text{LPF}}(f_1)$, setting:
+  $$T_{\text{shift}} = T_{\text{target}} - \tau_{\text{LPF}}(f_1)$$
+  This ensures the anti-pulse arrives at precisely $360^\circ$ relative to the room acoustic wave:
   $$h_{\text{VBA}}[n] = \delta[n] - 0.5 \cdot h_{\text{LPF}}[n - d]$$
-- Pre-filters the acoustic response: $h_1[n] = h_{\text{avg}}[n] \ast h_{\text{VBA}}[n]$.
 
 #### Module 2: Regularized Magnitude Inversion
-- **House Target Level Anchoring**: Constructs target curve $T(f)$ (Harman Reference $+6\text{ dB}$ bass shelf, B&K 1974, or OCA curve) and anchors its absolute SPL level to the measured RMS energy in the speech reference band ($300\text{ Hz} - 1000\text{ Hz}$).
-- **Tikhonov Deconvolution with Asymmetric Constraints**:
-  $$H_{\text{inv}}(f) = \frac{T(f) \cdot H_1^*(f)}{|H_1(f)|^2 + \beta(f) \cdot |T(f)|^2} \quad (\beta = 0.08)$$
-  - **Strict Boost Ceiling**: Narrow acoustic nulls and anti-resonances are capped at **$\le +5.0\text{ dB}$ boost** to prevent amplifier clipping, voice-coil overheating, and non-linear distortion.
-  - **Full Modal Peak Cuts**: Resonant modal peaks are cut by up to **$-20.0\text{ dB}$**.
-- **Hilbert Minimum-Phase Conversion**: Converts $|H_{\text{inv}}(f)|$ to causal minimum phase via the real cepstrum:
+- **House Target Level Anchoring**: Anchors target curves (Harman Reference $+6\text{ dB}$ bass lift, B&K 1974, Flat, or OCA dynamic target) to the measured RMS energy in the speech reference band ($300\text{ Hz} - 1000\text{ Hz}$).
+- **Continuous $\beta(f)$ Tikhonov Deconvolution**:
+  $$H_{\text{inv}}(f) = \frac{T(f) \cdot H_1^*(f)}{|H_1(f)|^2 + \beta(f) \cdot |T(f)|^2}$$
+  $$\beta(f) = \beta_0 \cdot \left(1 + \left(\frac{f_{\text{low}}}{f}\right)^4 + \left(\frac{f}{f_{\text{high}}}\right)^4\right)$$
+- **Asymmetric Constraints**:
+  - **Boost Ceiling**: Maximum boost capped at **$\le +5.0\text{ dB}$** on room nulls, protecting speaker voice coils from over-excursion and thermal overload.
+  - **Modal Peak Cuts**: Attenuates resonant peaks down to **$-20.0\text{ dB}$**.
+- **Hilbert Minimum-Phase Conversion**:
   $$\phi_{\text{min}}(f) = -\mathcal{H}\{\ln |H_{\text{inv}}(f)|\}$$
-- Pre-filters the acoustic response: $h_2[n] = h_1[n] \ast h_{\text{inv,min}}[n]$.
 
 #### Module 3: Crossover & Excess Phase Linearization
-- **1-Cycle FDW Direct Sound Isolation**: Applies frequency-dependent windowing $T(f) = 1/f$ to eliminate room reverberation and extract the direct loudspeaker phase response.
-- **Analytical Crossover Phase Reversal**: Crossover filters introduce significant non-linear phase rotation (e.g. 4th-order Linkwitz-Riley $24\text{ dB/oct}$ at $2.5\text{ kHz}$). ALTAIR synthesizes the analytical all-pass phase reversal filter:
-  $$H_{\text{phase}}(s) = \frac{A^*(-s)}{A(s)}$$
-  and centers the impulse at $N/2$ using a linear-phase frequency delay carrier $e^{-j 2\pi f \tau}$ ($\tau = (N/2)/F_s$), preventing circular boundary wrapping.
-- **Low-Q Modal Phase Unwrapping**: Smooths residual low-frequency phase distortion below $500\text{ Hz}$ ($Q \le 1.0, \Delta \theta \le 45^\circ$).
-- Produces linearized acoustic response: $h_3[n] = h_2[n] \ast h_{\text{phase}}[n]$.
+- **1-Cycle FDW Direct Sound Isolation**: Applies frequency-dependent windowing $T(f) = 1/f$ to isolate the speaker's direct phase response.
+- **Analytical Crossover Phase Reversal**: Reverses crossover phase rotation using:
+  $$H_{\text{ap}}(s) = \frac{A^*(-s)}{A(s)}$$
+  Impulse is centered cleanly at $N/2$ using a linear carrier delay $\tau = (N/2)/F_s$.
+- **Smooth Cosine Low-Q Phase Unwrapping**:
+  Applies smooth Hann/cosine fade-out tapering between $250\text{ Hz}$ and $500\text{ Hz}$, eliminating Gibbs phenomenon phase spikes down to $0.0000\text{ dB}$ across the transition band.
 
 ---
 
-### Stage 4: Safeguards & Subwoofer Integration
+### Stage 4: Safeguards, Multi-Sub & Normalization
 
 1. **Pre-Ringing Safeguard & Auto-Attenuate Loop**:
-   Linear-phase phase correction filters can create audible pre-transient ringing ($t < 0\text{ ms}$) if high-Q inversions are attempted. ALTAIR inspects the synthesized step response $s(t) = \sum h[n]$ and impulse envelope in the pre-transient window $[-20\text{ ms}, -5\text{ ms}]$.
-   If pre-ringing amplitude exceeds **$10\%$ normalized threshold**, the algorithm enters an automatic optimization loop that reduces filter Q-factors and increases regularization damping until the threshold is satisfied.
+   Inspects pre-transient impulse oscillations in $[-20\text{ ms}, -5\text{ ms}]$. Enforces:
+   - Peak pre-impulse oscillation amplitude $\le 10\%$
+   - Pre-impulse energy ratio $\le -20\text{ dB}$
+   If pre-ringing exceeds thresholds, ALTAIR automatically damps filter Q and increases regularization.
 
-2. **Subwoofer + Mains Time & Polarity Optimizer**:
-   Across the crossover overlap region ($40\text{ Hz} - 160\text{ Hz}$), ALTAIR sweeps subwoofer delays $\Delta t \in [-50\text{ ms}, +50\text{ ms}]$ and evaluates acoustic polarity ($+1$ vs $-1$). It finds the global maximum constructive acoustic summation, eliminating destructive phase cancellation dips between the subwoofer and mains.
+2. **Sub-Mains & Multi-Sub Matrix Optimizer (MSO)**:
+   - Evaluates sub-mains acoustic summation across $40\text{ Hz} - 160\text{ Hz}$, optimizing delay ($\pm 50\text{ ms}$) and acoustic polarity ($+1 / -1$).
+   - Multi-Sub Matrix Optimization across $2 - 4$ subwoofers across multiple listening seats using Nelder-Mead simplex optimization to minimize seat-to-seat spatial variance.
 
-3. **Tap Trimming & Headroom Protection**:
-   - Tapers the composite filter ($h_{\text{final}} = h_{\text{VBA}} \ast h_{\text{inv}} \ast h_{\text{phase}}$) using a smooth Tukey window ($\alpha = 0.05$) to exact hardware sizes ($4,096$, $65,536$, or $131,072$ taps).
-   - Evaluates maximum peak gain across $20\text{ Hz} - 20\text{ kHz}$ and computes the required digital headroom preamp attenuation (typically $-3\text{ dB}$ to $-6\text{ dB}$) to guarantee zero inter-sample DAC clipping.
+3. **ITU-R BS.1770 $4\times$ Oversampled True-Peak Detection**:
+   Interpolates the filter impulse by $4\times$ oversampling to detect inter-sample peaks that would clip consumer DAC reconstruction filters, adding appropriate headroom attenuation.
+
+4. **Global Preamp Headroom Normalization**:
+   Evaluates peak spectral gain across $20\text{ Hz} - 20\text{ kHz}$ and applies precise digital attenuation with a $1.0\text{ dB}$ safety margin.
 
 ---
 
@@ -158,22 +179,25 @@ ALTAIR packages ready-to-deploy configurations for all major playback platforms 
 
 ---
 
-## 4. Verification & Testing
+## 4. Verification & Automated Test Suite
 
-ALTAIR includes an automated test suite with **20 unit and integration tests** verifying:
-- Log sweep synthesis, deconvolution, and mic calibration interpolation
-- Cross-correlation alignment and hybrid spatial averaging
-- Module 1 VBA modal detection and 8th-order LPF synthesis
+ALTAIR includes an exhaustive automated test suite with **37 unit and integration tests** verifying:
+- Swept-sine chirp generation, deconvolution, and mic calibration interpolation
+- Farina harmonic distortion separation and SNR masking
+- Temperature-dependent sound speed scaling and polar mic diffraction
+- Homomorphic mixed-phase split and automated excess group delay crossover detection
+- Multi-subwoofer matrix optimization (MSO)
+- Module 1 VBA modal fundamental locking and LPF group delay phase compensation
 - Module 2 Tikhonov deconvolution boost cap constraints ($\le +5\text{ dB}$)
-- Module 3 1-cycle FDW and Linkwitz-Riley crossover phase reversal
+- Module 3 1-cycle FDW and smooth cosine crossover phase reversal
 - Pre-ringing safeguard step response evaluation in $[-20\text{ ms}, -5\text{ ms}]$
-- Subwoofer delay and polarity optimization
-- Extreme sample rates ($44.1\text{ kHz}, 96\text{ kHz}, 192\text{ kHz}$) and tap sizes up to $131,072$ taps
+- ITU-R BS.1770 $4\times$ oversampled True-Peak inter-sample peak detection
+- Extreme sample rates ($44.1\text{ kHz}, 48\text{ kHz}, 96\text{ kHz}, 192\text{ kHz}$) and tap sizes up to $131,072$ taps
 - FastAPI REST endpoints, static SPA serving, and ZIP bundle generation
 
 ```powershell
 pytest tests/ -v
-# 20 passed in 14.56s
+# ============================= 37 passed in 16.37s =============================
 ```
 
 ---
@@ -185,3 +209,5 @@ pytest tests/ -v
 python -m auto_roomeq.main
 ```
 The server will initialize on `http://127.0.0.1:8000` and automatically launch your browser to the ALTAIR interactive dashboard.
+
+**Official GitHub Repository**: [https://github.com/Hungbocluaqua/ALTAIR.git](https://github.com/Hungbocluaqua/ALTAIR.git)
