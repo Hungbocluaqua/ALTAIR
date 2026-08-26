@@ -12,7 +12,7 @@ import zipfile
 from .wav_exporter import export_wav_fir
 from .equalizer_apo_exporter import export_equalizer_apo_config
 from .camilladsp_exporter import export_camilladsp_config
-from .minidsp_exporter import export_minidsp_fir
+from .minidsp_exporter import export_minidsp_fir, export_minidsp_biquads
 from .rephase_exporter import export_rephase_xml
 
 
@@ -24,6 +24,8 @@ def create_export_bundle(
     sub_delay_ms: Optional[float] = None,
     crossover_freq: float = 2500.0,
     crossover_order: int = 4,
+    biquads_left: Optional[list] = None,
+    biquads_right: Optional[list] = None,
     metadata: Optional[Dict[str, any]] = None,
 ) -> bytes:
     """
@@ -73,6 +75,11 @@ def create_export_bundle(
         zf.writestr("miniDSP/fir_coeffs_left.txt", minidsp_l)
         zf.writestr("miniDSP/fir_coeffs_right.txt", minidsp_r)
         
+        if biquads_left:
+            zf.writestr("miniDSP/biquad_coeffs_left.txt", export_minidsp_biquads(biquads_left))
+        if biquads_right:
+            zf.writestr("miniDSP/biquad_coeffs_right.txt", export_minidsp_biquads(biquads_right))
+            
         # 5. rePhase
         rephase_xml = export_rephase_xml(
             sample_rate=sample_rate,

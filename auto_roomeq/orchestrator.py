@@ -342,6 +342,21 @@ class OptimizationOrchestrator:
         # STEP 9: Create Export Package (.ZIP)
         # -------------------------------------------------------------
         update("Packaging Exports", 96, "Building Equalizer APO, CamillaDSP, miniDSP, rePhase & WAV bundle")
+        
+        # Synthesize miniDSP parametric PEQ biquads from modal peaks
+        biquads_l, _ = generate_hybrid_iir_fir_split(
+            modal_peaks_dips=[{"freq_hz": p["freq"], "gain_db": -min(12.0, max(2.0, p.get("spl", 80.0) - 75.0)), "q": 3.5} for p in modal_info_l.get("peaks", []) if p.get("is_harmonic_match")],
+            target_fir=fir_final_l,
+            sample_rate=sr,
+            max_biquads=8,
+        )
+        biquads_r, _ = generate_hybrid_iir_fir_split(
+            modal_peaks_dips=[{"freq_hz": p["freq"], "gain_db": -min(12.0, max(2.0, p.get("spl", 80.0) - 75.0)), "q": 3.5} for p in modal_info_r.get("peaks", []) if p.get("is_harmonic_match")],
+            target_fir=fir_final_r,
+            sample_rate=sr,
+            max_biquads=8,
+        )
+        
         zip_bytes = create_export_bundle(
             fir_left=fir_final_l,
             fir_right=fir_final_r,
@@ -350,6 +365,8 @@ class OptimizationOrchestrator:
             sub_delay_ms=sub_delay_ms if meas_sub is not None else None,
             crossover_freq=effective_xo_freq,
             crossover_order=crossover_order,
+            biquads_left=biquads_l,
+            biquads_right=biquads_r,
         )
         
         update("Completed", 100, "ALTAIR Digital Room Correction optimization complete!")

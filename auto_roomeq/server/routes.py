@@ -64,6 +64,9 @@ async def upload_measurement(
     """Upload a measurement file (REW text/FRD export or WAV impulse response)."""
     try:
         content_bytes = await file.read()
+        if not content_bytes or len(content_bytes) == 0:
+            raise ValueError("Uploaded file is empty (0 bytes)")
+            
         filename = file.filename or "uploaded_measurement"
         
         if filename.lower().endswith(".wav"):
@@ -189,37 +192,44 @@ async def simulate_sub_delay(
     crossover_freq: float = Form(80.0),
 ):
     """Real-time simulation of subwoofer summation for interactive slider."""
+    from scipy import signal
+    
     if "left" in current_measurements and "sub" in current_measurements:
         meas_l = current_measurements["left"]
         meas_sub = current_measurements["sub"]
     else:
         meas_l, _, meas_sub = generate_demo_room_measurements()
         
-    res = optimize_sub_mains_alignment(
-        main_meas=meas_l,
-        sub_meas=meas_sub,
-        crossover_freq=crossover_freq,
-    )
-    
-    # Recalculate specific summation curve for the requested manual slider delay
     sr = meas_l.sample_rate
-    freqs = np.array(res["freqs"])
+    n_fft = max(meas_l.n_fft, meas_sub.n_fft)
+    freqs = np.fft.rfftfreq(n_fft, d=1.0 / sr)
+    
+    # Apply crossover filtering (LPF on Sub, HPF on Main)
+    sos_lpf = signal.butter(2, crossover_freq, btype='low', fs=sr, output='sos')
+    sos_hpf = signal.butter(2, crossover_freq, btype='high', fs=sr, output='sos')
+    
+    sub_filtered_ir = signal.sosfilt(sos_lpf, meas_sub.ir)
+    main_filtered_ir = signal.sosfilt(sos_hpf, meas_l.ir)
+    
+    H_main_xo = np.fft.rfft(main_filtered_ir, n=n_fft)
+    H_sub_xo = np.fft.rfft(sub_filtered_ir, n=n_fft)
+    
+    disp_mask = (freqs >= 20.0) & (freqs <= 500.0)
+    disp_freqs = freqs[disp_mask]
+    
     dt_s = delay_ms / 1000.0
+    shift = np.exp(-1j * 2.0 * np.pi * disp_freqs * dt_s)
     
-    shift = np.exp(-1j * 2.0 * np.pi * freqs * dt_s)
-    
-    # Extract linear signals
-    mag_main = 10.0 ** (np.array(res["spl_main_only_db"]) / 20.0)
-    mag_sub = 10.0 ** (np.array(res["spl_sub_only_db"]) / 20.0)
-    
-    H_sum = mag_main + (polarity * mag_sub * shift)
+    H_sum = H_main_xo[disp_mask] + (polarity * H_sub_xo[disp_mask] * shift)
     spl_sum = 20.0 * np.log10(np.maximum(np.abs(H_sum), 1e-12))
+    spl_main = 20.0 * np.log10(np.maximum(np.abs(H_main_xo[disp_mask]), 1e-12))
+    spl_sub = 20.0 * np.log10(np.maximum(np.abs(H_sub_xo[disp_mask]), 1e-12))
     
     return {
         "delay_ms": delay_ms,
         "polarity": polarity,
-        "freqs": res["freqs"],
+        "freqs": disp_freqs.tolist(),
         "spl_sum_db": spl_sum.tolist(),
-        "spl_main_only_db": res["spl_main_only_db"],
-        "spl_sub_only_db": res["spl_sub_only_db"],
+        "spl_main_only_db": spl_main.tolist(),
+        "spl_sub_only_db": spl_sub.tolist(),
     }

@@ -34,7 +34,7 @@ class Measurement:
             ir_arr = np.zeros(4096, dtype=np.float64)
             
         if not np.all(np.isfinite(ir_arr)):
-            ir_arr = np.nan_to_num(ir_arr)
+            ir_arr = np.nan_to_num(ir_arr, nan=0.0, posinf=0.0, neginf=0.0)
             
         self.ir = ir_arr
         
