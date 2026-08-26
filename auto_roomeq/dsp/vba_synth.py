@@ -103,10 +103,15 @@ def detect_modal_peaks_dips(
         })
         
     # Select optimal modal frequency f_opt for VBA reflection cancellation
-    # Pick the most prominent low-frequency peak (highest SPL)
-    if classified_peaks:
-        strongest_peak = max(classified_peaks, key=lambda p: p["spl"])
-        f_opt = strongest_peak["freq"]
+    # Always use the fundamental axial room mode f_1 for round-trip reflection cancellation
+    fundamental_peak = next((p for p in classified_peaks if p.get("harmonic") == 1 and p.get("is_harmonic_match")), None)
+    if fundamental_peak is not None:
+        f_opt = fundamental_peak["freq"]
+    elif classified_peaks:
+        # Fallback: deduce fundamental f_1 from lowest detected modal peak
+        lowest_peak = min(classified_peaks, key=lambda p: p["freq"])
+        k = max(1, lowest_peak.get("harmonic", 1))
+        f_opt = lowest_peak["freq"] / k
     else:
         f_opt = float(f_1_theory)
         
@@ -131,8 +136,8 @@ def synthesize_vba_filter(
     
     1. Calculate target reflection period: T_target = (1000 / f_opt) ms.
     2. Compute cutoff frequency: f_cutoff = 3.5 * f_opt.
-    3. Design an 8th-order (48 dB/oct) low-pass filter H_LPF(s), convert to minimum-phase.
-    4. Delay the inverted pulse by T_shift = T_target - t_peak, apply -6 dB (0.5) offset:
+    3. Design a 4th-order low-pass filter H_LPF(s), convert to minimum-phase.
+    4. Compensate for LPF group delay and delay the inverted pulse:
        h_VBA[n] = delta[n] - 0.5 * h_LPF[n - d]
     5. Pre-filter the response: h_1[n] = h_avg[n] * h_VBA[n].
     
@@ -154,13 +159,13 @@ def synthesize_vba_filter(
         
     # 1. Target reflection period in ms
     T_target_ms = 1000.0 / max(f_opt, 10.0)
+    T_target_s = T_target_ms / 1000.0
     
     # 2. Cutoff frequency: 3.5 * f_opt (clamped between 30 Hz and Nyquist * 0.45)
     f_cutoff = max(30.0, min(3.5 * f_opt, sr * 0.45))
     
-    # 3. 8th-order (48 dB/oct) Butterworth Low-Pass Filter
-    # Digital Butterworth 8th-order filter design:
-    sos_lpf = signal.butter(8, f_cutoff, btype='low', fs=sr, output='sos')
+    # 3. 4th-order (24 dB/oct) Butterworth Low-Pass Filter with clean group delay
+    sos_lpf = signal.butter(4, f_cutoff, btype='low', fs=sr, output='sos')
     
     # Impulse response of LPF (2048 samples)
     n_lpf = 2048
@@ -180,17 +185,23 @@ def synthesize_vba_filter(
     min_phase_win[1:len(cepstrum)//2] = 2.0
     min_phase_win[len(cepstrum)//2] = 1.0
     
-    h_lpf_min = np.fft.irfft(np.exp(np.fft.fft(cepstrum * min_phase_win))[:len(H_lpf)], n=n_lpf)
+    min_phase_spec = np.exp(np.fft.fft(cepstrum * min_phase_win))[:len(H_lpf)]
+    h_lpf_min = np.fft.irfft(min_phase_spec, n=n_lpf)
     
     # Normalize DC gain of LPF to 1.0 (0 dB)
     dc_gain = np.abs(np.sum(h_lpf_min))
     if dc_gain > 1e-12:
         h_lpf_min = h_lpf_min / dc_gain
         
-    # 4. Time-delay pulse: T_shift = T_target - t_peak
-    t_peak_ms = measurement.peak_time_ms
-    T_shift_ms = max(1.0, T_target_ms - (t_peak_ms % T_target_ms))
-    d_samples = max(1, int(np.round((T_shift_ms / 1000.0) * sr)))
+    # 4. Compensate for LPF group delay tau_lpf at f_opt for phase alignment
+    freqs_lpf = np.fft.rfftfreq(n_lpf, d=1.0 / sr)
+    idx_fopt = np.argmin(np.abs(freqs_lpf - f_opt))
+    phase_lpf = np.unwrap(np.angle(min_phase_spec))
+    tau_lpf_s = - (phase_lpf[idx_fopt] - phase_lpf[0]) / (2.0 * np.pi * max(freqs_lpf[idx_fopt], 1.0))
+    
+    T_shift_s = max(0.001, T_target_s - tau_lpf_s)
+    T_shift_ms = T_shift_s * 1000.0
+    d_samples = max(1, int(np.round(T_shift_s * sr)))
     
     # Synthesize VBA FIR kernel
     n_vba = max(4096, d_samples + len(h_lpf_min))
