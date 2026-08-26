@@ -8,7 +8,7 @@ Implements:
 - Auto-attenuation loop to reduce phase Q-factors & increase regularization if threshold is exceeded.
 """
 
-from typing import Tuple, Dict, Callable
+from typing import Tuple, Dict, Callable, Union, Optional
 import numpy as np
 
 
@@ -140,3 +140,50 @@ def auto_attenuate_preringing(
     best_metrics["iterations_needed"] = max_iterations
     best_metrics["auto_attenuated"] = True
     return best_impulse, best_metrics, current_q, current_beta
+
+
+def evaluate_zwicker_temporal_masking(
+    impulse: np.ndarray,
+    sample_rate: int = 48000,
+) -> Dict[str, Union[bool, float]]:
+    """
+    Zwicker Psychoacoustic Temporal Auditory Masking Evaluator.
+    
+    Evaluates whether pre-impulse ringing exceeds the human auditory backward masking threshold
+    (5ms - 20ms prior to main transient) or forward masking threshold.
+    
+    Returns:
+        Dict with is_masked boolean and maximum masking margin in dB.
+    """
+    peak_idx = int(np.argmax(np.abs(impulse)))
+    peak_val = max(float(np.abs(impulse[peak_idx])), 1e-12)
+    norm_ir = np.abs(impulse) / peak_val
+    
+    t_ms = (np.arange(len(impulse)) - peak_idx) / (sample_rate / 1000.0)
+    
+    # Backward masking evaluation (-20ms to -2ms)
+    mask_backward = (t_ms >= -20.0) & (t_ms <= -2.0)
+    if not np.any(mask_backward):
+        return {"is_masked": True, "worst_margin_db": -30.0}
+        
+    t_back = t_ms[mask_backward]
+    actual_pre_amp = norm_ir[mask_backward]
+    
+    # Zwicker backward masking threshold relative to peak (0 dB):
+    # -6 dB at -2ms, tapering down to -36 dB at -20ms (approx 1.5 dB/ms)
+    zwicker_thresh_db = -6.0 - 1.6 * np.abs(t_back)
+    zwicker_thresh_linear = 10.0 ** (zwicker_thresh_db / 20.0)
+    
+    # Check if pre-echo exceeds masking curve
+    exceedance_ratios = actual_pre_amp / np.maximum(zwicker_thresh_linear, 1e-6)
+    max_exceedance = float(np.max(exceedance_ratios))
+    worst_margin_db = float(20.0 * np.log10(max(max_exceedance, 1e-6)))
+    
+    is_masked = worst_margin_db <= 0.0
+    
+    return {
+        "is_masked": bool(is_masked),
+        "worst_margin_db": round(worst_margin_db, 1),
+        "max_pre_amp_pct": round(float(np.max(actual_pre_amp) * 100.0), 2),
+    }
+

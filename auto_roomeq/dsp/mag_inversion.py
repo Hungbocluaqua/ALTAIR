@@ -29,10 +29,11 @@ def tikhonov_magnitude_inversion(
     f_low_limit: float = 15.0,
     f_high_limit: float = 20000.0,
     snr_mask: Optional[np.ndarray] = None,
+    spatial_variance_weights: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """
     Perform Tikhonov regularized magnitude inversion with continuous frequency-dependent beta(f),
-    asymmetric boost/cut constraints, and SNR noise-floor masking.
+    asymmetric boost/cut constraints, SNR noise-floor masking, and spatial variance weighting.
     
     Args:
         H_1: Complex frequency response of pre-filtered measurement.
@@ -44,6 +45,7 @@ def tikhonov_magnitude_inversion(
         f_low_limit: Lower frequency boundary for correction.
         f_high_limit: Upper frequency boundary for correction.
         snr_mask: Optional [0.0 to 1.0] SNR confidence mask.
+        spatial_variance_weights: Optional [0.0 to 1.0] multi-seat spatial variance weights.
         
     Returns:
         Complex frequency response of the regularized inversion filter H_inv(f).
@@ -59,7 +61,11 @@ def tikhonov_magnitude_inversion(
             f_high=f_high_limit,
         )
     else:
-        beta_f = np.asarray(beta, dtype=np.float64)
+        beta_f = np.asarray(beta, dtype=np.float64).copy()
+        
+    # Scale regularization by spatial variance: high variance (localized nulls) increases beta -> prevents sweet-spot overfitting
+    if spatial_variance_weights is not None and len(spatial_variance_weights) == len(freqs):
+        beta_f = beta_f / np.clip(spatial_variance_weights, 0.1, 1.0)
         
     # Tikhonov regularized deconvolution formula
     # H_inv(f) = (T(f) * H_1*(f)) / (|H_1(f)|^2 + beta(f) * |T(f)|^2)
@@ -141,6 +147,7 @@ def synthesize_mag_inversion_filter(
     f_low_limit: float = 20.0,
     f_high_limit: float = 20000.0,
     snr_mask: Optional[np.ndarray] = None,
+    spatial_variance_weights: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, Measurement, np.ndarray]:
     """
     Synthesize Module 2 magnitude inversion filter.
@@ -165,6 +172,7 @@ def synthesize_mag_inversion_filter(
         f_low_limit=f_low_limit,
         f_high_limit=f_high_limit,
         snr_mask=snr_mask,
+        spatial_variance_weights=spatial_variance_weights,
     )
     
     # Extract minimum phase

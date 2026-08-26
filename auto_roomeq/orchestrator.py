@@ -33,6 +33,8 @@ from .dsp.acoustic_analysis import (
     log_smoothed_fast,
     erb_smoothed_fast,
     analyze_wavelet_modal_decay,
+    calculate_iso9613_air_absorption,
+    classify_sbir_boundary_cancellations,
 )
 from .dsp.targets import (
     generate_harman_target,
@@ -45,7 +47,7 @@ from .dsp.targets import (
 from .dsp.vba_synth import synthesize_vba_filter, detect_modal_peaks_dips
 from .dsp.mag_inversion import synthesize_mag_inversion_filter
 from .dsp.phase_linearization import synthesize_phase_linearization_filter
-from .dsp.preringing import evaluate_step_response_preringing
+from .dsp.preringing import evaluate_step_response_preringing, evaluate_zwicker_temporal_masking
 from .dsp.filter_assembly import assemble_final_filter
 from .dsp.sub_alignment import optimize_sub_mains_alignment, optimize_multi_sub_matrix
 from .dsp.farina import (
@@ -58,6 +60,7 @@ from .dsp.advanced_dsp import (
     compute_frequency_dependent_beta,
     detect_group_delay_crossovers,
     calculate_itu_r_bs1770_true_peak,
+    generate_hybrid_iir_fir_split,
 )
 from .exporters.bundle_exporter import create_export_bundle
 from .integrations.rew_api import RewApiClient
@@ -137,6 +140,9 @@ class OptimizationOrchestrator:
         sub_crossover_freq: float = 80.0,
         target_taps: int = 65536,
         temp_celsius: float = 20.0,
+        relative_humidity_pct: float = 50.0,
+        pressure_kpa: float = 101.325,
+        listening_distance_m: float = 3.0,
         mic_orientation_deg: float = 0.0,
         progress_callback: Optional[Callable[[str, int, str], None]] = None,
     ) -> Dict[str, Any]:
@@ -148,10 +154,10 @@ class OptimizationOrchestrator:
                 progress_callback(step_name, pct, detail)
 
         # -------------------------------------------------------------
-        # STEP 1: Ingestion & Timing Alignment with Temperature Scaling
+        # STEP 1: Ingestion & Timing Alignment with Temperature & Atmosphere
         # -------------------------------------------------------------
         speed_of_sound = calculate_speed_of_sound(temp_celsius)
-        update("Input Ingestion", 10, f"Processing {meas_left.name} (SR: {meas_left.sample_rate} Hz, c: {speed_of_sound:.1f} m/s)")
+        update("Input Ingestion", 10, f"Processing {meas_left.name} (SR: {meas_left.sample_rate} Hz, c: {speed_of_sound:.1f} m/s, RH: {relative_humidity_pct}%)")
         sr = meas_left.sample_rate
         
         # Apply polar mic calibration if 90-degree diffuse
@@ -177,11 +183,19 @@ class OptimizationOrchestrator:
         # -------------------------------------------------------------
         # STEP 2: Acoustic Intelligence, Group Delay & Room Diagnostics
         # -------------------------------------------------------------
-        update("Acoustic Intelligence", 25, "Analyzing statistical Schroeder, reflection envelope & group delay")
+        update("Acoustic Intelligence", 25, "Analyzing statistical Schroeder, reflection envelope, SBIR & group delay")
         schroeder_hz = detect_schroeder_statistical(np.abs(meas_left.H), meas_left.freqs, fs=sr)
         reflection_gap_s = detect_reflection_gap(meas_left.ir, fs=sr)
         auto_fdw_cycles = ir_gap_to_fdw_cycles(reflection_gap_s)
         low_rolloff, high_rolloff = detect_speaker_rolloff(np.abs(meas_left.H), meas_left.freqs, threshold_db=-6.0)
+        
+        # SBIR boundary interference decomposition
+        sbir_info_l = classify_sbir_boundary_cancellations(meas_left.freqs, meas_left.spl_db, meas_left.ir, sample_rate=sr, speed_of_sound_mps=speed_of_sound)
+        
+        # ISO 9613-1 air absorption calculation
+        air_loss = calculate_iso9613_air_absorption(meas_left.freqs, temp_celsius, relative_humidity_pct, pressure_kpa, distance_m=listening_distance_m)
+        idx_10k = np.argmin(np.abs(meas_left.freqs - 10000.0))
+        air_loss_10k_db = float(air_loss[idx_10k])
         
         # Auto-detect passive crossover points from group delay peaks
         detected_crossovers = detect_group_delay_crossovers(meas_left.ir, sample_rate=sr)
@@ -201,6 +215,10 @@ class OptimizationOrchestrator:
             "detected_crossovers": detected_crossovers,
             "speed_of_sound_mps": round(speed_of_sound, 1),
             "temperature_celsius": float(temp_celsius),
+            "relative_humidity_pct": float(relative_humidity_pct),
+            "pressure_kpa": float(pressure_kpa),
+            "air_absorption_loss_10k_db": round(air_loss_10k_db, 2),
+            "sbir_diagnostics": sbir_info_l,
         }
             
         # -------------------------------------------------------------
@@ -314,6 +332,10 @@ class OptimizationOrchestrator:
         preringing_metrics_l = evaluate_step_response_preringing(fir_final_l, sample_rate=sr)
         preringing_metrics_r = evaluate_step_response_preringing(fir_final_r, sample_rate=sr)
         
+        # Zwicker psychoacoustic temporal masking evaluation
+        zwicker_l = evaluate_zwicker_temporal_masking(fir_final_l, sample_rate=sr)
+        zwicker_r = evaluate_zwicker_temporal_masking(fir_final_r, sample_rate=sr)
+        
         global_preamp_db = min(preamp_l, preamp_r)
         
         # -------------------------------------------------------------
@@ -363,6 +385,8 @@ class OptimizationOrchestrator:
             "modal_info_right": modal_info_r,
             "preringing_left": preringing_metrics_l,
             "preringing_right": preringing_metrics_r,
+            "zwicker_masking_left": zwicker_l,
+            "zwicker_masking_right": zwicker_r,
             "sub_alignment": sub_align_results,
             "zip_bundle_bytes": zip_bytes,
             "true_peak_left_dbfs": round(tp_l, 2),

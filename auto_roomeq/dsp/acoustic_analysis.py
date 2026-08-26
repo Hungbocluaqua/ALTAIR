@@ -380,3 +380,115 @@ def analyze_wavelet_modal_decay(
             
     return results
 
+
+def calculate_iso9613_air_absorption(
+    freqs: np.ndarray,
+    temp_celsius: float = 20.0,
+    relative_humidity_pct: float = 50.0,
+    pressure_kpa: float = 101.325,
+    distance_m: float = 3.0,
+) -> np.ndarray:
+    """
+    Calculate atmospheric air attenuation per ISO 9613-1 / ANSI S1.26.
+    
+    Computes pure-tone atmospheric attenuation alpha(f) [dB/m] and returns total
+    distance-dependent absorption loss in dB across frequency array.
+    """
+    T_k = temp_celsius + 273.15
+    T_0 = 293.15  # Reference temperature 20 C
+    T_01 = 273.16 # Triple point
+    p_r = pressure_kpa / 101.325
+    
+    # Saturation vapor pressure
+    p_sat_ratio = 10.0 ** (-6.8346 * ((T_01 / T_k) ** 1.261) + 4.6151)
+    h = relative_humidity_pct * p_sat_ratio / max(p_r, 1e-4)
+    
+    # Oxygen and Nitrogen relaxation frequencies
+    f_r_O = p_r * (24.0 + 4.04e4 * h * ((0.02 + h) / (0.391 + h)))
+    f_r_N = p_r * ((T_k / T_0) ** -0.5) * (9.0 + 280.0 * h * np.exp(-4.170 * (((T_k / T_0) ** (-1.0 / 3.0)) - 1.0)))
+    
+    safe_f = np.maximum(freqs, 1.0)
+    
+    # Classical and rotational absorption term
+    t1 = 1.84e-11 * ((T_k / T_0) ** 0.5) / max(p_r, 1e-4)
+    # Oxygen molecular resonance
+    t2 = 0.01275 * np.exp(-2239.1 / T_k) * (f_r_O / (f_r_O ** 2 + safe_f ** 2))
+    # Nitrogen molecular resonance
+    t3 = 0.1068 * np.exp(-3352.0 / T_k) * (f_r_N / (f_r_N ** 2 + safe_f ** 2))
+    
+    alpha_db_per_m = 8.686 * (safe_f ** 2) * (t1 + ((T_k / T_0) ** -2.5) * (t2 + t3))
+    
+    # Total absorption loss in dB across listening distance
+    total_loss_db = alpha_db_per_m * distance_m
+    return total_loss_db
+
+
+def adapt_target_curve_from_rt60(
+    base_target: np.ndarray,
+    freqs: np.ndarray,
+    estimated_rt60_s: float = 0.40,
+    hf_start_hz: float = 1000.0,
+) -> np.ndarray:
+    """
+    Psychoacoustic Automated Target Curve Adaptation based on room reverberation time (RT60).
+    
+    - Live / reflective rooms (RT60 > 0.45s): Steepen HF downward slope to eliminate perceived glare/brightness.
+    - Heavily damped / treated rooms (RT60 < 0.25s): Flatten HF slope to preserve air and sparkle.
+    """
+    adapted = base_target.copy()
+    rt60_diff = estimated_rt60_s - 0.40
+    
+    # Delta slope: -0.8 dB/octave per +1.0s RT60 excess
+    delta_slope_per_oct = float(np.clip(-0.8 * rt60_diff, -0.6, 0.4))
+    
+    hf_mask = freqs > hf_start_hz
+    if np.any(hf_mask) and abs(delta_slope_per_oct) > 0.01:
+        octaves = np.log2(freqs[hf_mask] / hf_start_hz)
+        adapted[hf_mask] += delta_slope_per_oct * octaves
+        
+    return adapted
+
+
+def classify_sbir_boundary_cancellations(
+    freqs: np.ndarray,
+    spl_db: np.ndarray,
+    ir: np.ndarray,
+    sample_rate: int = 48000,
+    speed_of_sound_mps: float = 343.0,
+) -> List[Dict[str, Union[float, bool, str]]]:
+    """
+    Speaker-Boundary Interference Response (SBIR) Decomposition.
+    
+    Identifies non-minimum-phase quarter-wavelength boundary cancellations from front/side walls
+    (f_sbir = c / 4d), distinguishing them from driver/box minimum-phase dips.
+    Non-minimum-phase SBIR nulls cannot be filled by boost without wasting amplifier power.
+    """
+    results = []
+    band_mask = (freqs >= 35.0) & (freqs <= 300.0)
+    band_freqs = freqs[band_mask]
+    band_spl = spl_db[band_mask]
+    
+    # Identify local dips
+    dips, props = signal.find_peaks(-band_spl, prominence=3.0, distance=5)
+    
+    for idx in dips:
+        f_dip = float(band_freqs[idx])
+        dip_depth = float(props["prominences"][np.where(dips == idx)[0][0]])
+        
+        # Quarter-wavelength equivalent boundary distance: d = c / (4 * f)
+        boundary_dist_m = speed_of_sound_mps / (4.0 * max(f_dip, 10.0))
+        
+        # Non-minimum-phase null if dip is steep (>4 dB) and in SBIR boundary zone
+        is_sbir = dip_depth >= 4.0 and (0.3 <= boundary_dist_m <= 2.5)
+        
+        results.append({
+            "frequency_hz": round(f_dip, 1),
+            "dip_depth_db": round(dip_depth, 1),
+            "estimated_boundary_distance_m": round(boundary_dist_m, 2),
+            "is_sbir_null": bool(is_sbir),
+            "recommendation": "Do not boost (non-minimum phase boundary cancellation)" if is_sbir else "Correctable mode dip",
+        })
+        
+    return results
+
+

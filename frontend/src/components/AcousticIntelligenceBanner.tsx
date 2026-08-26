@@ -1,13 +1,14 @@
 import React from 'react';
 import { AcousticIntelligence } from '../types';
-import { Sparkles, Thermometer, GitFork } from 'lucide-react';
+import { Sparkles, Thermometer, GitFork, Wind, ShieldCheck } from 'lucide-react';
 
 interface AcousticIntelligenceBannerProps {
   intel?: AcousticIntelligence;
   truePeakDb?: number;
+  isZwickerMasked?: boolean;
 }
 
-export const AcousticIntelligenceBanner: React.FC<AcousticIntelligenceBannerProps> = ({ intel, truePeakDb }) => {
+export const AcousticIntelligenceBanner: React.FC<AcousticIntelligenceBannerProps> = ({ intel, truePeakDb, isZwickerMasked }) => {
   if (!intel) return null;
 
   return (
@@ -17,12 +18,26 @@ export const AcousticIntelligenceBanner: React.FC<AcousticIntelligenceBannerProp
           <Sparkles className="h-4 w-4 text-cyan-400" />
           <span>Acoustic Room Intelligence (Auto-Diagnosed)</span>
         </div>
-        {intel.speed_of_sound_mps && (
-          <div className="flex items-center space-x-2 text-[11px] text-slate-400 font-mono">
-            <Thermometer className="h-3.5 w-3.5 text-amber-400" />
-            <span>{intel.temperature_celsius ?? 20}°C • c = {intel.speed_of_sound_mps} m/s</span>
-          </div>
-        )}
+        <div className="flex items-center space-x-3 text-[11px] text-slate-400 font-mono">
+          {intel.speed_of_sound_mps && (
+            <div className="flex items-center space-x-1.5">
+              <Thermometer className="h-3.5 w-3.5 text-amber-400" />
+              <span>{intel.temperature_celsius ?? 20}°C • c = {intel.speed_of_sound_mps} m/s</span>
+            </div>
+          )}
+          {intel.relative_humidity_pct !== undefined && (
+            <div className="flex items-center space-x-1.5">
+              <Wind className="h-3.5 w-3.5 text-cyan-400" />
+              <span>{intel.relative_humidity_pct}% RH • ISO 9613-1</span>
+            </div>
+          )}
+          {isZwickerMasked && (
+            <div className="flex items-center space-x-1 text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-md">
+              <ShieldCheck className="h-3 w-3" />
+              <span>Zwicker Masked</span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -69,9 +84,9 @@ export const AcousticIntelligenceBanner: React.FC<AcousticIntelligenceBannerProp
         </div>
       </div>
 
-      {/* Extra Row: Group Delay Auto-Detected Passive Crossovers */}
-      {intel.detected_crossovers && intel.detected_crossovers.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+      {/* Extra Row: Group Delay Crossovers & SBIR Diagnostic */}
+      <div className="mt-3 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+        {intel.detected_crossovers && intel.detected_crossovers.length > 0 && (
           <div className="flex items-center space-x-2 text-slate-400">
             <GitFork className="h-3.5 w-3.5 text-cyan-400" />
             <span>Auto Group-Delay Crossovers:</span>
@@ -79,13 +94,21 @@ export const AcousticIntelligenceBanner: React.FC<AcousticIntelligenceBannerProp
               {intel.detected_crossovers.map((c) => `${c.frequency_hz} Hz (${c.group_delay_peak_ms} ms)`).join(', ')}
             </span>
           </div>
-          {truePeakDb !== undefined && (
-            <div className="text-[11px] font-mono text-slate-400">
-              True-Peak: <span className="text-emerald-400 font-bold">{truePeakDb.toFixed(1)} dBTP</span>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+        {intel.sbir_diagnostics && intel.sbir_diagnostics.length > 0 && (
+          <div className="flex items-center space-x-1.5 text-[11px] text-slate-400">
+            <span className="text-amber-400 font-semibold">SBIR Boundary Dips:</span>
+            <span className="font-mono text-slate-300">
+              {intel.sbir_diagnostics.filter(s => s.is_sbir_null).map(s => `${s.frequency_hz} Hz (${s.estimated_boundary_distance_m}m)`).join(', ') || 'None detected'}
+            </span>
+          </div>
+        )}
+        {truePeakDb !== undefined && (
+          <div className="text-[11px] font-mono text-slate-400">
+            True-Peak: <span className="text-emerald-400 font-bold">{truePeakDb.toFixed(1)} dBTP</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

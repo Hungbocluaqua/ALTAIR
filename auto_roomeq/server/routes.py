@@ -130,6 +130,9 @@ async def run_optimization(request: OptimizationRequest):
             sub_crossover_freq=request.sub_crossover_freq_hz,
             target_taps=request.target_taps,
             temp_celsius=request.temperature_celsius,
+            relative_humidity_pct=request.relative_humidity_pct,
+            pressure_kpa=request.pressure_kpa,
+            listening_distance_m=request.listening_distance_m,
             mic_orientation_deg=request.mic_orientation_deg,
         )
         
@@ -150,6 +153,8 @@ async def run_optimization(request: OptimizationRequest):
             modal_info_right=result["modal_info_right"],
             preringing_left=result["preringing_left"],
             preringing_right=result["preringing_right"],
+            zwicker_masking_left=result.get("zwicker_masking_left"),
+            zwicker_masking_right=result.get("zwicker_masking_right"),
             sub_alignment=result.get("sub_alignment"),
             true_peak_left_dbfs=result.get("true_peak_left_dbfs"),
             true_peak_right_dbfs=result.get("true_peak_right_dbfs"),

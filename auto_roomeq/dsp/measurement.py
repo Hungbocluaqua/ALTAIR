@@ -96,12 +96,17 @@ def cross_correlate_align(
     target_ir: np.ndarray,
     sample_rate: int = 48000,
     max_lag_ms: float = 50.0,
-) -> Tuple[np.ndarray, int, float]:
+    enable_subsample: bool = True,
+) -> Tuple[np.ndarray, float, float]:
     """
-    Align target_ir to ref_ir using cross-correlation: tau = argmax (h1 * h2)(t).
+    Align target_ir to ref_ir using cross-correlation with sub-sample fractional precision:
+    tau = argmax (h1 * h2)(t) + delta_subsample.
+    
+    Uses 3-point parabolic peak interpolation and Fourier fractional phase shifting:
+    H_aligned(f) = H_target(f) * exp(-j * 2*pi * f * tau_frac / Fs)
     
     Returns:
-        (aligned_target_ir, lag_samples, lag_ms)
+        (aligned_target_ir, lag_samples_float, lag_ms)
     """
     max_lag_samples = int((max_lag_ms / 1000.0) * sample_rate)
     
@@ -121,24 +126,38 @@ def cross_correlate_align(
     if np.any(valid_mask):
         sub_lags = lags[valid_mask]
         sub_corr = corr[valid_mask]
-        best_lag_idx = np.argmax(sub_corr)
-        lag_samples = int(sub_lags[best_lag_idx])
-    else:
-        lag_samples = int(lags[np.argmax(corr)])
+        best_lag_idx = int(np.argmax(sub_corr))
+        raw_lag_samples = float(sub_lags[best_lag_idx])
         
-    lag_ms = (lag_samples / sample_rate) * 1000.0
+        # Sub-sample parabolic interpolation around correlation peak
+        delta_subsample = 0.0
+        if enable_subsample and 0 < best_lag_idx < len(sub_corr) - 1:
+            y_prev = float(sub_corr[best_lag_idx - 1])
+            y_peak = float(sub_corr[best_lag_idx])
+            y_next = float(sub_corr[best_lag_idx + 1])
+            denom = 2.0 * (y_prev - 2.0 * y_peak + y_next)
+            if abs(denom) > 1e-12:
+                delta = (y_prev - y_next) / denom
+                delta_subsample = float(np.clip(delta, -0.5, 0.5))
+                
+        lag_samples = raw_lag_samples + delta_subsample
+    else:
+        lag_samples = float(lags[np.argmax(corr)])
+        
+    lag_ms = float((lag_samples / sample_rate) * 1000.0)
     
-    # Shift target IR
-    if lag_samples > 0:
-        # target lags behind reference, prepend zeros
-        aligned_ir = np.pad(target_ir, (lag_samples, 0), mode='constant')[:len(target_ir)]
-    elif lag_samples < 0:
-        # target leads reference, shift left
-        shift = abs(lag_samples)
-        if shift < len(target_ir):
-            aligned_ir = np.pad(target_ir[shift:], (0, shift), mode='constant')
-        else:
-            aligned_ir = np.zeros_like(target_ir)
+    # High-precision fractional delay shift in frequency domain
+    if abs(lag_samples) > 1e-5:
+        target_len = len(target_ir)
+        n_shift_fft = max(target_len * 2, 8192)
+        H_target = np.fft.rfft(target_ir, n=n_shift_fft)
+        shift_freqs = np.fft.rfftfreq(n_shift_fft, d=1.0 / sample_rate)
+        
+        # Phase shift: exp(-1j * 2*pi * f * dt) shifts signal by lag_samples
+        dt_s = lag_samples / sample_rate
+        phase_shift = np.exp(-1j * 2.0 * np.pi * shift_freqs * dt_s)
+        aligned_full = np.fft.irfft(H_target * phase_shift, n=n_shift_fft)
+        aligned_ir = aligned_full[:target_len]
     else:
         aligned_ir = target_ir.copy()
         

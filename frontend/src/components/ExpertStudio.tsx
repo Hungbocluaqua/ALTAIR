@@ -178,6 +178,21 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
                 90° Diffuse
               </button>
             </div>
+
+            {/* Relative Humidity Slider */}
+            <div className="flex items-center justify-between text-xs text-slate-300 pt-1">
+              <span>Relative Humidity</span>
+              <span className="font-mono text-cyan-400 font-bold">{config.relative_humidity_pct ?? 50}% RH</span>
+            </div>
+            <input
+              type="range"
+              min="20"
+              max="90"
+              step="5"
+              value={config.relative_humidity_pct ?? 50}
+              onChange={(e) => onChange({ ...config, relative_humidity_pct: parseFloat(e.target.value) })}
+              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+            />
           </div>
         </div>
 

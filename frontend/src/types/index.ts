@@ -21,6 +21,9 @@ export interface OptimizationRequest {
   sub_crossover_freq_hz: number;
   target_taps: number;
   temperature_celsius?: number;
+  relative_humidity_pct?: number;
+  pressure_kpa?: number;
+  listening_distance_m?: number;
   mic_orientation_deg?: number;
   use_demo_measurements: boolean;
   rew_measurement_ids?: number[];
@@ -30,6 +33,14 @@ export interface DetectedCrossover {
   frequency_hz: number;
   group_delay_peak_ms: number;
   estimated_order: number;
+}
+
+export interface SbirDiagnostic {
+  frequency_hz: number;
+  dip_depth_db: number;
+  estimated_boundary_distance_m: number;
+  is_sbir_null: boolean;
+  recommendation: string;
 }
 
 export interface AcousticIntelligence {
@@ -42,6 +53,10 @@ export interface AcousticIntelligence {
   detected_crossovers?: DetectedCrossover[];
   speed_of_sound_mps?: number;
   temperature_celsius?: number;
+  relative_humidity_pct?: number;
+  pressure_kpa?: number;
+  air_absorption_loss_10k_db?: number;
+  sbir_diagnostics?: SbirDiagnostic[];
 }
 
 export interface PlotData {
@@ -80,6 +95,12 @@ export interface PreringingMetrics {
   peak_idx: number;
 }
 
+export interface ZwickerMaskingMetrics {
+  is_masked: boolean;
+  worst_margin_db: number;
+  max_pre_amp_pct: number;
+}
+
 export interface SubAlignmentResult {
   optimal_delay_ms: number;
   optimal_delay_samples: number;
@@ -104,6 +125,8 @@ export interface OptimizationResponse {
   modal_info_right: ModalInfo;
   preringing_left: PreringingMetrics;
   preringing_right: PreringingMetrics;
+  zwicker_masking_left?: ZwickerMaskingMetrics;
+  zwicker_masking_right?: ZwickerMaskingMetrics;
   sub_alignment?: SubAlignmentResult;
   true_peak_left_dbfs?: number;
   true_peak_right_dbfs?: number;

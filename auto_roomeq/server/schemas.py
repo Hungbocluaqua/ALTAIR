@@ -29,6 +29,9 @@ class OptimizationRequest(BaseModel):
     sub_crossover_freq_hz: float = 80.0
     target_taps: int = 65536
     temperature_celsius: float = 20.0
+    relative_humidity_pct: float = 50.0
+    pressure_kpa: float = 101.325
+    listening_distance_m: float = 3.0
     mic_orientation_deg: float = 0.0  # 0.0 on-axis, 90.0 ceiling/diffuse
     use_demo_measurements: bool = False
     rew_measurement_ids: Optional[List[int]] = None
@@ -56,6 +59,10 @@ class AcousticIntelligence(BaseModel):
     detected_crossovers: Optional[List[Dict[str, Any]]] = None
     speed_of_sound_mps: Optional[float] = None
     temperature_celsius: Optional[float] = None
+    relative_humidity_pct: Optional[float] = None
+    pressure_kpa: Optional[float] = None
+    air_absorption_loss_10k_db: Optional[float] = None
+    sbir_diagnostics: Optional[List[Dict[str, Any]]] = None
 
 
 class SubAlignmentResult(BaseModel):
@@ -82,6 +89,8 @@ class OptimizationResponse(BaseModel):
     modal_info_right: Dict[str, Any]
     preringing_left: Dict[str, Any]
     preringing_right: Dict[str, Any]
+    zwicker_masking_left: Optional[Dict[str, Any]] = None
+    zwicker_masking_right: Optional[Dict[str, Any]] = None
     sub_alignment: Optional[SubAlignmentResult] = None
     true_peak_left_dbfs: Optional[float] = None
     true_peak_right_dbfs: Optional[float] = None
