@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "auto-roomeq"
+version = "1.0.0"
+description = "High-Fidelity Automated Digital Room Correction & REW/rePhase Studio"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24.0",
+    "scipy>=1.11.0",
+    "soundfile>=0.12.0",
+    "sounddevice>=0.4.6",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+    "pydantic>=2.0.0",
+    "requests>=2.31.0",
+    "httpx>=0.25.0",
+    "python-multipart>=0.0.6"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0"
+]
+
+[project.scripts]
+auto-roomeq = "auto_roomeq.main:main"
