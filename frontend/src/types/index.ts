@@ -20,8 +20,16 @@ export interface OptimizationRequest {
   crossover_order: number;
   sub_crossover_freq_hz: number;
   target_taps: number;
+  temperature_celsius?: number;
+  mic_orientation_deg?: number;
   use_demo_measurements: boolean;
   rew_measurement_ids?: number[];
+}
+
+export interface DetectedCrossover {
+  frequency_hz: number;
+  group_delay_peak_ms: number;
+  estimated_order: number;
 }
 
 export interface AcousticIntelligence {
@@ -31,6 +39,9 @@ export interface AcousticIntelligence {
   speaker_low_rolloff_hz: number;
   speaker_high_rolloff_hz: number;
   recommended_sub_crossover_hz: number;
+  detected_crossovers?: DetectedCrossover[];
+  speed_of_sound_mps?: number;
+  temperature_celsius?: number;
 }
 
 export interface PlotData {
@@ -94,5 +105,7 @@ export interface OptimizationResponse {
   preringing_left: PreringingMetrics;
   preringing_right: PreringingMetrics;
   sub_alignment?: SubAlignmentResult;
+  true_peak_left_dbfs?: number;
+  true_peak_right_dbfs?: number;
   plots: PlotData;
 }

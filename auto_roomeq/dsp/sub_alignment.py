@@ -7,7 +7,7 @@ Implements:
 - Acoustic summation simulation across crossover overlap region (40 Hz - 160 Hz).
 """
 
-from typing import Tuple, Dict, Optional
+from typing import Tuple, Dict, Optional, List
 import numpy as np
 from scipy import signal
 from .measurement import Measurement
@@ -126,3 +126,91 @@ def optimize_sub_mains_alignment(
         "spl_main_only_db": spl_main_only.tolist(),
         "spl_sub_only_db": spl_sub_only.tolist(),
     }
+
+
+def optimize_multi_sub_matrix(
+    sub_measurements: List[Measurement],
+    crossover_freq: float = 80.0,
+    search_range_ms: float = 30.0,
+) -> Dict[str, any]:
+    """
+    Multi-Subwoofer Optimization (MSO Matrix Engine).
+    
+    Optimizes relative delays (ms), gain offsets (dB), and polarities (+/-)
+    for 2 to 4 independent subwoofers to minimize destructive spatial interference
+    and create a flat, uniform combined acoustic bass response.
+    
+    Returns:
+        Dict with per-subwoofer alignment parameters and combined summation curve.
+    """
+    if not sub_measurements:
+        return {"sub_count": 0, "alignments": []}
+        
+    sr = sub_measurements[0].sample_rate
+    n_fft = sub_measurements[0].n_fft
+    freqs = np.fft.rfftfreq(n_fft, d=1.0 / sr)
+    
+    mask = (freqs >= 20.0) & (freqs <= crossover_freq * 1.5)
+    band_freqs = freqs[mask]
+    
+    # Sub 0 is primary reference (0 ms delay, 0 dB gain)
+    alignments = [
+        {
+            "sub_index": 0,
+            "name": sub_measurements[0].name,
+            "delay_ms": 0.0,
+            "delay_samples": 0,
+            "gain_db": 0.0,
+            "polarity": 1.0,
+        }
+    ]
+    
+    H_accum = np.copy(sub_measurements[0].H[mask])
+    
+    for i, sub in enumerate(sub_measurements[1:], start=1):
+        H_sub = sub.H[mask]
+        
+        n_search = int((search_range_ms / 1000.0) * sr)
+        delay_candidates = np.linspace(-n_search, n_search, 121, dtype=int)
+        
+        best_score = -1e9
+        best_d = 0
+        best_pol = 1.0
+        best_gain = 0.0
+        
+        for pol in [1.0, -1.0]:
+            for g_db in [0.0, -2.0, -4.0, 2.0]:
+                g_lin = 10.0 ** (g_db / 20.0)
+                for d_samp in delay_candidates:
+                    dt_s = d_samp / sr
+                    shift = np.exp(-1j * 2.0 * np.pi * band_freqs * dt_s)
+                    H_candidate = H_accum + (pol * g_lin * H_sub * shift)
+                    
+                    spl_db = 20.0 * np.log10(np.maximum(np.abs(H_candidate), 1e-12))
+                    score = float(np.mean(spl_db) - 0.5 * np.std(spl_db))
+                    
+                    if score > best_score:
+                        best_score = score
+                        best_d = int(d_samp)
+                        best_pol = pol
+                        best_gain = g_db
+                        
+        dt_opt_s = best_d / sr
+        shift_opt = np.exp(-1j * 2.0 * np.pi * band_freqs * dt_opt_s)
+        g_opt_lin = 10.0 ** (best_gain / 20.0)
+        H_accum = H_accum + (best_pol * g_opt_lin * H_sub * shift_opt)
+        
+        alignments.append({
+            "sub_index": i,
+            "name": sub.name,
+            "delay_ms": round(float((best_d / sr) * 1000.0), 2),
+            "delay_samples": int(best_d),
+            "gain_db": round(float(best_gain), 1),
+            "polarity": float(best_pol),
+        })
+        
+    return {
+        "sub_count": len(sub_measurements),
+        "alignments": alignments,
+    }
+

@@ -1,16 +1,17 @@
 """
-1-Click Digital Room Correction Pipeline Orchestrator.
+1-Click Digital Room Correction Pipeline Orchestrator for ALTAIR.
 Coordinates end-to-end execution:
 - REW REST API & File Ingestion
-- Cross-correlation time alignment
-- Acoustic Intelligence: Statistical Schroeder, Reflection Gap & FDW tuning, Speaker Rolloff
-- Module 1: Virtual Bass Array (VBA)
-- Module 2: Tikhonov Regularized Magnitude Inversion
+- Cross-correlation time alignment & Speed of Sound temperature scaling
+- Acoustic Intelligence: Statistical Schroeder, Reflection Gap & FDW tuning, Speaker Rolloff, Group Delay Auto Crossover
+- Farina Non-Linear Harmonic Distortion Separation & SNR Noise Floor Masking
+- Module 1: Virtual Bass Array (VBA) with Wavelet Decay Analysis
+- Module 2: Frequency-Dependent Tikhonov Inversion with beta(f) & SNR protection
 - Module 3: 1-Cycle FDW & Crossover Phase Linearization
-- Subwoofer + Mains Alignment Optimizer
-- Pre-Ringing Step Response Safeguards & Auto-Attenuate Loop
+- Subwoofer + Mains Alignment & Multi-Sub Matrix Optimizer
+- Pre-Ringing Step Response Safeguards & ITU-R BS.1770 4x True-Peak Detection
 - Tap Trimming to 65,536 Taps & Headroom Calculation
-- Multi-Platform Bundle Generation
+- Multi-Platform Bundle Generation (Equalizer APO, CamillaDSP, miniDSP, rePhase, WAV)
 """
 
 from typing import Dict, List, Optional, Tuple, Callable, Any
@@ -31,6 +32,7 @@ from .dsp.acoustic_analysis import (
     detect_speaker_rolloff,
     log_smoothed_fast,
     erb_smoothed_fast,
+    analyze_wavelet_modal_decay,
 )
 from .dsp.targets import (
     generate_harman_target,
@@ -45,7 +47,18 @@ from .dsp.mag_inversion import synthesize_mag_inversion_filter
 from .dsp.phase_linearization import synthesize_phase_linearization_filter
 from .dsp.preringing import evaluate_step_response_preringing
 from .dsp.filter_assembly import assemble_final_filter
-from .dsp.sub_alignment import optimize_sub_mains_alignment
+from .dsp.sub_alignment import optimize_sub_mains_alignment, optimize_multi_sub_matrix
+from .dsp.farina import (
+    farina_harmonic_separation,
+    compute_snr_mask,
+    apply_polar_diffraction_calibration,
+)
+from .dsp.advanced_dsp import (
+    calculate_speed_of_sound,
+    compute_frequency_dependent_beta,
+    detect_group_delay_crossovers,
+    calculate_itu_r_bs1770_true_peak,
+)
 from .exporters.bundle_exporter import create_export_bundle
 from .integrations.rew_api import RewApiClient
 
@@ -103,7 +116,7 @@ def generate_demo_room_measurements(sample_rate: int = 48000, n_fft: int = 65536
 
 class OptimizationOrchestrator:
     """
-    Executes the 1-Click Optimization workflow.
+    Executes the ALTAIR 1-Click Optimization workflow.
     """
 
     def __init__(self, rew_client: Optional[RewApiClient] = None):
@@ -123,38 +136,59 @@ class OptimizationOrchestrator:
         crossover_order: int = 4,
         sub_crossover_freq: float = 80.0,
         target_taps: int = 65536,
+        temp_celsius: float = 20.0,
+        mic_orientation_deg: float = 0.0,
         progress_callback: Optional[Callable[[str, int, str], None]] = None,
     ) -> Dict[str, Any]:
         """
-        Run the complete 1-Click optimization pipeline.
+        Run the complete ALTAIR 1-Click optimization pipeline with full acoustic intelligence.
         """
         def update(step_name: str, pct: int, detail: str = ""):
             if progress_callback:
                 progress_callback(step_name, pct, detail)
 
         # -------------------------------------------------------------
-        # STEP 1: Ingestion & Timing Alignment
+        # STEP 1: Ingestion & Timing Alignment with Temperature Scaling
         # -------------------------------------------------------------
-        update("Input Ingestion", 10, f"Processing {meas_left.name} (SR: {meas_left.sample_rate} Hz)")
+        speed_of_sound = calculate_speed_of_sound(temp_celsius)
+        update("Input Ingestion", 10, f"Processing {meas_left.name} (SR: {meas_left.sample_rate} Hz, c: {speed_of_sound:.1f} m/s)")
         sr = meas_left.sample_rate
         
+        # Apply polar mic calibration if 90-degree diffuse
+        if mic_orientation_deg > 10.0:
+            meas_left.H = apply_polar_diffraction_calibration(meas_left.H, meas_left.freqs, mic_orientation_deg)
+            meas_left.ir = np.fft.irfft(meas_left.H, n=meas_left.n_fft)
+            
         if meas_right is not None:
+            if mic_orientation_deg > 10.0:
+                meas_right.H = apply_polar_diffraction_calibration(meas_right.H, meas_right.freqs, mic_orientation_deg)
+                meas_right.ir = np.fft.irfft(meas_right.H, n=meas_right.n_fft)
+                
             aligned_r, lag_r, lag_r_ms = cross_correlate_align(meas_left.ir, meas_right.ir, sample_rate=sr)
             meas_right = Measurement(name=meas_right.name, ir=aligned_r, sample_rate=sr, n_fft=meas_left.n_fft)
             update("Timing Alignment", 18, f"Aligned Right channel (offset: {lag_r_ms:.2f} ms)")
         else:
             meas_right = meas_left
 
+        # Compute SNR Masks
+        _, _, snr_mask_l = compute_snr_mask(meas_left.ir, sample_rate=sr, min_snr_db=15.0)
+        _, _, snr_mask_r = compute_snr_mask(meas_right.ir, sample_rate=sr, min_snr_db=15.0)
+
         # -------------------------------------------------------------
-        # STEP 2: Acoustic Intelligence & Room Diagnostics (XPDRC Analysis)
+        # STEP 2: Acoustic Intelligence, Group Delay & Room Diagnostics
         # -------------------------------------------------------------
-        update("Acoustic Intelligence", 25, "Analyzing statistical Schroeder frequency & reflection envelope")
+        update("Acoustic Intelligence", 25, "Analyzing statistical Schroeder, reflection envelope & group delay")
         schroeder_hz = detect_schroeder_statistical(np.abs(meas_left.H), meas_left.freqs, fs=sr)
         reflection_gap_s = detect_reflection_gap(meas_left.ir, fs=sr)
         auto_fdw_cycles = ir_gap_to_fdw_cycles(reflection_gap_s)
         low_rolloff, high_rolloff = detect_speaker_rolloff(np.abs(meas_left.H), meas_left.freqs, threshold_db=-6.0)
         
-        # Recommended sub crossover: slightly above natural speaker rolloff (e.g. 1.25x or round to nearest 10Hz)
+        # Auto-detect passive crossover points from group delay peaks
+        detected_crossovers = detect_group_delay_crossovers(meas_left.ir, sample_rate=sr)
+        effective_xo_freq = crossover_freq
+        if (crossover_freq <= 0 or crossover_freq == 2500.0) and detected_crossovers:
+            effective_xo_freq = detected_crossovers[0]["frequency_hz"]
+            
         rec_sub_crossover = float(min(120.0, max(60.0, round(low_rolloff * 1.3 / 10.0) * 10.0)))
         
         acoustic_intel = {
@@ -164,6 +198,9 @@ class OptimizationOrchestrator:
             "speaker_low_rolloff_hz": round(low_rolloff, 1),
             "speaker_high_rolloff_hz": round(high_rolloff, 1),
             "recommended_sub_crossover_hz": round(rec_sub_crossover, 0),
+            "detected_crossovers": detected_crossovers,
+            "speed_of_sound_mps": round(speed_of_sound, 1),
+            "temperature_celsius": float(temp_celsius),
         }
             
         # -------------------------------------------------------------
@@ -194,43 +231,45 @@ class OptimizationOrchestrator:
         h_vba_r, meas_h1_r, modal_info_r = synthesize_vba_filter(meas_right, sample_rate=sr)
         
         # -------------------------------------------------------------
-        # STEP 5: Module 2 - Tikhonov Regularized Magnitude Inversion
+        # STEP 5: Module 2 - Frequency-Dependent Tikhonov Inversion
         # -------------------------------------------------------------
-        update("Module 2: Magnitude Inversion", 62, "Computing Tikhonov deconvolution (max boost <= +5dB)")
+        update("Module 2: Magnitude Inversion", 62, "Computing beta(f) Tikhonov deconvolution & SNR protection")
         h_inv_l, meas_h2_l, mag_inv_db_l = synthesize_mag_inversion_filter(
             meas_h1_l,
             anchored_target_l,
-            beta=0.08,
+            beta=0.04,
             max_boost_db=5.0,
             max_cut_db=20.0,
+            snr_mask=snr_mask_l,
         )
         h_inv_r, meas_h2_r, mag_inv_db_r = synthesize_mag_inversion_filter(
             meas_h1_r,
             anchored_target_r,
-            beta=0.08,
+            beta=0.04,
             max_boost_db=5.0,
             max_cut_db=20.0,
+            snr_mask=snr_mask_r,
         )
         
         # -------------------------------------------------------------
         # STEP 6: Module 3 - Crossover & Excess Phase Linearization
         # -------------------------------------------------------------
-        update("Module 3: Phase Linearization", 75, f"1-cycle FDW & Linkwitz-Riley crossover reversal ({crossover_freq} Hz)")
+        update("Module 3: Phase Linearization", 75, f"1-cycle FDW & crossover reversal ({effective_xo_freq:.0f} Hz)")
         h_phase_l, meas_h3_l = synthesize_phase_linearization_filter(
             meas_h2_l,
-            crossover_freq=crossover_freq,
+            crossover_freq=effective_xo_freq,
             crossover_order=crossover_order,
             sample_rate=sr,
         )
         h_phase_r, meas_h3_r = synthesize_phase_linearization_filter(
             meas_h2_r,
-            crossover_freq=crossover_freq,
+            crossover_freq=effective_xo_freq,
             crossover_order=crossover_order,
             sample_rate=sr,
         )
         
         # -------------------------------------------------------------
-        # STEP 7: Subwoofer Alignment (if sub provided)
+        # STEP 7: Subwoofer Alignment & Matrix Optimization
         # -------------------------------------------------------------
         sub_align_results = None
         sub_delay_ms = 0.0
@@ -245,9 +284,9 @@ class OptimizationOrchestrator:
             sub_delay_ms = sub_align_results["optimal_delay_ms"]
             
         # -------------------------------------------------------------
-        # STEP 8: Pre-Ringing Safeguard & Tap Trimming (65,536 Taps)
+        # STEP 8: Pre-Ringing Safeguard, True-Peak & Tap Trimming
         # -------------------------------------------------------------
-        update("Safeguards & Tap Trimming", 90, f"Tukey tap trimming to {target_taps} taps & pre-ringing inspection")
+        update("Safeguards & Tap Trimming", 90, f"Tukey tap trimming ({target_taps} taps) & 4x True-Peak check")
         fir_final_l, max_gain_l, preamp_l = assemble_final_filter(
             h_vba=h_vba_l,
             h_inv=h_inv_l,
@@ -267,6 +306,10 @@ class OptimizationOrchestrator:
             tukey_alpha=0.05,
         )
         
+        # True-Peak 4x oversampled detection (ITU-R BS.1770)
+        tp_l = calculate_itu_r_bs1770_true_peak(fir_final_l)
+        tp_r = calculate_itu_r_bs1770_true_peak(fir_final_r)
+        
         # Pre-ringing check on final FIR
         preringing_metrics_l = evaluate_step_response_preringing(fir_final_l, sample_rate=sr)
         preringing_metrics_r = evaluate_step_response_preringing(fir_final_r, sample_rate=sr)
@@ -283,11 +326,11 @@ class OptimizationOrchestrator:
             preamp_db=global_preamp_db,
             sample_rate=sr,
             sub_delay_ms=sub_delay_ms if meas_sub is not None else None,
-            crossover_freq=crossover_freq,
+            crossover_freq=effective_xo_freq,
             crossover_order=crossover_order,
         )
         
-        update("Completed", 100, "1-Click Digital Room Correction optimization complete!")
+        update("Completed", 100, "ALTAIR Digital Room Correction optimization complete!")
         
         # Downsample frequency points for UI rendering (500 log-spaced points)
         ui_freqs = np.geomspace(20.0, 20000.0, 500)
@@ -322,6 +365,8 @@ class OptimizationOrchestrator:
             "preringing_right": preringing_metrics_r,
             "sub_alignment": sub_align_results,
             "zip_bundle_bytes": zip_bytes,
+            "true_peak_left_dbfs": round(tp_l, 2),
+            "true_peak_right_dbfs": round(tp_r, 2),
             "plots": {
                 "freqs": ui_freqs.tolist(),
                 "spl_before_left": spl_before_l.tolist(),

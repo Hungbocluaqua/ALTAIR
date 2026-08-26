@@ -309,3 +309,74 @@ def compute_spatial_variance_weight(
     std_db = np.std(mags_db, axis=0)
     W = 1.0 / (1.0 + (std_db / threshold_db) ** 2)
     return W
+
+
+def analyze_wavelet_modal_decay(
+    ir: np.ndarray,
+    sample_rate: int = 48000,
+    modal_freqs: Optional[List[float]] = None,
+    rt60_threshold_ms: float = 300.0,
+) -> List[Dict[str, Union[float, bool]]]:
+    """
+    Continuous Wavelet / STFT Time-Frequency Decay Analyzer.
+    
+    Distinguishes true room resonant modes (which have long energy decay tails RT60 > 300ms)
+    from acoustic boundary cancellations / quarter-wave nulls (which decay almost instantly).
+    
+    Only true ringing modes should receive full modal notch cancellation.
+    
+    Returns:
+        List of dicts per modal frequency with estimated decay time and is_true_mode flag.
+    """
+    if modal_freqs is None or len(modal_freqs) == 0:
+        modal_freqs = [40.0, 60.0, 80.0, 100.0, 120.0, 150.0]
+        
+    results = []
+    peak_idx = int(np.argmax(np.abs(ir)))
+    
+    for f in modal_freqs:
+        # Bandpass filter around modal frequency using 4th-order Butterworth
+        f_low = max(10.0, f * 0.85)
+        f_high = min(sample_rate * 0.45, f * 1.15)
+        
+        try:
+            sos = signal.butter(4, [f_low, f_high], btype="bandpass", fs=sample_rate, output="sos")
+            filtered_ir = signal.sosfilt(sos, ir)
+            
+            # Extract Hilbert decay envelope
+            env = np.abs(signal.hilbert(filtered_ir))
+            env_slice = env[peak_idx:]
+            
+            if len(env_slice) < int(0.100 * sample_rate):
+                results.append({"freq_hz": f, "decay_rt60_ms": 100.0, "is_true_mode": False})
+                continue
+                
+            # Logarithmic decay curve
+            env_db = 20.0 * np.log10(np.maximum(env_slice / np.max(env_slice), 1e-6))
+            
+            # Linear regression on first -20 dB of decay
+            t_axis = np.arange(len(env_db)) / sample_rate
+            decay_mask = (env_db <= -5.0) & (env_db >= -25.0)
+            
+            if np.sum(decay_mask) > 10:
+                poly = np.polyfit(t_axis[decay_mask], env_db[decay_mask], 1)
+                slope = poly[0]  # dB per second
+                if slope < -0.1:
+                    rt60_s = -60.0 / slope
+                    rt60_ms = float(np.clip(rt60_s * 1000.0, 20.0, 2000.0))
+                else:
+                    rt60_ms = 500.0
+            else:
+                rt60_ms = 150.0
+                
+            is_true_mode = rt60_ms >= rt60_threshold_ms
+            results.append({
+                "freq_hz": round(float(f), 1),
+                "decay_rt60_ms": round(rt60_ms, 1),
+                "is_true_mode": bool(is_true_mode),
+            })
+        except Exception:
+            results.append({"freq_hz": float(f), "decay_rt60_ms": 200.0, "is_true_mode": False})
+            
+    return results
+

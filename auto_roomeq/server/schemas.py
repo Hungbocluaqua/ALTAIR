@@ -1,8 +1,8 @@
 """
-Pydantic Schemas for AutoRoomEQ REST API.
+Pydantic Schemas for ALTAIR REST API.
 """
 
-from typing import List, Dict, Optional, Any
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
 
@@ -14,8 +14,8 @@ class StatusResponse(BaseModel):
     rew_message: Optional[str] = None
 
 
-class TargetCurveConfig(BaseModel):
-    name: str = Field("harman", description="harman, bk1974, flat, oca, custom")
+class TargetConfig(BaseModel):
+    name: str = "harman"  # 'harman', 'bk1974', 'flat', 'oca', 'custom'
     bass_boost_db: float = 6.0
     bass_cutoff_hz: float = 80.0
     hf_slope_db_per_oct: float = -0.8
@@ -23,22 +23,15 @@ class TargetCurveConfig(BaseModel):
 
 
 class OptimizationRequest(BaseModel):
-    target: TargetCurveConfig = Field(default_factory=TargetCurveConfig)
+    target: TargetConfig = Field(default_factory=TargetConfig)
     crossover_freq_hz: float = 2500.0
     crossover_order: int = 4
     sub_crossover_freq_hz: float = 80.0
     target_taps: int = 65536
-    use_demo_measurements: bool = True
+    temperature_celsius: float = 20.0
+    mic_orientation_deg: float = 0.0  # 0.0 on-axis, 90.0 ceiling/diffuse
+    use_demo_measurements: bool = False
     rew_measurement_ids: Optional[List[int]] = None
-
-
-class AcousticIntelligence(BaseModel):
-    detected_schroeder_hz: float
-    detected_reflection_gap_ms: float
-    recommended_fdw_cycles: float
-    speaker_low_rolloff_hz: float
-    speaker_high_rolloff_hz: float
-    recommended_sub_crossover_hz: float
 
 
 class PlotData(BaseModel):
@@ -53,6 +46,32 @@ class PlotData(BaseModel):
     step_response: List[float]
 
 
+class AcousticIntelligence(BaseModel):
+    detected_schroeder_hz: float
+    detected_reflection_gap_ms: float
+    recommended_fdw_cycles: float
+    speaker_low_rolloff_hz: float
+    speaker_high_rolloff_hz: float
+    recommended_sub_crossover_hz: float
+    detected_crossovers: Optional[List[Dict[str, Any]]] = None
+    speed_of_sound_mps: Optional[float] = None
+    temperature_celsius: Optional[float] = None
+
+
+class SubAlignmentResult(BaseModel):
+    optimal_delay_ms: float
+    optimal_delay_samples: int
+    optimal_polarity: str
+    polarity_multiplier: float
+    crossover_freq_hz: float
+    gain_improvement_db: float
+    freqs: List[float]
+    spl_unaligned_db: List[float]
+    spl_aligned_db: List[float]
+    spl_main_only_db: List[float]
+    spl_sub_only_db: List[float]
+
+
 class OptimizationResponse(BaseModel):
     status: str
     sample_rate: int
@@ -63,5 +82,7 @@ class OptimizationResponse(BaseModel):
     modal_info_right: Dict[str, Any]
     preringing_left: Dict[str, Any]
     preringing_right: Dict[str, Any]
-    sub_alignment: Optional[Dict[str, Any]] = None
+    sub_alignment: Optional[SubAlignmentResult] = None
+    true_peak_left_dbfs: Optional[float] = None
+    true_peak_right_dbfs: Optional[float] = None
     plots: PlotData

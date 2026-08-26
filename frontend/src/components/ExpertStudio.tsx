@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { TargetCurveConfig, OptimizationRequest } from '../types';
-import { Sliders, Upload, FileText, Music, Settings2, RefreshCw } from 'lucide-react';
+import { Sliders, Upload, Music, Settings2, RefreshCw, Thermometer, Compass } from 'lucide-react';
 import { uploadMeasurementFile } from '../api/client';
 
 interface ExpertStudioProps {
@@ -56,7 +56,7 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Panel 1: File Uploader */}
+        {/* Panel 1: File Uploader & Environmental Physics */}
         <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 space-y-3">
           <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-2">
             <Upload className="h-4 w-4 text-cyan-400" />
@@ -64,7 +64,7 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
           </h4>
 
           {/* Left Speaker */}
-          <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+          <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
             <div>
               <div className="text-xs font-semibold text-slate-200">Left Speaker (Mains)</div>
               <div className="text-[10px] text-slate-400">REW .txt / .frd or .wav IR</div>
@@ -85,7 +85,7 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
           </div>
 
           {/* Right Speaker */}
-          <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+          <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
             <div>
               <div className="text-xs font-semibold text-slate-200">Right Speaker</div>
               <div className="text-[10px] text-slate-400">REW .txt / .frd or .wav IR</div>
@@ -106,7 +106,7 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
           </div>
 
           {/* Subwoofer */}
-          <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+          <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
             <div>
               <div className="text-xs font-semibold text-slate-200">Subwoofer (Optional)</div>
               <div className="text-[10px] text-slate-400">REW .txt / .frd or .wav IR</div>
@@ -124,6 +124,60 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
             >
               Browse
             </button>
+          </div>
+
+          {/* Room Temperature & Mic Orientation */}
+          <div className="pt-2 border-t border-slate-800/80 space-y-2">
+            <div className="flex items-center justify-between text-xs text-slate-300">
+              <span className="flex items-center space-x-1">
+                <Thermometer className="h-3.5 w-3.5 text-amber-400" />
+                <span>Room Temp</span>
+              </span>
+              <span className="font-mono text-cyan-400 font-bold">{config.temperature_celsius ?? 20}°C</span>
+            </div>
+            <input
+              type="range"
+              min="10"
+              max="35"
+              step="1"
+              value={config.temperature_celsius ?? 20}
+              onChange={(e) => onChange({ ...config, temperature_celsius: parseFloat(e.target.value) })}
+              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+            />
+
+            <div className="flex items-center justify-between text-xs text-slate-300 pt-1">
+              <span className="flex items-center space-x-1">
+                <Compass className="h-3.5 w-3.5 text-cyan-400" />
+                <span>Mic Polar Angle</span>
+              </span>
+              <span className="font-mono text-cyan-400 font-bold">
+                {(config.mic_orientation_deg ?? 0) === 90 ? '90° (Ceiling)' : '0° (On-Axis)'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => onChange({ ...config, mic_orientation_deg: 0.0 })}
+                className={`py-1 rounded-lg text-xs font-medium border ${
+                  (config.mic_orientation_deg ?? 0) === 0
+                    ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 font-bold'
+                    : 'bg-slate-900 border-slate-800 text-slate-400'
+                }`}
+              >
+                0° On-Axis
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange({ ...config, mic_orientation_deg: 90.0 })}
+                className={`py-1 rounded-lg text-xs font-medium border ${
+                  (config.mic_orientation_deg ?? 0) === 90
+                    ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 font-bold'
+                    : 'bg-slate-900 border-slate-800 text-slate-400'
+                }`}
+              >
+                90° Diffuse
+              </button>
+            </div>
           </div>
         </div>
 

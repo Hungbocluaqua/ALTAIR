@@ -129,6 +129,8 @@ async def run_optimization(request: OptimizationRequest):
             crossover_order=request.crossover_order,
             sub_crossover_freq=request.sub_crossover_freq_hz,
             target_taps=request.target_taps,
+            temp_celsius=request.temperature_celsius,
+            mic_orientation_deg=request.mic_orientation_deg,
         )
         
         latest_zip_bundle = result["zip_bundle_bytes"]
@@ -149,6 +151,8 @@ async def run_optimization(request: OptimizationRequest):
             preringing_left=result["preringing_left"],
             preringing_right=result["preringing_right"],
             sub_alignment=result.get("sub_alignment"),
+            true_peak_left_dbfs=result.get("true_peak_left_dbfs"),
+            true_peak_right_dbfs=result.get("true_peak_right_dbfs"),
             plots=PlotData(**result["plots"]),
         )
     except Exception as e:
