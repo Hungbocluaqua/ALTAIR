@@ -182,9 +182,10 @@ def synthesize_vba_filter(
     
     h_lpf_min = np.fft.irfft(np.exp(np.fft.fft(cepstrum * min_phase_win))[:len(H_lpf)], n=n_lpf)
     
-    # Normalize peak of LPF to 1.0
-    if np.max(np.abs(h_lpf_min)) > 0:
-        h_lpf_min = h_lpf_min / np.max(np.abs(h_lpf_min))
+    # Normalize DC gain of LPF to 1.0 (0 dB)
+    dc_gain = np.abs(np.sum(h_lpf_min))
+    if dc_gain > 1e-12:
+        h_lpf_min = h_lpf_min / dc_gain
         
     # 4. Time-delay pulse: T_shift = T_target - t_peak
     t_peak_ms = measurement.peak_time_ms

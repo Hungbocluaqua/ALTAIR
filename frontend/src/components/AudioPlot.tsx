@@ -421,7 +421,7 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
             }`}
           >
             <span className="h-2 w-2 rounded-full bg-cyan-500"></span>
-            <span>Synthesized FIR Filter</span>
+            <span>Synthesized FIR Filter (+75 dB ref)</span>
             {showFilter ? <Eye className="h-3 w-3 ml-1" /> : <EyeOff className="h-3 w-3 ml-1" />}
           </button>
 
