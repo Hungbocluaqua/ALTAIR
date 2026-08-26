@@ -23,8 +23,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.4.0"
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0"
 ]
 
 [project.scripts]
 auto-roomeq = "auto_roomeq.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["auto_roomeq*"]
