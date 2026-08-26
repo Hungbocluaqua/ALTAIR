@@ -1,7 +1,7 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { TargetCurveConfig, OptimizationRequest } from '../types';
-import { Sliders, Upload, Music, Settings2, RefreshCw, Thermometer, Compass } from 'lucide-react';
-import { uploadMeasurementFile } from '../api/client';
+import { Sliders, Upload, Music, Settings2, RefreshCw, Thermometer, Compass, Layers, PlayCircle, Download } from 'lucide-react';
+import { uploadMeasurementFile, uploadRepeatedMeasurementFiles, uploadMultiSeatMeasurementFiles } from '../api/client';
 
 interface ExpertStudioProps {
   config: OptimizationRequest;
@@ -19,17 +19,36 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
   const fileLeftRef = useRef<HTMLInputElement>(null);
   const fileRightRef = useRef<HTMLInputElement>(null);
   const fileSubRef = useRef<HTMLInputElement>(null);
+  const [measurementMode, setMeasurementMode] = useState<'single' | 'repeated' | 'multi_seat'>('single');
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, channel: string) => {
     if (!e.target.files || e.target.files.length === 0) return;
-    const file = e.target.files[0];
+    const files = e.target.files;
+    
     try {
-      await uploadMeasurementFile(file, channel);
-      alert(`Uploaded ${file.name} for ${channel.toUpperCase()} channel successfully!`);
+      if (files.length > 1 && measurementMode === 'repeated') {
+        setUploadStatus(`Stacking ${files.length} repeated sweeps for ${channel.toUpperCase()}...`);
+        const res = await uploadRepeatedMeasurementFiles(files, channel);
+        setUploadStatus(`✅ ${channel.toUpperCase()}: Coherently stacked ${res.repetitions}x sweeps (+${res.snr_improvement_db} dB SNR gain)!`);
+      } else if (files.length > 1 && measurementMode === 'multi_seat') {
+        setUploadStatus(`Spatially averaging ${files.length} seat positions for ${channel.toUpperCase()}...`);
+        const res = await uploadMultiSeatMeasurementFiles(files, channel);
+        setUploadStatus(`✅ ${channel.toUpperCase()}: Hybrid spatial average computed across ${res.seat_count} seats!`);
+      } else {
+        const file = files[0];
+        setUploadStatus(`Uploading ${file.name}...`);
+        await uploadMeasurementFile(file, channel);
+        setUploadStatus(`✅ ${channel.toUpperCase()}: ${file.name} uploaded successfully!`);
+      }
       onChange({ ...config, use_demo_measurements: false });
     } catch (err: any) {
-      alert(`Upload error: ${err.message}`);
+      setUploadStatus(`❌ Upload error: ${err.message}`);
     }
+  };
+
+  const downloadTestSweep = (channel: string) => {
+    window.open(`/api/measurements/auto-sweep?channel=${channel}&duration_s=10.0&repetitions=2`, '_blank');
   };
 
   const updateTarget = (partial: Partial<TargetCurveConfig>) => {
@@ -51,27 +70,63 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
         </div>
         <div>
           <h2 className="text-lg font-extrabold text-white tracking-tight">Expert Acoustic Studio</h2>
-          <p className="text-xs text-slate-400">Custom Target Synthesis, Crossover Linearization & File Management</p>
+          <p className="text-xs text-slate-400">Repeated Sweep Averaging, Multi-Seat Ingestion & Custom Target Synthesis</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Panel 1: File Uploader & Environmental Physics */}
+        {/* Panel 1: File Uploader & Measurement Ingestion Mode */}
         <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 space-y-3">
-          <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-2">
-            <Upload className="h-4 w-4 text-cyan-400" />
-            <span>Custom Measurement Ingestion</span>
-          </h4>
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-2">
+              <Upload className="h-4 w-4 text-cyan-400" />
+              <span>Measurement Ingestion</span>
+            </h4>
+            <div className="flex bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+              <button
+                type="button"
+                onClick={() => setMeasurementMode('single')}
+                className={`px-2 py-0.5 text-[10px] font-semibold rounded ${measurementMode === 'single' ? 'bg-cyan-500 text-black' : 'text-slate-400'}`}
+              >
+                1x
+              </button>
+              <button
+                type="button"
+                onClick={() => setMeasurementMode('repeated')}
+                className={`px-2 py-0.5 text-[10px] font-semibold rounded ${measurementMode === 'repeated' ? 'bg-cyan-500 text-black' : 'text-slate-400'}`}
+                title="Repeated Sweeps (+6dB to +9dB SNR boost)"
+              >
+                Repeats (SNR+)
+              </button>
+              <button
+                type="button"
+                onClick={() => setMeasurementMode('multi_seat')}
+                className={`px-2 py-0.5 text-[10px] font-semibold rounded ${measurementMode === 'multi_seat' ? 'bg-cyan-500 text-black' : 'text-slate-400'}`}
+                title="Multi-Seat Positions (Spatial Hybrid Averaging)"
+              >
+                Multi-Seat
+              </button>
+            </div>
+          </div>
+
+          {uploadStatus && (
+            <div className="p-2 rounded-lg bg-cyan-950/40 border border-cyan-500/30 text-[11px] text-cyan-200">
+              {uploadStatus}
+            </div>
+          )}
 
           {/* Left Speaker */}
           <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
             <div>
               <div className="text-xs font-semibold text-slate-200">Left Speaker (Mains)</div>
-              <div className="text-[10px] text-slate-400">REW .txt / .frd or .wav IR</div>
+              <div className="text-[10px] text-slate-400">
+                {measurementMode === 'repeated' ? 'Select 2x - 8x sweeps (Auto +SNR)' : measurementMode === 'multi_seat' ? 'Select all seat positions' : 'REW .txt / .frd or .wav IR'}
+              </div>
             </div>
             <input
               type="file"
               ref={fileLeftRef}
+              multiple={measurementMode !== 'single'}
               onChange={(e) => handleFileUpload(e, 'left')}
               className="hidden"
               accept=".txt,.frd,.csv,.wav"
@@ -88,11 +143,14 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
           <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
             <div>
               <div className="text-xs font-semibold text-slate-200">Right Speaker</div>
-              <div className="text-[10px] text-slate-400">REW .txt / .frd or .wav IR</div>
+              <div className="text-[10px] text-slate-400">
+                {measurementMode === 'repeated' ? 'Select 2x - 8x sweeps (Auto +SNR)' : measurementMode === 'multi_seat' ? 'Select all seat positions' : 'REW .txt / .frd or .wav IR'}
+              </div>
             </div>
             <input
               type="file"
               ref={fileRightRef}
+              multiple={measurementMode !== 'single'}
               onChange={(e) => handleFileUpload(e, 'right')}
               className="hidden"
               accept=".txt,.frd,.csv,.wav"
@@ -114,6 +172,7 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
             <input
               type="file"
               ref={fileSubRef}
+              multiple={measurementMode !== 'single'}
               onChange={(e) => handleFileUpload(e, 'sub')}
               className="hidden"
               accept=".txt,.frd,.csv,.wav"
@@ -124,6 +183,37 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
             >
               Browse
             </button>
+          </div>
+
+          {/* Automated Test Signal Generator */}
+          <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-300">
+            <span className="flex items-center space-x-1.5">
+              <Download className="h-3.5 w-3.5 text-cyan-400" />
+              <span>Test Sweeps (24-bit)</span>
+            </span>
+            <div className="flex space-x-1">
+              <button
+                type="button"
+                onClick={() => downloadTestSweep('left')}
+                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-[10px] rounded text-slate-300"
+              >
+                Left
+              </button>
+              <button
+                type="button"
+                onClick={() => downloadTestSweep('right')}
+                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-[10px] rounded text-slate-300"
+              >
+                Right
+              </button>
+              <button
+                type="button"
+                onClick={() => downloadTestSweep('sub')}
+                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-[10px] rounded text-slate-300"
+              >
+                Sub
+              </button>
+            </div>
           </div>
 
           {/* Room Temperature & Mic Orientation */}

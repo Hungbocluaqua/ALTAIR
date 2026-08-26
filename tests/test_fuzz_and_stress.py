@@ -176,3 +176,68 @@ def test_api_error_handling():
     resp_status = client.get("/api/status")
     assert resp_status.status_code == 200
     assert resp_status.json()["app"] == "ALTAIR"
+
+
+def test_repeated_sweep_stacking_and_snr():
+    """Verify coherent time-domain stacking achieves 10*log10(N) dB SNR improvement."""
+    from auto_roomeq.dsp.acquisition import coherent_impulse_stack
+    sr = 48000
+    n = 4096
+    
+    # Generate noisy repeats of an impulse
+    clean_ir = np.zeros(n)
+    clean_ir[100] = 1.0
+    
+    repeats_4 = [clean_ir + np.random.randn(n) * 0.05 for _ in range(4)]
+    stacked_4, snr_gain_4 = coherent_impulse_stack(repeats_4, sample_rate=sr)
+    assert len(stacked_4) == n
+    assert round(snr_gain_4, 2) == 6.02  # 10*log10(4)
+    
+    repeats_8 = [clean_ir + np.random.randn(n) * 0.05 for _ in range(8)]
+    stacked_8, snr_gain_8 = coherent_impulse_stack(repeats_8, sample_rate=sr)
+    assert round(snr_gain_8, 2) == 9.03  # 10*log10(8)
+
+
+def test_multi_seat_and_auto_sweep_endpoints():
+    """Verify repeated upload, multi-seat upload, and auto-sweep endpoints in REST API."""
+    client = TestClient(app)
+    
+    # 1. Upload Repeated Sweeps (4x repeats)
+    sample_text = "20 75 0\n100 80 0\n1000 85 0\n10000 82 0\n20000 78 0\n"
+    resp_rep = client.post(
+        "/api/measurements/upload-repeated",
+        files=[
+            ("files", ("rep1.txt", sample_text.encode("utf-8"), "text/plain")),
+            ("files", ("rep2.txt", sample_text.encode("utf-8"), "text/plain")),
+            ("files", ("rep3.txt", sample_text.encode("utf-8"), "text/plain")),
+            ("files", ("rep4.txt", sample_text.encode("utf-8"), "text/plain")),
+        ],
+        data={"channel": "left", "sample_rate": 48000},
+    )
+    assert resp_rep.status_code == 200
+    data_rep = resp_rep.json()
+    assert data_rep["repetitions"] == 4
+    assert data_rep["snr_improvement_db"] == 6.02
+    
+    # 2. Upload Multi-Seat Positions (MLP, Left seat, Right seat)
+    resp_seat = client.post(
+        "/api/measurements/upload-multi-seat",
+        files=[
+            ("files", ("seat_mlp.txt", sample_text.encode("utf-8"), "text/plain")),
+            ("files", ("seat_left.txt", sample_text.encode("utf-8"), "text/plain")),
+            ("files", ("seat_right.txt", sample_text.encode("utf-8"), "text/plain")),
+        ],
+        data={"channel": "left", "sample_rate": 48000, "schroeder_freq": 250.0},
+    )
+    assert resp_seat.status_code == 200
+    data_seat = resp_seat.json()
+    assert data_seat["seat_count"] == 3
+    
+    # 3. Trigger Auto-Sweep test signal download
+    resp_sweep = client.post(
+        "/api/measurements/auto-sweep",
+        data={"channel": "left", "duration_s": 2.0, "repetitions": 2, "sample_rate": 48000},
+    )
+    assert resp_sweep.status_code == 200
+    assert resp_sweep.headers["content-type"] in ["audio/wav", "audio/x-wav", "application/json"]
+

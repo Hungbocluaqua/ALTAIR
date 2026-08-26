@@ -58,3 +58,47 @@ export async function simulateSubDelay(delayMs: number, polarity: number, crosso
   }
   return resp.json();
 }
+
+export async function uploadRepeatedMeasurementFiles(files: FileList | File[], channel: string): Promise<any> {
+  const formData = new FormData();
+  Array.from(files).forEach((file) => {
+    formData.append('files', file);
+  });
+  formData.append('channel', channel);
+  formData.append('sample_rate', '48000');
+
+  const resp = await fetch(`${API_BASE}/measurements/upload-repeated`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!resp.ok) {
+    const errorData = await resp.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Repeated upload failed: ${resp.statusText}`);
+  }
+  return resp.json();
+}
+
+export async function uploadMultiSeatMeasurementFiles(files: FileList | File[], channel: string, schroederFreq: number = 300): Promise<any> {
+  const formData = new FormData();
+  Array.from(files).forEach((file) => {
+    formData.append('files', file);
+  });
+  formData.append('channel', channel);
+  formData.append('sample_rate', '48000');
+  formData.append('schroeder_freq', schroederFreq.toString());
+
+  const resp = await fetch(`${API_BASE}/measurements/upload-multi-seat`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!resp.ok) {
+    const errorData = await resp.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Multi-seat upload failed: ${resp.statusText}`);
+  }
+  return resp.json();
+}
+
+export function getAutoSweepDownloadUrl(channel: string = 'left', repetitions: number = 2): string {
+  return `${API_BASE}/measurements/auto-sweep?channel=${channel}&repetitions=${repetitions}`;
+}
+

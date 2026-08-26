@@ -87,6 +87,162 @@ async def upload_measurement(
         raise HTTPException(status_code=400, detail=f"Failed to parse measurement: {str(e)}")
 
 
+@router.post("/measurements/upload-repeated")
+async def upload_repeated_measurements(
+    files: List[UploadFile] = File(...),
+    channel: str = Form("left"),
+    sample_rate: int = Form(48000),
+):
+    """
+    Ingest multiple repeated sweep measurements of the same speaker position.
+    Performs sub-sample coherent time-domain stacking, boosting SNR by 10*log10(N) dB.
+    """
+    from ..dsp.acquisition import coherent_impulse_stack
+    
+    if not files or len(files) == 0:
+        raise HTTPException(status_code=400, detail="No measurement files uploaded.")
+        
+    try:
+        parsed_irs = []
+        for file in files:
+            content_bytes = await file.read()
+            if not content_bytes or len(content_bytes) == 0:
+                continue
+            filename = file.filename or "repeat"
+            if filename.lower().endswith(".wav"):
+                m = load_wav_ir(content_bytes, name=filename)
+            else:
+                text_content = content_bytes.decode("utf-8", errors="ignore")
+                m = parse_rew_text(text_content, sample_rate=sample_rate, name=filename)
+            parsed_irs.append(m.ir)
+            
+        if not parsed_irs:
+            raise ValueError("No valid measurement files could be parsed.")
+            
+        stacked_ir, snr_improvement_db = coherent_impulse_stack(parsed_irs, sample_rate=sample_rate)
+        stacked_meas = Measurement(
+            name=f"{channel.upper()} Coherent Stack ({len(parsed_irs)}x)",
+            ir=stacked_ir,
+            sample_rate=sample_rate,
+        )
+        
+        current_measurements[channel.lower()] = stacked_meas
+        return {
+            "status": "success",
+            "channel": channel.lower(),
+            "name": stacked_meas.name,
+            "repetitions": len(parsed_irs),
+            "snr_improvement_db": round(snr_improvement_db, 2),
+            "sample_rate": sample_rate,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed repeated sweep averaging: {str(e)}")
+
+
+@router.post("/measurements/upload-multi-seat")
+async def upload_multi_seat_measurements(
+    files: List[UploadFile] = File(...),
+    channel: str = Form("left"),
+    sample_rate: int = Form(48000),
+    schroeder_freq: float = Form(300.0),
+):
+    """
+    Ingest multi-seat spatial measurements (e.g. MLP, Left seat, Right seat).
+    Performs IR Sync time alignment and hybrid spatial averaging (vector below Schroeder, RMS above).
+    """
+    from ..dsp.measurement import hybrid_spatial_average
+    
+    if not files or len(files) == 0:
+        raise HTTPException(status_code=400, detail="No measurement files uploaded.")
+        
+    try:
+        meas_list = []
+        for i, file in enumerate(files, 1):
+            content_bytes = await file.read()
+            if not content_bytes or len(content_bytes) == 0:
+                continue
+            filename = file.filename or f"Seat_{i}"
+            if filename.lower().endswith(".wav"):
+                m = load_wav_ir(content_bytes, name=filename)
+            else:
+                text_content = content_bytes.decode("utf-8", errors="ignore")
+                m = parse_rew_text(text_content, sample_rate=sample_rate, name=filename)
+            meas_list.append(m)
+            
+        if not meas_list:
+            raise ValueError("No valid seat measurements could be parsed.")
+            
+        spat_meas = hybrid_spatial_average(
+            meas_list,
+            f_trans=schroeder_freq,
+            name=f"{channel.upper()} Multi-Seat Average ({len(meas_list)} positions)",
+        )
+        
+        current_measurements[channel.lower()] = spat_meas
+        return {
+            "status": "success",
+            "channel": channel.lower(),
+            "name": spat_meas.name,
+            "seat_count": len(meas_list),
+            "schroeder_transition_hz": schroeder_freq,
+            "sample_rate": sample_rate,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed multi-seat spatial averaging: {str(e)}")
+
+
+@router.post("/measurements/auto-sweep")
+async def trigger_auto_sweep(
+    channel: str = Form("left"),
+    duration_s: float = Form(10.0),
+    repetitions: int = Form(2),
+    include_timing_ref: bool = Form(True),
+    sample_rate: int = Form(48000),
+):
+    """
+    Trigger automated sweep acquisition through REW REST API or generate downloadable test sweep.
+    """
+    from ..dsp.acquisition import generate_log_chirp
+    import soundfile as sf
+    
+    rew_conn = await rew_client.check_connection()
+    if rew_conn.get("connected"):
+        # REW is open, trigger measurement via REW API
+        res = await rew_client.trigger_measurement(
+            name=f"ALTAIR_{channel.upper()}_{repetitions}x",
+            sweep_length=512,
+            sample_rate=sample_rate,
+        )
+        if res:
+            return {
+                "status": "success",
+                "mode": "rew_api",
+                "message": f"Triggered automated sweep for {channel.upper()} in REW.",
+                "rew_response": res,
+            }
+            
+    # Standalone mode: generate high-precision test sweep audio
+    length_samples = int(duration_s * sample_rate)
+    sweep, _ = generate_log_chirp(
+        f_start=10.0,
+        f_end=min(24000.0, sample_rate * 0.48),
+        sample_rate=sample_rate,
+        length_samples=length_samples,
+        include_timing_ref=include_timing_ref,
+    )
+    
+    # Write to WAV buffer
+    wav_buf = io.BytesIO()
+    sf.write(wav_buf, sweep, sample_rate, format="WAV", subtype="PCM_24")
+    wav_bytes = wav_buf.getvalue()
+    
+    return Response(
+        content=wav_bytes,
+        media_type="audio/wav",
+        headers={"Content-Disposition": f'attachment; filename="ALTAIR_Test_Sweep_{channel}_{sample_rate}Hz.wav"'},
+    )
+
+
 @router.post("/optimize", response_model=OptimizationResponse)
 async def run_optimization(request: OptimizationRequest):
     """Execute the 1-Click Digital Room Correction optimization pipeline."""

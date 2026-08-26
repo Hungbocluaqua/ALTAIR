@@ -229,3 +229,37 @@ class RewApiClient:
         except Exception:
             return None
         return None
+
+    async def trigger_measurement(
+        self,
+        name: str = "ALTAIR Auto Measurement",
+        sweep_length: int = 512,  # 512k samples
+        start_freq: float = 10.0,
+        end_freq: float = 24000.0,
+        sample_rate: int = 48000,
+        level_dbfs: float = -12.0,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Trigger an automated acoustic sweep measurement via REW's REST API.
+        """
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout + 30.0) as client:
+                payload = {
+                    "name": name,
+                    "startFreq": start_freq,
+                    "endFreq": end_freq,
+                    "sampleRate": sample_rate,
+                    "level": level_dbfs,
+                    "sweepLength": sweep_length,
+                }
+                # REW supports /measure or /measurements/make-measurement
+                for endpoint in ["/measurements/make-measurement", "/measure"]:
+                    try:
+                        resp = await client.post(f"{self.base_url}{endpoint}", json=payload)
+                        if resp.status_code in [200, 201]:
+                            return resp.json()
+                    except Exception:
+                        continue
+        except Exception:
+            return None
+        return None
