@@ -155,14 +155,14 @@ def synthesize_vba_filter(
     # 1. Target reflection period in ms
     T_target_ms = 1000.0 / max(f_opt, 10.0)
     
-    # 2. Cutoff frequency: 3.5 * f_opt (clamped below Nyquist / 2)
-    f_cutoff = min(3.5 * f_opt, sr * 0.45)
+    # 2. Cutoff frequency: 3.5 * f_opt (clamped between 30 Hz and Nyquist * 0.45)
+    f_cutoff = max(30.0, min(3.5 * f_opt, sr * 0.45))
     
     # 3. 8th-order (48 dB/oct) Butterworth Low-Pass Filter
     # Digital Butterworth 8th-order filter design:
     sos_lpf = signal.butter(8, f_cutoff, btype='low', fs=sr, output='sos')
     
-    # Impulse response of LPF (1024 samples)
+    # Impulse response of LPF (2048 samples)
     n_lpf = 2048
     imp = np.zeros(n_lpf)
     imp[0] = 1.0
@@ -189,7 +189,7 @@ def synthesize_vba_filter(
     # 4. Time-delay pulse: T_shift = T_target - t_peak
     t_peak_ms = measurement.peak_time_ms
     T_shift_ms = max(1.0, T_target_ms - (t_peak_ms % T_target_ms))
-    d_samples = int(np.round((T_shift_ms / 1000.0) * sr))
+    d_samples = max(1, int(np.round((T_shift_ms / 1000.0) * sr)))
     
     # Synthesize VBA FIR kernel
     n_vba = max(4096, d_samples + len(h_lpf_min))

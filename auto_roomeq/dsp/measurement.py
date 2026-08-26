@@ -1,5 +1,5 @@
 """
-Measurement Data Model & Spatial Averaging Module.
+Measurement Data Model & Spatial Averaging Module for ALTAIR.
 Implements:
 - Measurement data class with complete frequency, phase, group delay, and step response properties.
 - Cross-correlation acoustic timing alignment: tau = argmax (h1 * h2)(t).
@@ -28,12 +28,16 @@ class Measurement:
     ):
         self.name = name
         self.sample_rate = int(sample_rate)
-        self.ir = np.asarray(ir, dtype=np.float64)
         
-        # Ensure finite values
-        if not np.all(np.isfinite(self.ir)):
-            self.ir = np.nan_to_num(self.ir)
+        ir_arr = np.asarray(ir, dtype=np.float64)
+        if len(ir_arr) == 0:
+            ir_arr = np.zeros(4096, dtype=np.float64)
             
+        if not np.all(np.isfinite(ir_arr)):
+            ir_arr = np.nan_to_num(ir_arr)
+            
+        self.ir = ir_arr
+        
         # Determine FFT size (power of 2, at least length of IR)
         if n_fft is None:
             self.n_fft = max(4096, 2 ** int(np.ceil(np.log2(max(len(self.ir), 4096)))))
@@ -74,7 +78,7 @@ class Measurement:
             self.step_response_normalized = self.step_response.copy()
             
         # Peak location
-        self.peak_idx = int(np.argmax(np.abs(self.ir)))
+        self.peak_idx = int(np.argmax(np.abs(self.ir))) if len(self.ir) > 0 else 0
         self.peak_time_ms = (self.peak_idx / self.sample_rate) * 1000.0
 
     def get_spl_interpolated(self, target_freqs: np.ndarray) -> np.ndarray:
@@ -103,7 +107,7 @@ def cross_correlate_align(
     
     # Compute cross-correlation via FFT
     n = len(ref_ir) + len(target_ir) - 1
-    n_fft = 2 ** int(np.ceil(np.log2(n)))
+    n_fft = max(4096, 2 ** int(np.ceil(np.log2(max(n, 1)))))
     
     R = np.fft.ifft(np.fft.fft(ref_ir, n_fft) * np.conj(np.fft.fft(target_ir, n_fft)))
     R = np.real(R)
@@ -170,7 +174,7 @@ def vector_average(measurements: List[Measurement], name: str = "Vector Average"
     
     # Trim to reasonable length
     max_len = max(len(m.ir) for m in measurements)
-    ir_avg = ir_avg[:max_len]
+    ir_avg = ir_avg[:max(1, max_len)]
     
     return Measurement(name=name, ir=ir_avg, sample_rate=sample_rate, n_fft=n_fft)
 
@@ -257,8 +261,11 @@ def parse_rew_text(
     if "\n" in content_or_path:
         lines = content_or_path.strip().splitlines()
     else:
-        with open(content_or_path, "r", encoding="utf-8", errors="ignore") as f:
-            lines = f.readlines()
+        try:
+            with open(content_or_path, "r", encoding="utf-8", errors="ignore") as f:
+                lines = f.readlines()
+        except Exception as e:
+            raise ValueError(f"Could not read measurement file '{content_or_path}': {str(e)}")
             
     raw_freqs = []
     raw_spl = []
@@ -280,7 +287,7 @@ def parse_rew_text(
             except ValueError:
                 continue
                 
-    if len(raw_freqs) < 10:
+    if len(raw_freqs) < 5:
         raise ValueError(f"Insufficient measurement data points found: {len(raw_freqs)}")
         
     src_freqs = np.array(raw_freqs, dtype=np.float64)
@@ -314,10 +321,13 @@ def load_wav_ir(
     """
     import soundfile as sf
     
-    if isinstance(file_path_or_bytes, (bytes, bytearray)):
-        data, sr = sf.read(io.BytesIO(file_path_or_bytes))
-    else:
-        data, sr = sf.read(file_path_or_bytes)
+    try:
+        if isinstance(file_path_or_bytes, (bytes, bytearray)):
+            data, sr = sf.read(io.BytesIO(file_path_or_bytes))
+        else:
+            data, sr = sf.read(file_path_or_bytes)
+    except Exception as e:
+        raise ValueError(f"Failed to read WAV audio file: {str(e)}")
         
     # If stereo or multichannel, take first channel or average
     if data.ndim > 1:

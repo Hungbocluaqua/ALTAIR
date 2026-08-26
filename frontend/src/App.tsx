@@ -115,7 +115,10 @@ export const App: React.FC = () => {
 
         {/* Acoustic Intelligence Metrics */}
         {result?.acoustic_intelligence && (
-          <AcousticIntelligenceBanner intel={result.acoustic_intelligence} />
+          <AcousticIntelligenceBanner
+            intel={result.acoustic_intelligence}
+            truePeakDb={result.true_peak_left_dbfs}
+          />
         )}
 
         {/* Interactive Audio Plots */}
@@ -129,8 +132,14 @@ export const App: React.FC = () => {
           <SubAlignmentView
             subAlignment={result.sub_alignment}
             onUpdateSummation={(newSum) => {
-              if (result && result.plots) {
-                // update live plot if needed
+              if (result && result.sub_alignment) {
+                setResult({
+                  ...result,
+                  sub_alignment: {
+                    ...result.sub_alignment,
+                    spl_aligned_db: newSum,
+                  },
+                });
               }
             }}
           />

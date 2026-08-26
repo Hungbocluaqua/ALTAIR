@@ -1,5 +1,5 @@
 """
-Main Entry Point for AutoRoomEQ Application.
+Main Entry Point for ALTAIR (Automated Linear-phase Tuning & Acoustic Inversion Routine).
 """
 
 import sys
@@ -10,7 +10,7 @@ import uvicorn
 
 def main():
     parser = argparse.ArgumentParser(
-        description="AutoRoomEQ: High-Fidelity Automated Digital Room Correction & REW/rePhase Studio"
+        description="ALTAIR: Automated Linear-phase Tuning & Acoustic Inversion Routine"
     )
     parser.add_argument("--host", type=str, default="127.0.0.1", help="Host address to bind (default: 127.0.0.1)")
     parser.add_argument("--port", type=int, default=8000, help="Port to run server on (default: 8000)")
@@ -20,11 +20,11 @@ def main():
     args = parser.parse_args()
     
     url = f"http://{args.host}:{args.port}"
-    print("=" * 65)
-    print(" 🚀 AutoRoomEQ: High-Fidelity Digital Room Correction Studio")
+    print("=" * 70)
+    print(" 🚀 ALTAIR: Automated Linear-phase Tuning & Acoustic Inversion Routine")
     print(f" 🌐 Web Dashboard: {url}")
     print(" 📡 REW REST API:  http://localhost:4735 (Auto-detecting)")
-    print("=" * 65)
+    print("=" * 70)
     
     if not args.no_browser and not args.reload:
         try:

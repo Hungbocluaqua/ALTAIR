@@ -1,5 +1,5 @@
 """
-FastAPI Server for AutoRoomEQ.
+FastAPI Server for ALTAIR (Automated Linear-phase Tuning & Acoustic Inversion Routine).
 """
 
 import os
@@ -9,8 +9,8 @@ from fastapi.staticfiles import StaticFiles
 from .routes import router
 
 app = FastAPI(
-    title="AutoRoomEQ API",
-    description="High-Fidelity Automated Digital Room Correction & REW/rePhase Studio",
+    title="ALTAIR API",
+    description="Automated Linear-phase Tuning & Acoustic Inversion Routine",
     version="1.0.0",
 )
 
