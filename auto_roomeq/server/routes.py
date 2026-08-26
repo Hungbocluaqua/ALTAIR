@@ -191,13 +191,14 @@ async def upload_multi_seat_measurements(
         raise HTTPException(status_code=400, detail=f"Failed multi-seat spatial averaging: {str(e)}")
 
 
+@router.get("/measurements/auto-sweep")
 @router.post("/measurements/auto-sweep")
 async def trigger_auto_sweep(
-    channel: str = Form("left"),
-    duration_s: float = Form(10.0),
-    repetitions: int = Form(2),
-    include_timing_ref: bool = Form(True),
-    sample_rate: int = Form(48000),
+    channel: str = "left",
+    duration_s: float = 10.0,
+    repetitions: int = 2,
+    include_timing_ref: bool = True,
+    sample_rate: int = 48000,
 ):
     """
     Trigger automated sweep acquisition through REW REST API or generate downloadable test sweep.
@@ -222,18 +223,18 @@ async def trigger_auto_sweep(
             }
             
     # Standalone mode: generate high-precision test sweep audio
-    length_samples = int(duration_s * sample_rate)
+    length_samples = int(float(duration_s) * int(sample_rate))
     sweep, _ = generate_log_chirp(
         f_start=10.0,
-        f_end=min(24000.0, sample_rate * 0.48),
-        sample_rate=sample_rate,
+        f_end=min(24000.0, float(sample_rate) * 0.48),
+        sample_rate=int(sample_rate),
         length_samples=length_samples,
-        include_timing_ref=include_timing_ref,
+        include_timing_ref=bool(include_timing_ref),
     )
     
     # Write to WAV buffer
     wav_buf = io.BytesIO()
-    sf.write(wav_buf, sweep, sample_rate, format="WAV", subtype="PCM_24")
+    sf.write(wav_buf, sweep, int(sample_rate), format="WAV", subtype="PCM_24")
     wav_bytes = wav_buf.getvalue()
     
     return Response(

@@ -3,7 +3,7 @@ FastAPI Server for ALTAIR (Automated Linear-phase Tuning & Acoustic Inversion Ro
 """
 
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .routes import router
@@ -22,6 +22,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return Response(status_code=204)
 
 app.include_router(router)
 
