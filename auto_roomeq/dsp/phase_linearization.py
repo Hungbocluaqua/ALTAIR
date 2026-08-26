@@ -114,6 +114,7 @@ def synthesize_low_q_phase_correction(
     freqs: np.ndarray,
     excess_phase_rad: np.ndarray,
     sample_rate: int = 48000,
+    f_fade_start: float = 250.0,
     f_max: float = 500.0,
     max_q: float = 1.0,
     max_delta_deg: float = 45.0,
@@ -121,21 +122,30 @@ def synthesize_low_q_phase_correction(
 ) -> np.ndarray:
     """
     Identify residual low-frequency phase wraps (< 500 Hz) and synthesize
-    smooth low-Q (Q <= 1.0, dTheta <= 45 deg) phase correction.
-    """
-    mask = (freqs > 20.0) & (freqs <= f_max)
+    smooth low-Q (Q <= 1.0, dTheta <= 45 deg) phase correction with smooth cosine taper
+    to completely eliminate Gibbs phenomenon and step discontinuity spikes.
     
+    Returns:
+        Complex frequency response H_corr(f).
+    """
     smooth_phase_rad = np.zeros_like(excess_phase_rad)
-    if np.any(mask):
-        max_delta_rad = np.radians(max_delta_deg)
-        clamped_excess = np.clip(excess_phase_rad[mask], -max_delta_rad, max_delta_rad)
-        smooth_phase_rad[mask] = -clamped_excess  # Invert phase
+    max_delta_rad = np.radians(max_delta_deg)
+    
+    mask_active = (freqs >= 20.0) & (freqs < f_fade_start)
+    mask_fade = (freqs >= f_fade_start) & (freqs <= f_max)
+    
+    if np.any(mask_active):
+        clamped_active = np.clip(excess_phase_rad[mask_active], -max_delta_rad, max_delta_rad)
+        smooth_phase_rad[mask_active] = -clamped_active
+        
+    if np.any(mask_fade):
+        clamped_fade = np.clip(excess_phase_rad[mask_fade], -max_delta_rad, max_delta_rad)
+        # Smooth Hann/cosine fade-out taper
+        fade_taper = 0.5 * (1.0 + np.cos(np.pi * (freqs[mask_fade] - f_fade_start) / (f_max - f_fade_start)))
+        smooth_phase_rad[mask_fade] = -clamped_fade * fade_taper
         
     H_corr = np.exp(1j * smooth_phase_rad)
-    
-    # Time-domain impulse response (zero delay)
-    h_low_q = np.fft.irfft(H_corr, n=n_fft)
-    return h_low_q
+    return H_corr
 
 
 def synthesize_phase_linearization_filter(
@@ -150,8 +160,8 @@ def synthesize_phase_linearization_filter(
     
     1. Apply 1-cycle FDW to isolate direct sound phase.
     2. Synthesize analytical crossover phase reversal all-pass filter.
-    3. Synthesize low-Q modal unwrapping (< 500 Hz, Q <= 1.0).
-    4. Convolve phase correction: h_phase[n] = h_crossover * h_low_q.
+    3. Synthesize low-Q modal unwrapping (< 500 Hz, Q <= 1.0) with smooth cosine taper.
+    4. Convolve phase correction in frequency domain: H_phase(f) = H_crossover(f) * H_low_q(f).
     
     Returns:
         (h_phase, measurement_h3)
@@ -187,17 +197,22 @@ def synthesize_phase_linearization_filter(
     excess_phase_rad = np.unwrap(raw_phase_rad) - np.unwrap(min_phase_rad)
     
     if apply_low_q_modal_unwrap:
-        h_low_q = synthesize_low_q_phase_correction(
+        H_low_q = synthesize_low_q_phase_correction(
             freqs=measurement_h2.freqs,
             excess_phase_rad=excess_phase_rad,
             sample_rate=sr,
+            f_fade_start=250.0,
             f_max=500.0,
             max_q=1.0,
             max_delta_deg=45.0,
             n_fft=n_fft,
         )
-        # Combine crossover and low-Q phase filters
-        h_phase = signal.fftconvolve(h_crossover, h_low_q, mode='same')
+        # Combine in frequency domain cleanly without time-domain truncation or boundary artifacts
+        H_crossover = np.fft.rfft(h_crossover, n=n_fft)
+        H_phase_total = H_crossover * H_low_q
+        h_phase = np.fft.irfft(H_phase_total, n=n_fft)
+        win = signal.windows.tukey(n_fft, alpha=0.05)
+        h_phase = h_phase * win
     else:
         h_phase = h_crossover
         

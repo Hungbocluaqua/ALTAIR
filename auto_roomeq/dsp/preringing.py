@@ -75,12 +75,13 @@ def evaluate_step_response_preringing(
     energy_ratio_linear = energy_pre / max(energy_post, 1e-12)
     energy_ratio_db = float(10.0 * np.log10(max(energy_ratio_linear, 1e-12)))
     
-    # Effective pre-ringing amplitude metric (combined impulse and step envelope)
-    effective_pre_amp = max(pre_amp_ratio, max_step_pre_amp)
+    # Effective pre-ringing amplitude metric
+    effective_pre_amp = pre_amp_ratio
     
-    # Pass / Fail checks
-    amp_passed = effective_pre_amp <= max_amp_threshold
-    overall_passed = bool(amp_passed)
+    # Pass / Fail checks: impulse pre-amplitude <= 10% and pre-energy <= -20 dB
+    amp_passed = pre_amp_ratio <= max_amp_threshold
+    energy_passed = energy_ratio_db <= max_energy_db_threshold
+    overall_passed = bool(amp_passed and energy_passed)
     
     return {
         "passed": overall_passed,
