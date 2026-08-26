@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 
 class StatusResponse(BaseModel):
-    app: str = "AutoRoomEQ"
+    app: str = "ALTAIR"
     version: str = "1.0.0"
     rew_connected: bool
     rew_base_url: str

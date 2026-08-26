@@ -27,7 +27,8 @@ def export_camilladsp_config(
 """
 
     yml = f"""# ========================================================
-# AutoRoomEQ Generated Configuration for CamillaDSP
+# ALTAIR Generated Configuration for CamillaDSP
+# Automated Linear-phase Tuning & Acoustic Inversion Routine
 # ========================================================
 
 devices:

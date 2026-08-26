@@ -34,13 +34,13 @@ export const ExportCard: React.FC<ExportCardProps> = ({ preampDb, sampleRate, ta
     },
     {
       name: 'Roon / HQPlayer',
-      files: 'AutoRoomEQ_Stereo_FIR_32bit.wav',
+      files: 'ALTAIR_Stereo_FIR_32bit.wav',
       desc: 'Bit-perfect audiophile convolution',
       badge: 'Audiophile Convolver',
     },
     {
       name: 'rePhase',
-      files: 'AutoRoomEQ_Project.rephase',
+      files: 'ALTAIR_Project.rephase',
       desc: 'Full XML project for manual curve inspection',
       badge: 'XML Project',
     },

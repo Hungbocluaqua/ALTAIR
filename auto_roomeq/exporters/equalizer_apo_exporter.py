@@ -8,17 +8,18 @@ from typing import Optional
 
 def export_equalizer_apo_config(
     preamp_db: float,
-    wav_filename: str = "AutoRoomEQ_Stereo_FIR.wav",
+    wav_filename: str = "ALTAIR_Stereo_FIR.wav",
     left_wav_filename: Optional[str] = None,
     right_wav_filename: Optional[str] = None,
     sub_delay_ms: Optional[float] = None,
 ) -> str:
     """
-    Generate Equalizer APO configuration script.
+    Generate Equalizer APO configuration script for ALTAIR.
     """
     lines = [
         "# ========================================================",
-        "# AutoRoomEQ Generated Configuration for Equalizer APO",
+        "# ALTAIR Generated Configuration for Equalizer APO",
+        "# Automated Linear-phase Tuning & Acoustic Inversion Routine",
         "# ========================================================",
         "",
         "# Global Headroom Preamp (Inter-Sample Clipping Prevention)",

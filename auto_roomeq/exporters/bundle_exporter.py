@@ -27,7 +27,7 @@ def create_export_bundle(
     metadata: Optional[Dict[str, any]] = None,
 ) -> bytes:
     """
-    Create a complete 1-click ZIP bundle containing all export formats.
+    Create a complete 1-click ZIP bundle containing all export formats for ALTAIR.
     
     Returns:
         ZIP file bytes.
@@ -40,32 +40,32 @@ def create_export_bundle(
         wav_left_bytes = export_wav_fir(fir_left, None, sample_rate=sample_rate)
         wav_right_bytes = export_wav_fir(fir_right, None, sample_rate=sample_rate)
         
-        zf.writestr("WAV_Filters/AutoRoomEQ_Stereo_FIR_32bit.wav", wav_stereo_bytes)
-        zf.writestr("WAV_Filters/AutoRoomEQ_Left_FIR_32bit.wav", wav_left_bytes)
-        zf.writestr("WAV_Filters/AutoRoomEQ_Right_FIR_32bit.wav", wav_right_bytes)
+        zf.writestr("WAV_Filters/ALTAIR_Stereo_FIR_32bit.wav", wav_stereo_bytes)
+        zf.writestr("WAV_Filters/ALTAIR_Left_FIR_32bit.wav", wav_left_bytes)
+        zf.writestr("WAV_Filters/ALTAIR_Right_FIR_32bit.wav", wav_right_bytes)
         
         # 2. Equalizer APO
         eq_apo_config = export_equalizer_apo_config(
             preamp_db=preamp_db,
-            left_wav_filename="AutoRoomEQ_Left_FIR_32bit.wav",
-            right_wav_filename="AutoRoomEQ_Right_FIR_32bit.wav",
+            left_wav_filename="ALTAIR_Left_FIR_32bit.wav",
+            right_wav_filename="ALTAIR_Right_FIR_32bit.wav",
             sub_delay_ms=sub_delay_ms,
         )
         zf.writestr("EqualizerAPO/config.txt", eq_apo_config)
-        zf.writestr("EqualizerAPO/AutoRoomEQ_Left_FIR_32bit.wav", wav_left_bytes)
-        zf.writestr("EqualizerAPO/AutoRoomEQ_Right_FIR_32bit.wav", wav_right_bytes)
+        zf.writestr("EqualizerAPO/ALTAIR_Left_FIR_32bit.wav", wav_left_bytes)
+        zf.writestr("EqualizerAPO/ALTAIR_Right_FIR_32bit.wav", wav_right_bytes)
         
         # 3. CamillaDSP
         camilla_config = export_camilladsp_config(
             preamp_db=preamp_db,
-            left_wav_filename="AutoRoomEQ_Left_FIR_32bit.wav",
-            right_wav_filename="AutoRoomEQ_Right_FIR_32bit.wav",
+            left_wav_filename="ALTAIR_Left_FIR_32bit.wav",
+            right_wav_filename="ALTAIR_Right_FIR_32bit.wav",
             sample_rate=sample_rate,
             sub_delay_ms=sub_delay_ms,
         )
         zf.writestr("CamillaDSP/camilladsp.yml", camilla_config)
-        zf.writestr("CamillaDSP/AutoRoomEQ_Left_FIR_32bit.wav", wav_left_bytes)
-        zf.writestr("CamillaDSP/AutoRoomEQ_Right_FIR_32bit.wav", wav_right_bytes)
+        zf.writestr("CamillaDSP/ALTAIR_Left_FIR_32bit.wav", wav_left_bytes)
+        zf.writestr("CamillaDSP/ALTAIR_Right_FIR_32bit.wav", wav_right_bytes)
         
         # 4. miniDSP
         minidsp_l = export_minidsp_fir(fir_left, max_taps=4096)
@@ -81,12 +81,13 @@ def create_export_bundle(
             crossover_order=crossover_order,
             preamp_db=preamp_db,
         )
-        zf.writestr("rePhase/AutoRoomEQ_Project.rephase", rephase_xml)
+        zf.writestr("rePhase/ALTAIR_Project.rephase", rephase_xml)
         
         # 6. Readme Quick Start Guide
         sub_info = f"- Subwoofer Delay Offset: {sub_delay_ms:.2f} ms\n" if sub_delay_ms else ""
         readme_text = f"""========================================================================
-AutoRoomEQ - High-Fidelity Room Correction Export Package
+ALTAIR - Automated Linear-phase Tuning & Acoustic Inversion Routine
+Export Package
 ========================================================================
 
 Filter Specifications:
@@ -103,13 +104,13 @@ How to deploy:
    - Copy 'CamillaDSP/camilladsp.yml' and the WAV files into your CamillaDSP config path.
 
 3. Roon / JRiver / HQPlayer:
-   - Select 'WAV_Filters/AutoRoomEQ_Stereo_FIR_32bit.wav' as your convolution filter file.
+   - Select 'WAV_Filters/ALTAIR_Stereo_FIR_32bit.wav' as your convolution filter file.
 
 4. miniDSP Flex / SHD / OpenDRC:
    - Load 'miniDSP/fir_coeffs_left.txt' into Channel 1 FIR slot and 'fir_coeffs_right.txt' into Channel 2.
 
 5. rePhase:
-   - Open 'rePhase/AutoRoomEQ_Project.rephase' to visually inspect and further customize curves.
+   - Open 'rePhase/ALTAIR_Project.rephase' to visually inspect and further customize curves.
 ========================================================================
 """
         zf.writestr("README_INSTALL.txt", readme_text)

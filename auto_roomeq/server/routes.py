@@ -37,7 +37,7 @@ async def get_status():
     """Check REW API connectivity and system state."""
     rew_status = await rew_client.check_connection()
     return StatusResponse(
-        app="AutoRoomEQ",
+        app="ALTAIR",
         version="1.0.0",
         rew_connected=rew_status.get("connected", False),
         rew_base_url=rew_client.base_url,
@@ -169,7 +169,7 @@ async def download_bundle():
     return StreamingResponse(
         io.BytesIO(latest_zip_bundle),
         media_type="application/zip",
-        headers={"Content-Disposition": 'attachment; filename="AutoRoomEQ_Filters_Export.zip"'},
+        headers={"Content-Disposition": 'attachment; filename="ALTAIR_Filters_Export.zip"'},
     )
 
 

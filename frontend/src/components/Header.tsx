@@ -25,14 +25,16 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-cyan-400 bg-clip-text text-transparent">
-                AutoRoomEQ
+              <span className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 bg-clip-text text-transparent">
+                ALTAIR
               </span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-                PRO 1.0
+              <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                v1.0
               </span>
             </div>
-            <p className="text-xs text-slate-400">1-Click High-Fidelity Room Correction & REW Suite</p>
+            <p className="text-[11px] text-slate-400 hidden sm:block">
+              Automated Linear-phase Tuning & Acoustic Inversion Routine
+            </p>
           </div>
         </div>
 

@@ -1,5 +1,5 @@
 """
-End-to-End Orchestrator Pipeline Tests.
+End-to-End Orchestrator Pipeline Tests for ALTAIR.
 Verifies:
 - Demo dataset generation (Stereo Left, Right, Subwoofer).
 - 1-Click execution across all 8 stages.
@@ -9,10 +9,9 @@ Verifies:
 import zipfile
 import io
 import pytest
+import asyncio
 from auto_roomeq.orchestrator import OptimizationOrchestrator, generate_demo_room_measurements
 
-
-import asyncio
 
 def test_full_orchestrator_pipeline():
     """Verify end-to-end 1-click optimization on demo measurements."""
@@ -67,9 +66,9 @@ def test_full_orchestrator_pipeline():
     
     with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
         file_list = zf.namelist()
-        assert "WAV_Filters/AutoRoomEQ_Stereo_FIR_32bit.wav" in file_list
+        assert "WAV_Filters/ALTAIR_Stereo_FIR_32bit.wav" in file_list
         assert "EqualizerAPO/config.txt" in file_list
         assert "CamillaDSP/camilladsp.yml" in file_list
         assert "miniDSP/fir_coeffs_left.txt" in file_list
-        assert "rePhase/AutoRoomEQ_Project.rephase" in file_list
+        assert "rePhase/ALTAIR_Project.rephase" in file_list
         assert "README_INSTALL.txt" in file_list

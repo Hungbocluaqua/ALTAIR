@@ -1,10 +1,10 @@
-# AutoRoomEQ: 1-Click High-Fidelity Room Correction & REW/rePhase Studio
+# ALTAIR: Automated Linear-phase Tuning & Acoustic Inversion Routine
 
-AutoRoomEQ is an automated, audiophile-grade digital room correction suite inspired by OCA (Obsessive Compulsive Audiophile / Audyssey One / A1 Evo). It seamlessly bridges Room EQ Wizard (REW) via its local REST API (`http://localhost:4735`) and runs an end-to-end Python DSP engine to deliver automated, phase-linearized digital room correction in a **1-Click workflow**.
+**ALTAIR** is an automated, audiophile-grade digital room correction (DRC) and acoustic optimization suite. It bridges Room EQ Wizard (REW) via its local REST API (`http://localhost:4735`) and runs an end-to-end Python DSP engine to deliver automated, phase-linearized digital room correction in a **1-Click workflow**.
 
 ---
 
-## Key Features & DSP Pipeline
+## Architecture & DSP Pipeline
 
 ```mermaid
 flowchart TD
@@ -17,7 +17,14 @@ flowchart TD
         Sweeps --> Deconv --> MicCal --> CrossCorr --> VectorAvg
     end
 
-    subgraph Three_Filter_DSP["2. Core 3-Module DSP Pipeline"]
+    subgraph Acoustic_Intelligence["2. Acoustic Intelligence (Statistical & Envelope Engine)"]
+        Schroeder["Statistical Schroeder Frequency Detection (Modal vs Diffuse)"]
+        HilbertGap["Hilbert Envelope 1st Reflection Arrival & Auto FDW Cycles"]
+        SpeakerRolloff["Loudspeaker -6dB Rolloff & Optimal Sub Crossover"]
+        VectorAvg --> Schroeder & HilbertGap & SpeakerRolloff
+    end
+
+    subgraph Three_Filter_DSP["3. Core 3-Module DSP Pipeline"]
         subgraph Mod1["Module 1: Virtual Bass Array (VBA)"]
             ModalExtract["Modal Peak & Dip Scan (20-150Hz) +/-10% Window"]
             LPF_Synth["8th-Order 48dB/oct Min-Phase LPF (f_cutoff = 3.5 * f_opt)"]
@@ -40,12 +47,12 @@ flowchart TD
             FDW_1Cycle --> CrossoverAP --> LowQ_Unwrap
         end
 
-        VectorAvg --> Mod1
+        Schroeder --> Mod1
         Mod1 --> Mod2
         Mod2 --> Mod3
     end
 
-    subgraph Safeguards_Convolve["3. Convolution & Safeguards"]
+    subgraph Safeguards_Convolve["4. Convolution & Safeguards"]
         Convolution["Impulse Convolution: h_final = h_VBA * h_inv * h_phase"]
         PreRingingGuard{"Pre-Ringing Test: Ampl > 10% between -20ms & -5ms?"}
         AttenuateQ["Auto-Attenuate Q-Factor & Regularization"]
@@ -58,7 +65,8 @@ flowchart TD
         PreRingingGuard -- "Passed" --> HeadroomCheck --> TukeyWindow
     end
 
-    subgraph Exporters_UI["4. Multi-Platform Exporters & 1-Click UI"]
+    subgraph Exporters_UI["5. Multi-Platform Exporters & 1-Click UI"]
+        SubAlign["Subwoofer + Mains Time & Polarity Optimizer"]
         WAV_IR["32/64-bit IEEE Float WAV FIR (44.1k - 192kHz)"]
         EqAPO_Cfg["Equalizer APO (config.txt + Convolution & Preamp)"]
         Camilla_YML["CamillaDSP Config (camilladsp.yml)"]
@@ -66,29 +74,28 @@ flowchart TD
         RePhase_XML["rePhase Project (.rephase XML)"]
         WebDashboard["Interactive Audiophile Web/Desktop Dashboard"]
 
-        TukeyWindow --> WAV_IR
-        TukeyWindow --> EqAPO_Cfg
-        TukeyWindow --> Camilla_YML
-        TukeyWindow --> MiniDSP_Txt
-        TukeyWindow --> RePhase_XML
-        TukeyWindow --> WebDashboard
+        TukeyWindow --> SubAlign
+        SubAlign --> WAV_IR & EqAPO_Cfg & Camilla_YML & MiniDSP_Txt & RePhase_XML & WebDashboard
     end
 ```
 
 ---
 
-## Technical Safeguards & Innovations
+## Technical Safeguards & Intelligence
 
-### 1. Harmonic Peak Matching ($\pm 10\%$ Room Tolerance Window)
-In real rooms, wall boundary materials (drywall compliance, glass, concrete) and furniture shift room mode frequencies from idealized rectangular room formulas ($f_k = k \cdot \frac{c}{2L}$). AutoRoomEQ searches with a $\pm 10\%$ harmonic tolerance band for fundamental $P_1, P_2, P_3$ modes and boundary cancellation dips $D_1, D_2$, applying full modal cuts while capping anti-null boosts to $+5\text{ dB}$ to prevent driver damage and clipping.
+### 1. Statistical Schroeder Frequency Detection
+Rather than assuming a static transition frequency (~200–300 Hz), ALTAIR analyzes the moving variance of the modal spectrum. At low frequencies (modal zone), room resonance variance is high. Above the Schroeder transition frequency, modal density causes variance to settle into a stochastic baseline. This precisely identifies where to switch between modal cancellation and diffuse EQ.
 
-### 2. Pre-Ringing Safeguard & Time-Domain Step Response Evaluation
-Sharp linear-phase filters can produce audible pre-ringing before transients ($t < 0\text{ ms}$). AutoRoomEQ evaluates the synthesized time-domain step response $s(t)$ and impulse response $h(t)$ in the pre-transient window $[-20\text{ ms}, -5\text{ ms}]$. If pre-ringing exceeds **$10\%$ normalized amplitude**, the algorithm automatically attenuates filter Q-factors and increases regularization damping.
+### 2. Hilbert Analytic Reflection Gap & Auto FDW Tuning
+Computes the Hilbert analytic signal envelope to detect the time gap $\Delta t$ between direct sound arrival and the first strong boundary reflection. Automatically calculates optimal Frequency-Dependent Window (FDW) cycles ($\text{Cycles} = \Delta t \cdot f_{\text{ref}}$) to isolate direct sound without cutting off bass transients or letting room reflections corrupt phase correction.
 
-### 3. Automated Tap Trimming & Headroom Protection
-Filters are smoothly tapered (using Tukey $\alpha = 0.05$ or Blackman-Harris windows) to exact hardware tap counts ($4,096$, $65,536$, or $131,072$ taps) with zero truncation clicks. Peak gains are analyzed to compute the required global preamp headroom offset ($-3\text{ dB}$ to $-6\text{ dB}$) preventing inter-sample DAC clipping.
+### 3. Harmonic Peak Matching ($\pm 10\%$ Room Tolerance Window)
+In real rooms, wall boundary materials and furniture shift room mode frequencies from idealized rectangular room formulas ($f_k = k \cdot \frac{c}{2L}$). ALTAIR searches with a $\pm 10\%$ harmonic tolerance band for fundamental $P_1, P_2, P_3$ modes and boundary cancellation dips $D_1, D_2$, applying full modal cuts while capping anti-null boosts to $+5\text{ dB}$ to prevent driver damage and clipping.
 
-### 4. Subwoofer + Mains Time & Phase Alignment
+### 4. Pre-Ringing Safeguard & Time-Domain Step Response Evaluation
+Sharp linear-phase filters can produce audible pre-ringing before transients ($t < 0\text{ ms}$). ALTAIR evaluates the synthesized time-domain step response $s(t)$ and impulse response $h(t)$ in the pre-transient window $[-20\text{ ms}, -5\text{ ms}]$. If pre-ringing exceeds **$10\%$ normalized amplitude**, the algorithm automatically attenuates filter Q-factors and increases regularization damping.
+
+### 5. Subwoofer + Mains Time & Phase Alignment
 Calculates the optimal delay ($\Delta t$ in milliseconds and samples) and acoustic polarity across the crossover overlap band ($40\text{ Hz} - 160\text{ Hz}$) to eliminate acoustic phase cancellation dips.
 
 ---
@@ -97,11 +104,11 @@ Calculates the optimal delay ($\Delta t$ in milliseconds and samples) and acoust
 
 | Platform | Generated Files | Use Case |
 | :--- | :--- | :--- |
-| **Equalizer APO** | `EqualizerAPO/config.txt`, `AutoRoomEQ_Stereo_FIR_32bit.wav` | System-wide Windows PC audio / gaming / streaming |
-| **CamillaDSP** | `CamillaDSP/camilladsp.yml`, `AutoRoomEQ_Left_FIR_32bit.wav`, `AutoRoomEQ_Right_FIR_32bit.wav` | Raspberry Pi streamer, Linux DACs, macOS |
+| **Equalizer APO** | `EqualizerAPO/config.txt`, `ALTAIR_Stereo_FIR_32bit.wav` | System-wide Windows PC audio / gaming / streaming |
+| **CamillaDSP** | `CamillaDSP/camilladsp.yml`, `ALTAIR_Left_FIR_32bit.wav`, `ALTAIR_Right_FIR_32bit.wav` | Raspberry Pi streamer, Linux DACs, macOS |
 | **miniDSP Flex / SHD** | `miniDSP/fir_coeffs_left.txt`, `miniDSP/fir_coeffs_right.txt` | Hardware DSP FIR convolution slots (4,096 taps) |
-| **Roon / JRiver / HQPlayer**| `WAV_Filters/AutoRoomEQ_Stereo_FIR_32bit.wav` | Audiophile bit-perfect convolution playback |
-| **rePhase** | `rePhase/AutoRoomEQ_Project.rephase` | Opening directly in rePhase for manual curve inspection |
+| **Roon / JRiver / HQPlayer**| `WAV_Filters/ALTAIR_Stereo_FIR_32bit.wav` | Audiophile bit-perfect convolution playback |
+| **rePhase** | `rePhase/ALTAIR_Project.rephase` | Opening directly in rePhase for manual curve inspection |
 
 ---
 
@@ -109,9 +116,10 @@ Calculates the optimal delay ($\Delta t$ in milliseconds and samples) and acoust
 
 ### 1. Installation
 ```bash
-git clone https://github.com/your-username/AutomaticDigitalRoomeq.git
-cd AutomaticDigitalRoomeq
+git clone https://github.com/Hungbocluaqua/ALTAIR.git
+cd ALTAIR
 pip install -r requirements.txt
+pip install -e .
 ```
 
 ### 2. Launch the Application
@@ -121,7 +129,7 @@ python -m auto_roomeq.main
 This starts the backend at `http://127.0.0.1:8000` and automatically opens the interactive Web Dashboard in your browser.
 
 ### 3. 1-Click Workflow
-1. **Choose Input**: Select **Demo Audiophile Room** (for instant testing) or **Pull from REW API** (with REW open at `localhost:4735`) or upload your own files.
+1. **Choose Input**: Select **Demo Audiophile Room** or **Pull from REW API** (with REW open at `localhost:4735`) or upload your measurement files.
 2. **Select Target House Curve**: Choose **Harman Reference (+6dB bass)**, **B&K 1974**, **OCA Audiophile**, or **Custom**.
 3. **Click 🚀 "RUN 1-CLICK OPTIMIZATION"**:
    - Watch the live 8-stage progress checklist complete.
@@ -136,4 +144,4 @@ Run the automated test suite with pytest:
 ```bash
 pytest tests/ -v
 ```
-All 10 tests verify DSP acquisition, deconvolution, vector averaging, Module 1 VBA, Module 2 Tikhonov inversion, Module 3 phase linearization, pre-ringing safeguards, and end-to-end orchestrator execution.
+All 20 tests verify DSP acquisition, deconvolution, vector averaging, Module 1 VBA, Module 2 Tikhonov inversion, Module 3 phase linearization, acoustic intelligence, pre-ringing safeguards, and end-to-end orchestrator execution.

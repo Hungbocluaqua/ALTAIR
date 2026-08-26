@@ -184,11 +184,11 @@ def test_high_tap_pipeline_and_zip_integrity():
     
     with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
         file_list = zf.namelist()
-        assert "WAV_Filters/AutoRoomEQ_Stereo_FIR_32bit.wav" in file_list
+        assert "WAV_Filters/ALTAIR_Stereo_FIR_32bit.wav" in file_list
         assert "EqualizerAPO/config.txt" in file_list
         assert "CamillaDSP/camilladsp.yml" in file_list
         assert "miniDSP/fir_coeffs_left.txt" in file_list
-        assert "rePhase/AutoRoomEQ_Project.rephase" in file_list
+        assert "rePhase/ALTAIR_Project.rephase" in file_list
         assert "README_INSTALL.txt" in file_list
         
         # Verify Equalizer APO config content

@@ -1,6 +1,6 @@
 """
 API & Server Integration Tests.
-Verifies FastAPI REST endpoints, static file serving, and bundle download.
+Verifies FastAPI REST endpoints, static file serving, and bundle download for ALTAIR.
 """
 
 import io
@@ -16,14 +16,13 @@ def test_status_endpoint():
     resp = client.get("/api/status")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["app"] == "AutoRoomEQ"
+    assert data["app"] == "ALTAIR"
     assert "rew_connected" in data
     assert "rew_base_url" in data
 
 
 def test_optimize_and_export_flow():
     """Verify /api/optimize runs 1-click pipeline and /api/export/bundle delivers zip."""
-    # 1. Run optimization with demo data
     payload = {
         "target": {
             "name": "harman",
@@ -58,10 +57,10 @@ def test_optimize_and_export_flow():
     # Check zip contents
     with zipfile.ZipFile(io.BytesIO(resp_zip.content), "r") as zf:
         names = zf.namelist()
-        assert "WAV_Filters/AutoRoomEQ_Stereo_FIR_32bit.wav" in names
+        assert "WAV_Filters/ALTAIR_Stereo_FIR_32bit.wav" in names
         assert "EqualizerAPO/config.txt" in names
         assert "CamillaDSP/camilladsp.yml" in names
-        assert "rePhase/AutoRoomEQ_Project.rephase" in names
+        assert "rePhase/ALTAIR_Project.rephase" in names
 
 
 def test_sub_simulation_endpoint():
@@ -83,4 +82,4 @@ def test_static_frontend_serving():
     resp = client.get("/")
     assert resp.status_code == 200
     assert "<html" in resp.text.lower()
-    assert "AutoRoomEQ" in resp.text or "root" in resp.text
+    assert "ALTAIR" in resp.text or "root" in resp.text

@@ -148,7 +148,7 @@ export const App: React.FC = () => {
 
       {/* Footer */}
       <footer className="border-t border-slate-800/60 bg-[#080c14] py-6 text-center text-xs text-slate-500">
-        <p>AutoRoomEQ 1.0 • High-Fidelity Room Correction & REW/rePhase Studio</p>
+        <p>ALTAIR 1.0 • Automated Linear-phase Tuning & Acoustic Inversion Routine</p>
         <p className="text-[11px] text-slate-600 mt-1">
           Virtual Bass Array (VBA) • Tikhonov Regularized Deconvolution • 1-Cycle FDW Crossover Linearization
         </p>

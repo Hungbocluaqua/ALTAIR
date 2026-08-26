@@ -30,7 +30,8 @@ def export_minidsp_biquads(
     b0=..., b1=..., b2=..., a1=..., a2=...
     """
     lines = [
-        "# AutoRoomEQ Generated miniDSP Biquad Coefficients",
+        "# ALTAIR Generated miniDSP Biquad Coefficients",
+        "# Automated Linear-phase Tuning & Acoustic Inversion Routine",
         "# Format: b0, b1, b2, a1, a2",
     ]
     for i, bq in enumerate(biquads, 1):
