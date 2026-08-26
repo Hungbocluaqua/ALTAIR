@@ -343,48 +343,54 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
           )}
 
           {/* TAB 4: SUBWOOFER SUMMATION */}
-          {activeTab === 'sub' && subAlignment && (
-            <>
-              {freqGridLines.filter((f) => f <= 500).map((f) => {
-                const x = freqToX(f);
-                return (
-                  <g key={`sub-fgrid-${f}`}>
-                    <line x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke="#172236" strokeWidth="1" strokeDasharray="3,3" />
-                    <text x={x} y={height - padding.bottom + 16} fill="#64748b" fontSize="10" textAnchor="middle" fontFamily="monospace">
-                      {f} Hz
-                    </text>
-                  </g>
-                );
-              })}
+          {activeTab === 'sub' && (
+            subAlignment ? (
+              <>
+                {freqGridLines.filter((f) => f <= 500).map((f) => {
+                  const x = freqToX(f);
+                  return (
+                    <g key={`sub-fgrid-${f}`}>
+                      <line x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke="#172236" strokeWidth="1" strokeDasharray="3,3" />
+                      <text x={x} y={height - padding.bottom + 16} fill="#64748b" fontSize="10" textAnchor="middle" fontFamily="monospace">
+                        {f} Hz
+                      </text>
+                    </g>
+                  );
+                })}
 
-              {splGridLines.map((spl) => {
-                const y = splToY(spl);
-                return (
-                  <g key={`sub-sgrid-${spl}`}>
-                    <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#172236" strokeWidth="1" strokeDasharray="3,3" />
-                    <text x={padding.left - 8} y={y + 3.5} fill="#64748b" fontSize="10" textAnchor="end" fontFamily="monospace">
-                      {spl} dB
-                    </text>
-                  </g>
-                );
-              })}
+                {splGridLines.map((spl) => {
+                  const y = splToY(spl);
+                  return (
+                    <g key={`sub-sgrid-${spl}`}>
+                      <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#172236" strokeWidth="1" strokeDasharray="3,3" />
+                      <text x={padding.left - 8} y={y + 3.5} fill="#64748b" fontSize="10" textAnchor="end" fontFamily="monospace">
+                        {spl} dB
+                      </text>
+                    </g>
+                  );
+                })}
 
-              <path
-                d={makeSplPath(subAlignment.freqs, subAlignment.spl_unaligned_db)}
-                fill="none"
-                stroke="#ef4444"
-                strokeWidth="2"
-                strokeOpacity="0.65"
-              />
+                <path
+                  d={makeSplPath(subAlignment.freqs, subAlignment.spl_unaligned_db)}
+                  fill="none"
+                  stroke="#ef4444"
+                  strokeWidth="2"
+                  strokeOpacity="0.65"
+                />
 
-              <path
-                d={makeSplPath(subAlignment.freqs, subAlignment.spl_aligned_db)}
-                fill="none"
-                stroke="#10b981"
-                strokeWidth="3.0"
-                className="filter drop-shadow-[0_0_8px_rgba(16,185,129,0.35)]"
-              />
-            </>
+                <path
+                  d={makeSplPath(subAlignment.freqs, subAlignment.spl_aligned_db)}
+                  fill="none"
+                  stroke="#10b981"
+                  strokeWidth="3.0"
+                  className="filter drop-shadow-[0_0_8px_rgba(16,185,129,0.35)]"
+                />
+              </>
+            ) : (
+              <text x={width / 2} y={height / 2} fill="#64748b" fontSize="13" textAnchor="middle" fontFamily="sans-serif">
+                Subwoofer data available when Subwoofer measurement is provided
+              </text>
+            )
           )}
         </svg>
       </div>
@@ -410,7 +416,7 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
             }`}
           >
             <span className="h-2 w-2 rounded-full bg-amber-500"></span>
-            <span>Harman House Target</span>
+            <span>Target House Curve</span>
             {showTarget ? <Eye className="h-3 w-3 ml-1" /> : <EyeOff className="h-3 w-3 ml-1" />}
           </button>
 
@@ -435,6 +441,49 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
             <span>Simulated Result (After)</span>
             {showAfter ? <Eye className="h-3 w-3 ml-1" /> : <EyeOff className="h-3 w-3 ml-1" />}
           </button>
+        </div>
+      )}
+
+      {activeTab === 'phase' && (
+        <div className="flex flex-wrap items-center justify-center gap-6 mt-4 pt-3 border-t border-slate-800 text-xs font-medium">
+          <div className="flex items-center space-x-2 text-red-400">
+            <span className="h-2 w-2 rounded-full bg-red-500"></span>
+            <span>Raw Acoustic Phase (Wrapped)</span>
+          </div>
+          <div className="flex items-center space-x-2 text-emerald-400 font-bold">
+            <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+            <span>Linearized Phase (0° Flat Target)</span>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'step' && (
+        <div className="flex flex-wrap items-center justify-center gap-6 mt-4 pt-3 border-t border-slate-800 text-xs font-medium">
+          <div className="flex items-center space-x-2 text-cyan-400 font-bold">
+            <span className="h-2 w-2 rounded-full bg-cyan-500"></span>
+            <span>Normalized Step Response s[n]</span>
+          </div>
+          <div className="flex items-center space-x-2 text-amber-400">
+            <span className="h-2 w-2 rounded-full bg-amber-500"></span>
+            <span>10% Max Pre-Ringing Threshold</span>
+          </div>
+          <div className="flex items-center space-x-2 text-rose-400">
+            <span className="h-2 w-2 rounded-full bg-rose-500"></span>
+            <span>Pre-Ringing Evaluation Zone (-20ms to -5ms)</span>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'sub' && subAlignment && (
+        <div className="flex flex-wrap items-center justify-center gap-6 mt-4 pt-3 border-t border-slate-800 text-xs font-medium">
+          <div className="flex items-center space-x-2 text-red-400">
+            <span className="h-2 w-2 rounded-full bg-red-500"></span>
+            <span>Unaligned Summation (0 ms Delay)</span>
+          </div>
+          <div className="flex items-center space-x-2 text-emerald-400 font-bold">
+            <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+            <span>Optimized Acoustic Alignment (+{subAlignment.gain_improvement_db.toFixed(1)} dB Boost)</span>
+          </div>
         </div>
       )}
     </div>

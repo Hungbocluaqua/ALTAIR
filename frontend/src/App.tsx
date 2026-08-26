@@ -118,6 +118,7 @@ export const App: React.FC = () => {
           <AcousticIntelligenceBanner
             intel={result.acoustic_intelligence}
             truePeakDb={result.true_peak_left_dbfs}
+            isZwickerMasked={result.zwicker_masking_left?.is_masked}
           />
         )}
 
