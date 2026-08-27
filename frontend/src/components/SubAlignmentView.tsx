@@ -65,16 +65,16 @@ export const SubAlignmentView: React.FC<SubAlignmentViewProps> = ({
   }, []);
 
   return (
-    <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+    <div className="bg-white border border-slate-200 text-slate-800 shadow-md shadow-slate-200/50 dark:bg-slate-900/80 dark:border-slate-800 dark:text-slate-100 dark:shadow-xl rounded-2xl p-5 transition-colors">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800 transition-colors">
         <div className="flex items-center space-x-2">
-          <Volume2 className="h-5 w-5 text-cyan-400" />
-          <h3 className="font-bold text-slate-100 text-xs tracking-wider uppercase">Subwoofer + Mains Phase Integration</h3>
+          <Volume2 className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+          <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xs tracking-wider uppercase">Subwoofer + Mains Phase Integration</h3>
         </div>
 
         <button
           onClick={resetToOptimal}
-          className="flex items-center space-x-1.5 px-3 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-lg text-xs font-semibold transition-colors"
+          className="flex items-center space-x-1.5 px-3 py-1 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200 dark:bg-cyan-500/10 dark:hover:bg-cyan-500/20 dark:text-cyan-400 dark:border-cyan-500/30 rounded-lg text-xs font-semibold transition-colors"
         >
           <Sparkles className="h-3.5 w-3.5" />
           <span>Apply Optimal ({subAlignment.optimal_delay_ms} ms)</span>
@@ -83,53 +83,53 @@ export const SubAlignmentView: React.FC<SubAlignmentViewProps> = ({
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
         {/* Metric 1: Optimal Delay */}
-        <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3.5 flex flex-col justify-between">
-          <div className="text-[11px] text-slate-400 font-medium">Optimal Acoustic Delay</div>
-          <div className="text-2xl font-extrabold text-white font-mono mt-1">
+        <div className="bg-slate-50 border border-slate-200 dark:bg-slate-950/60 dark:border-slate-800/80 rounded-xl p-3.5 flex flex-col justify-between transition-colors">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Optimal Acoustic Delay</div>
+          <div className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono mt-1">
             {subAlignment.optimal_delay_ms > 0 ? `+${subAlignment.optimal_delay_ms}` : subAlignment.optimal_delay_ms}
-            <span className="text-xs text-slate-500 font-normal ml-1">ms</span>
+            <span className="text-xs text-slate-400 dark:text-slate-500 font-normal ml-1">ms</span>
           </div>
-          <div className="text-[11px] text-slate-500 mt-1">
+          <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
             {subAlignment.optimal_delay_samples} samples at 48 kHz
           </div>
         </div>
 
         {/* Metric 2: Polarity */}
-        <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3.5 flex flex-col justify-between">
-          <div className="text-[11px] text-slate-400 font-medium">Acoustic Polarity</div>
-          <div className="text-xl font-bold text-emerald-400 font-mono mt-1 flex items-center justify-between">
+        <div className="bg-slate-50 border border-slate-200 dark:bg-slate-950/60 dark:border-slate-800/80 rounded-xl p-3.5 flex flex-col justify-between transition-colors">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Acoustic Polarity</div>
+          <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 font-mono mt-1 flex items-center justify-between">
             <span>{currentPolarity > 0 ? 'Normal (+)' : 'Inverted (-)'}</span>
             <button
               onClick={togglePolarity}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center space-x-1"
+              className="p-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 text-xs flex items-center space-x-1 transition-colors"
             >
               <ArrowRightLeft className="h-3 w-3" />
               <span>Flip</span>
             </button>
           </div>
-          <div className="text-[11px] text-slate-500 mt-1">
+          <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
             Crossover: {subAlignment.crossover_freq_hz} Hz Linkwitz-Riley
           </div>
         </div>
 
         {/* Metric 3: Acoustic Gain Improvement */}
-        <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3.5 flex flex-col justify-between">
-          <div className="text-[11px] text-slate-400 font-medium">Summation Improvement</div>
-          <div className="text-2xl font-extrabold text-cyan-400 font-mono mt-1">
+        <div className="bg-slate-50 border border-slate-200 dark:bg-slate-950/60 dark:border-slate-800/80 rounded-xl p-3.5 flex flex-col justify-between transition-colors">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Summation Improvement</div>
+          <div className="text-2xl font-extrabold text-cyan-700 dark:text-cyan-400 font-mono mt-1">
             +{subAlignment.gain_improvement_db}
-            <span className="text-xs text-slate-500 font-normal ml-1">dB SPL</span>
+            <span className="text-xs text-slate-400 dark:text-slate-500 font-normal ml-1">dB SPL</span>
           </div>
-          <div className="text-[11px] text-emerald-400 font-medium mt-1">
+          <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium mt-1">
             Eliminates crossover cancellation dip
           </div>
         </div>
       </div>
 
       {/* Interactive Delay Slider */}
-      <div className="mt-5 p-4 rounded-xl bg-slate-950/80 border border-slate-800">
-        <div className="flex items-center justify-between text-xs font-semibold text-slate-300 mb-2">
+      <div className="mt-5 p-4 rounded-xl bg-slate-50 border border-slate-200 dark:bg-slate-950/80 dark:border-slate-800 transition-colors">
+        <div className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
           <span>Manual Acoustic Delay Adjustment</span>
-          <span className="font-mono text-cyan-400 font-bold text-sm">
+          <span className="font-mono text-cyan-700 dark:text-cyan-400 font-bold text-sm">
             {currentDelay.toFixed(2)} ms
           </span>
         </div>
@@ -141,10 +141,10 @@ export const SubAlignmentView: React.FC<SubAlignmentViewProps> = ({
           step="0.1"
           value={currentDelay}
           onChange={(e) => handleSliderChange(parseFloat(e.target.value))}
-          className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+          className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
         />
 
-        <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
+        <div className="flex justify-between text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-1">
           <span>-30.0 ms</span>
           <span>0.0 ms (Default)</span>
           <span>+30.0 ms</span>

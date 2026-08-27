@@ -5,9 +5,10 @@ import { Activity, Radio, Eye, EyeOff } from 'lucide-react';
 interface AudioPlotProps {
   plots: PlotData | null;
   subAlignment?: SubAlignmentResult;
+  theme?: 'dark' | 'light';
 }
 
-export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => {
+export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment, theme = 'dark' }) => {
   const [activeTab, setActiveTab] = useState<'magnitude' | 'phase' | 'step' | 'sub'>('magnitude');
   const [showBefore, setShowBefore] = useState(true);
   const [showTarget, setShowTarget] = useState(true);
@@ -16,10 +17,10 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
 
   if (!plots) {
     return (
-      <div className="h-[420px] bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col items-center justify-center text-slate-500">
-        <Activity className="h-10 w-10 text-slate-600 mb-3 animate-pulse" />
-        <p className="text-sm font-medium">No acoustic plots generated yet</p>
-        <p className="text-xs text-slate-600 mt-1">Run 1-Click Optimization to view acoustic measurements & filters</p>
+      <div className="h-[420px] bg-white border border-slate-200 dark:bg-slate-900/60 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 shadow-sm transition-colors">
+        <Activity className="h-10 w-10 text-slate-300 dark:text-slate-600 mb-3 animate-pulse" />
+        <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">No acoustic plots generated yet</p>
+        <p className="text-xs text-slate-400 dark:text-slate-600 mt-1">Run 1-Click Optimization to view acoustic measurements & filters</p>
       </div>
     );
   }
@@ -102,23 +103,29 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
   const phaseGridLines = [-180, -90, 0, 90, 180];
   const timeGridLines = [-20, -10, 0, 10, 20, 30];
 
+  const isLight = theme === 'light';
+  const gridColor = isLight ? '#e2e8f0' : '#172236';
+  const rectFill = isLight ? '#ffffff' : '#090d16';
+  const rectStroke = isLight ? '#cbd5e1' : '#1e293b';
+  const baseLineColor = isLight ? '#cbd5e1' : '#334155';
+
   return (
-    <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl">
+    <div className="bg-white border border-slate-200 text-slate-800 shadow-lg shadow-slate-200/50 dark:bg-slate-900/80 dark:border-slate-800 dark:text-slate-100 dark:shadow-xl rounded-2xl p-5 transition-colors">
       {/* Header & Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-slate-800 transition-colors">
         <div className="flex items-center space-x-2">
-          <Radio className="h-5 w-5 text-cyan-400" />
-          <h3 className="font-bold text-slate-100 text-sm tracking-wide uppercase">Interactive Audio Visualizer</h3>
+          <Radio className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+          <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm tracking-wide uppercase">Interactive Audio Visualizer</h3>
         </div>
 
         {/* Tab Buttons */}
-        <div className="flex items-center space-x-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800/80 text-xs">
+        <div className="flex items-center space-x-1 bg-slate-100 dark:bg-slate-950/80 p-1 rounded-xl border border-slate-200 dark:border-slate-800/80 text-xs transition-colors">
           <button
             onClick={() => setActiveTab('magnitude')}
             className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
               activeTab === 'magnitude'
                 ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
-                : 'text-slate-400 hover:text-white'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
             SPL Magnitude
@@ -128,7 +135,7 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
             className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
               activeTab === 'phase'
                 ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
-                : 'text-slate-400 hover:text-white'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
             Phase Response
@@ -138,7 +145,7 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
             className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
               activeTab === 'step'
                 ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
-                : 'text-slate-400 hover:text-white'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
             Step & Pre-Ringing
@@ -149,7 +156,7 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
               className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
                 activeTab === 'sub'
                   ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
               }`}
             >
               Sub Summation
@@ -167,8 +174,8 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
             y={padding.top}
             width={plotWidth}
             height={plotHeight}
-            fill="#090d16"
-            stroke="#1e293b"
+            fill={rectFill}
+            stroke={rectStroke}
             strokeWidth="1"
             rx="6"
           />
@@ -181,7 +188,7 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
                 const x = freqToX(f);
                 return (
                   <g key={`fgrid-${f}`}>
-                    <line x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke="#172236" strokeWidth="1" strokeDasharray="3,3" />
+                    <line x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke={gridColor} strokeWidth="1" strokeDasharray="3,3" />
                     <text x={x} y={height - padding.bottom + 16} fill="#64748b" fontSize="10" textAnchor="middle" fontFamily="monospace">
                       {f >= 1000 ? `${f / 1000}k` : f}
                     </text>
@@ -194,7 +201,7 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
                 const y = splToY(spl);
                 return (
                   <g key={`sgrid-${spl}`}>
-                    <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#172236" strokeWidth="1" strokeDasharray="3,3" />
+                    <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke={gridColor} strokeWidth="1" strokeDasharray="3,3" />
                     <text x={padding.left - 8} y={y + 3.5} fill="#64748b" fontSize="10" textAnchor="end" fontFamily="monospace">
                       {spl} dB
                     </text>
@@ -263,7 +270,7 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
                 const x = freqToX(f);
                 return (
                   <g key={`p-fgrid-${f}`}>
-                    <line x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke="#172236" strokeWidth="1" strokeDasharray="3,3" />
+                    <line x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke={gridColor} strokeWidth="1" strokeDasharray="3,3" />
                     <text x={x} y={height - padding.bottom + 16} fill="#64748b" fontSize="10" textAnchor="middle" fontFamily="monospace">
                       {f >= 1000 ? `${f / 1000}k` : f}
                     </text>
@@ -275,7 +282,7 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
                 const y = phaseToY(deg);
                 return (
                   <g key={`pgrid-${deg}`}>
-                    <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#172236" strokeWidth="1" strokeDasharray="3,3" />
+                    <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke={gridColor} strokeWidth="1" strokeDasharray="3,3" />
                     <text x={padding.left - 8} y={y + 3.5} fill="#64748b" fontSize="10" textAnchor="end" fontFamily="monospace">
                       {deg}°
                     </text>
@@ -329,7 +336,7 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
                 const x = timeToX(t);
                 return (
                   <g key={`tgrid-${t}`}>
-                    <line x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke="#172236" strokeWidth="1" strokeDasharray="3,3" />
+                    <line x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke={gridColor} strokeWidth="1" strokeDasharray="3,3" />
                     <text x={x} y={height - padding.bottom + 16} fill="#64748b" fontSize="10" textAnchor="middle" fontFamily="monospace">
                       {t} ms
                     </text>
@@ -337,8 +344,8 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
                 );
               })}
 
-              <line x1={padding.left} y1={stepToY(0)} x2={width - padding.right} y2={stepToY(0)} stroke="#334155" strokeWidth="1.5" />
-              <line x1={padding.left} y1={stepToY(1.0)} x2={width - padding.right} y2={stepToY(1.0)} stroke="#334155" strokeWidth="1" strokeDasharray="4,4" />
+              <line x1={padding.left} y1={stepToY(0)} x2={width - padding.right} y2={stepToY(0)} stroke={baseLineColor} strokeWidth="1.5" />
+              <line x1={padding.left} y1={stepToY(1.0)} x2={width - padding.right} y2={stepToY(1.0)} stroke={baseLineColor} strokeWidth="1" strokeDasharray="4,4" />
 
               <path
                 d={makeStepPath(plots.step_time_ms, plots.step_response)}
@@ -358,7 +365,7 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
                   const x = freqToX(f);
                   return (
                     <g key={`sub-fgrid-${f}`}>
-                      <line x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke="#172236" strokeWidth="1" strokeDasharray="3,3" />
+                      <line x1={x} y1={padding.top} x2={x} y2={height - padding.bottom} stroke={gridColor} strokeWidth="1" strokeDasharray="3,3" />
                       <text x={x} y={height - padding.bottom + 16} fill="#64748b" fontSize="10" textAnchor="middle" fontFamily="monospace">
                         {f} Hz
                       </text>
@@ -370,7 +377,7 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
                   const y = splToY(spl);
                   return (
                     <g key={`sub-sgrid-${spl}`}>
-                      <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#172236" strokeWidth="1" strokeDasharray="3,3" />
+                      <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke={gridColor} strokeWidth="1" strokeDasharray="3,3" />
                       <text x={padding.left - 8} y={y + 3.5} fill="#64748b" fontSize="10" textAnchor="end" fontFamily="monospace">
                         {spl} dB
                       </text>
@@ -405,11 +412,11 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
 
       {/* Legend & Toggle Controls */}
       {activeTab === 'magnitude' && (
-        <div className="flex flex-wrap items-center justify-center gap-6 mt-4 pt-3 border-t border-slate-800 text-xs font-medium">
+        <div className="flex flex-wrap items-center justify-center gap-6 mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 text-xs font-medium transition-colors">
           <button
             onClick={() => setShowBefore(!showBefore)}
             className={`flex items-center space-x-2 px-2.5 py-1 rounded-lg transition-colors ${
-              showBefore ? 'text-red-400 bg-red-500/10' : 'text-slate-600 line-through'
+              showBefore ? 'text-red-600 dark:text-red-400 bg-red-500/10' : 'text-slate-400 dark:text-slate-600 line-through'
             }`}
           >
             <span className="h-2 w-2 rounded-full bg-red-500"></span>
@@ -420,7 +427,7 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
           <button
             onClick={() => setShowTarget(!showTarget)}
             className={`flex items-center space-x-2 px-2.5 py-1 rounded-lg transition-colors ${
-              showTarget ? 'text-amber-400 bg-amber-500/10' : 'text-slate-600 line-through'
+              showTarget ? 'text-amber-700 dark:text-amber-400 bg-amber-500/10' : 'text-slate-400 dark:text-slate-600 line-through'
             }`}
           >
             <span className="h-2 w-2 rounded-full bg-amber-500"></span>
@@ -431,7 +438,7 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
           <button
             onClick={() => setShowFilter(!showFilter)}
             className={`flex items-center space-x-2 px-2.5 py-1 rounded-lg transition-colors ${
-              showFilter ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-600 line-through'
+              showFilter ? 'text-cyan-700 dark:text-cyan-400 bg-cyan-500/10' : 'text-slate-400 dark:text-slate-600 line-through'
             }`}
           >
             <span className="h-2 w-2 rounded-full bg-cyan-500"></span>
@@ -442,7 +449,7 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
           <button
             onClick={() => setShowAfter(!showAfter)}
             className={`flex items-center space-x-2 px-2.5 py-1 rounded-lg transition-colors ${
-              showAfter ? 'text-emerald-400 bg-emerald-500/10 font-bold' : 'text-slate-600 line-through'
+              showAfter ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 font-bold' : 'text-slate-400 dark:text-slate-600 line-through'
             }`}
           >
             <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50"></span>
@@ -453,12 +460,12 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
       )}
 
       {activeTab === 'phase' && (
-        <div className="flex flex-wrap items-center justify-center gap-6 mt-4 pt-3 border-t border-slate-800 text-xs font-medium">
-          <div className="flex items-center space-x-2 text-red-400">
+        <div className="flex flex-wrap items-center justify-center gap-6 mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 text-xs font-medium transition-colors">
+          <div className="flex items-center space-x-2 text-red-600 dark:text-red-400">
             <span className="h-2 w-2 rounded-full bg-red-500"></span>
             <span>Raw Acoustic Phase (Wrapped)</span>
           </div>
-          <div className="flex items-center space-x-2 text-emerald-400 font-bold">
+          <div className="flex items-center space-x-2 text-emerald-700 dark:text-emerald-400 font-bold">
             <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
             <span>Linearized Phase (0° Flat Target)</span>
           </div>
@@ -466,16 +473,16 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
       )}
 
       {activeTab === 'step' && (
-        <div className="flex flex-wrap items-center justify-center gap-6 mt-4 pt-3 border-t border-slate-800 text-xs font-medium">
-          <div className="flex items-center space-x-2 text-cyan-400 font-bold">
+        <div className="flex flex-wrap items-center justify-center gap-6 mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 text-xs font-medium transition-colors">
+          <div className="flex items-center space-x-2 text-cyan-700 dark:text-cyan-400 font-bold">
             <span className="h-2 w-2 rounded-full bg-cyan-500"></span>
             <span>Normalized Step Response s[n]</span>
           </div>
-          <div className="flex items-center space-x-2 text-amber-400">
+          <div className="flex items-center space-x-2 text-amber-700 dark:text-amber-400">
             <span className="h-2 w-2 rounded-full bg-amber-500"></span>
             <span>10% Max Pre-Ringing Threshold</span>
           </div>
-          <div className="flex items-center space-x-2 text-rose-400">
+          <div className="flex items-center space-x-2 text-rose-600 dark:text-rose-400">
             <span className="h-2 w-2 rounded-full bg-rose-500"></span>
             <span>Pre-Ringing Evaluation Zone (-20ms to -5ms)</span>
           </div>
@@ -483,12 +490,12 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
       )}
 
       {activeTab === 'sub' && subAlignment && (
-        <div className="flex flex-wrap items-center justify-center gap-6 mt-4 pt-3 border-t border-slate-800 text-xs font-medium">
-          <div className="flex items-center space-x-2 text-red-400">
+        <div className="flex flex-wrap items-center justify-center gap-6 mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 text-xs font-medium transition-colors">
+          <div className="flex items-center space-x-2 text-red-600 dark:text-red-400">
             <span className="h-2 w-2 rounded-full bg-red-500"></span>
             <span>Unaligned Summation (0 ms Delay)</span>
           </div>
-          <div className="flex items-center space-x-2 text-emerald-400 font-bold">
+          <div className="flex items-center space-x-2 text-emerald-700 dark:text-emerald-400 font-bold">
             <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
             <span>Optimized Acoustic Alignment (+{subAlignment.gain_improvement_db.toFixed(1)} dB Boost)</span>
           </div>

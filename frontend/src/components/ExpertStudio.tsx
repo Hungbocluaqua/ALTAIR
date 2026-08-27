@@ -93,49 +93,49 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
   };
 
   return (
-    <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
-      <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+    <div className="bg-white border border-slate-200 text-slate-800 shadow-xl shadow-slate-200/50 dark:bg-slate-900/80 dark:border-slate-800 dark:text-slate-100 dark:shadow-2xl rounded-3xl p-6 space-y-6 transition-colors">
+      <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800 transition-colors">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+          <div className="p-2.5 rounded-xl bg-cyan-50 border border-cyan-200 text-cyan-600 dark:bg-cyan-500/10 dark:border-cyan-500/20 dark:text-cyan-400">
             <Settings2 className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-lg font-extrabold text-white tracking-tight">Expert Acoustic Studio</h2>
-            <p className="text-xs text-slate-400">Automated Repeated Sweeps, Noise Floor Stacking & Custom Target Tuning</p>
+            <h2 className="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight">Expert Acoustic Studio</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Automated Repeated Sweeps, Noise Floor Stacking & Custom Target Tuning</p>
           </div>
         </div>
 
         <div className="flex items-center space-x-2 text-xs">
-          <span className={`h-2.5 w-2.5 rounded-full ${rewConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
-          <span className="text-slate-300 font-medium">
+          <span className={`h-2.5 w-2.5 rounded-full ${rewConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
+          <span className="text-slate-600 dark:text-slate-300 font-medium">
             {rewConnected ? 'REW Direct Active' : 'Standalone Mode (Simulation Ready)'}
           </span>
         </div>
       </div>
 
       {/* DEDICATED SECTION: 1-Click Automated Repeated Sweep Studio */}
-      <div className="bg-gradient-to-r from-cyan-950/50 via-slate-950 to-indigo-950/40 border border-cyan-500/30 rounded-2xl p-5 shadow-xl space-y-4">
+      <div className="bg-gradient-to-r from-cyan-50/70 via-slate-50 to-indigo-50/60 border border-cyan-200 text-slate-800 dark:from-cyan-950/50 dark:via-slate-950 dark:to-indigo-950/40 dark:border-cyan-500/30 dark:text-slate-100 rounded-2xl p-5 shadow-sm dark:shadow-xl space-y-4 transition-colors">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+            <div className="p-2 rounded-xl bg-cyan-100/80 text-cyan-800 border border-cyan-200 dark:bg-cyan-500/20 dark:text-cyan-400 dark:border-cyan-500/30">
               <Zap className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-extrabold text-sm text-white tracking-wide uppercase flex items-center space-x-2">
+              <h3 className="font-extrabold text-sm text-slate-900 dark:text-white tracking-wide uppercase flex items-center space-x-2">
                 <span>Automated Repeated Sweep Studio</span>
-                <span className="text-[10px] normal-case font-semibold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                <span className="text-[10px] normal-case font-semibold px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-300 dark:bg-cyan-500/20 dark:text-cyan-300 dark:border-cyan-500/30">
                   AcoustiX +9dB Noise Filter
                 </span>
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Sequentially fires sweeps through REW, aligns impulse peaks to sub-sample precision, and stacks time-domain waveforms.
               </p>
             </div>
           </div>
 
           {/* Repetition Selector */}
-          <div className="flex items-center space-x-1.5 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
-            <span className="text-[11px] text-slate-400 font-semibold px-2">Stack:</span>
+          <div className="flex items-center space-x-1.5 bg-white border border-slate-200 dark:bg-slate-900/90 dark:border-slate-800 p-1 rounded-xl shadow-sm">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold px-2">Stack:</span>
             {[
               { count: 1, label: '1x Test', snr: 'Single' },
               { count: 2, label: '2x Fast', snr: '+3.0 dB' },
@@ -149,7 +149,7 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
                 className={`px-2 py-1 text-xs rounded-lg font-bold transition-all ${
                   autoRepetitions === r.count
                     ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/25'
-                    : 'text-slate-400 hover:text-slate-200'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
                 }`}
               >
                 {r.label} <span className="text-[9.5px] font-mono opacity-80">({r.snr})</span>
@@ -159,17 +159,17 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
         </div>
 
         {/* Step-by-Step Instructions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1 text-xs text-slate-300">
-          <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-start space-x-2">
-            <span className="h-5 w-5 rounded-full bg-cyan-500/20 text-cyan-400 font-bold flex items-center justify-center shrink-0 text-[11px]">1</span>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1 text-xs text-slate-700 dark:text-slate-300">
+          <div className="p-2.5 rounded-xl bg-white border border-slate-200 dark:bg-slate-900/60 dark:border-slate-800 flex items-start space-x-2 shadow-sm">
+            <span className="h-5 w-5 rounded-full bg-cyan-100 text-cyan-800 dark:bg-cyan-500/20 dark:text-cyan-400 font-bold flex items-center justify-center shrink-0 text-[11px]">1</span>
             <span>Position mic at ear level in your primary listening seat.</span>
           </div>
-          <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-start space-x-2">
-            <span className="h-5 w-5 rounded-full bg-cyan-500/20 text-cyan-400 font-bold flex items-center justify-center shrink-0 text-[11px]">2</span>
+          <div className="p-2.5 rounded-xl bg-white border border-slate-200 dark:bg-slate-900/60 dark:border-slate-800 flex items-start space-x-2 shadow-sm">
+            <span className="h-5 w-5 rounded-full bg-cyan-100 text-cyan-800 dark:bg-cyan-500/20 dark:text-cyan-400 font-bold flex items-center justify-center shrink-0 text-[11px]">2</span>
             <span>{rewConnected ? 'REW API is connected and ready to receive commands.' : 'Start REW with Preferences → API → Start Server (or use Standalone).'}</span>
           </div>
-          <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-start space-x-2">
-            <span className="h-5 w-5 rounded-full bg-cyan-500/20 text-cyan-400 font-bold flex items-center justify-center shrink-0 text-[11px]">3</span>
+          <div className="p-2.5 rounded-xl bg-white border border-slate-200 dark:bg-slate-900/60 dark:border-slate-800 flex items-start space-x-2 shadow-sm">
+            <span className="h-5 w-5 rounded-full bg-cyan-100 text-cyan-800 dark:bg-cyan-500/20 dark:text-cyan-400 font-bold flex items-center justify-center shrink-0 text-[11px]">3</span>
             <span>Click any channel below to run automated coherent sweep stacking.</span>
           </div>
         </div>
@@ -180,9 +180,9 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
             type="button"
             disabled={isMeasuringAuto}
             onClick={() => handleAutoMeasure('left')}
-            className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center space-x-2 border border-slate-700 shadow-md transition-all hover:scale-[1.02]"
+            className="py-2.5 px-3 rounded-xl bg-white hover:bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white dark:border-slate-700 disabled:opacity-50 font-bold text-xs flex items-center justify-center space-x-2 border shadow-sm transition-all hover:scale-[1.02]"
           >
-            <PlayCircle className="h-4 w-4 text-cyan-400" />
+            <PlayCircle className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
             <span>Auto Left ({autoRepetitions}x)</span>
           </button>
 
@@ -190,9 +190,9 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
             type="button"
             disabled={isMeasuringAuto}
             onClick={() => handleAutoMeasure('right')}
-            className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center space-x-2 border border-slate-700 shadow-md transition-all hover:scale-[1.02]"
+            className="py-2.5 px-3 rounded-xl bg-white hover:bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white dark:border-slate-700 disabled:opacity-50 font-bold text-xs flex items-center justify-center space-x-2 border shadow-sm transition-all hover:scale-[1.02]"
           >
-            <PlayCircle className="h-4 w-4 text-cyan-400" />
+            <PlayCircle className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
             <span>Auto Right ({autoRepetitions}x)</span>
           </button>
 
@@ -200,9 +200,9 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
             type="button"
             disabled={isMeasuringAuto}
             onClick={() => handleAutoMeasure('sub')}
-            className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center space-x-2 border border-slate-700 shadow-md transition-all hover:scale-[1.02]"
+            className="py-2.5 px-3 rounded-xl bg-white hover:bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white dark:border-slate-700 disabled:opacity-50 font-bold text-xs flex items-center justify-center space-x-2 border shadow-sm transition-all hover:scale-[1.02]"
           >
-            <PlayCircle className="h-4 w-4 text-amber-400" />
+            <PlayCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             <span>Auto Sub ({autoRepetitions}x)</span>
           </button>
 
@@ -219,9 +219,9 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
 
         {/* Live Auto-Sweep Status Feedback */}
         {autoProgressText && (
-          <div className="p-3 rounded-xl bg-slate-900 border border-cyan-500/30 text-xs text-cyan-200 flex items-center justify-between animate-fadeIn">
+          <div className="p-3 rounded-xl bg-white border border-cyan-200 text-xs text-cyan-900 dark:bg-slate-900 dark:border-cyan-500/30 dark:text-cyan-200 flex items-center justify-between animate-fadeIn shadow-sm">
             <span className="font-mono">{autoProgressText}</span>
-            {isMeasuringAuto && <RefreshCw className="h-4 w-4 text-cyan-400 animate-spin ml-2 shrink-0" />}
+            {isMeasuringAuto && <RefreshCw className="h-4 w-4 text-cyan-600 dark:text-cyan-400 animate-spin ml-2 shrink-0" />}
           </div>
         )}
 
@@ -274,24 +274,24 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Panel 1: File Uploader & Measurement Ingestion Mode */}
-        <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 space-y-3">
+        <div className="bg-slate-50/90 border border-slate-200 dark:bg-slate-950/60 dark:border-slate-800/80 rounded-2xl p-4 space-y-3 transition-colors">
           <div className="flex items-center justify-between">
-            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-2">
-              <Upload className="h-4 w-4 text-cyan-400" />
+            <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center space-x-2">
+              <Upload className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
               <span>Measurement Ingestion</span>
             </h4>
-            <div className="flex bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+            <div className="flex bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-0.5 rounded-lg">
               <button
                 type="button"
                 onClick={() => setMeasurementMode('single')}
-                className={`px-2 py-0.5 text-[10px] font-semibold rounded ${measurementMode === 'single' ? 'bg-cyan-500 text-black' : 'text-slate-400'}`}
+                className={`px-2 py-0.5 text-[10px] font-semibold rounded ${measurementMode === 'single' ? 'bg-cyan-500 text-black' : 'text-slate-500 dark:text-slate-400'}`}
               >
                 1x
               </button>
               <button
                 type="button"
                 onClick={() => setMeasurementMode('repeated')}
-                className={`px-2 py-0.5 text-[10px] font-semibold rounded ${measurementMode === 'repeated' ? 'bg-cyan-500 text-black' : 'text-slate-400'}`}
+                className={`px-2 py-0.5 text-[10px] font-semibold rounded ${measurementMode === 'repeated' ? 'bg-cyan-500 text-black' : 'text-slate-500 dark:text-slate-400'}`}
                 title="Repeated Sweeps (+6dB to +9dB SNR boost)"
               >
                 Repeats (SNR+)
@@ -299,7 +299,7 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
               <button
                 type="button"
                 onClick={() => setMeasurementMode('multi_seat')}
-                className={`px-2 py-0.5 text-[10px] font-semibold rounded ${measurementMode === 'multi_seat' ? 'bg-cyan-500 text-black' : 'text-slate-400'}`}
+                className={`px-2 py-0.5 text-[10px] font-semibold rounded ${measurementMode === 'multi_seat' ? 'bg-cyan-500 text-black' : 'text-slate-500 dark:text-slate-400'}`}
                 title="Multi-Seat Positions (Spatial Hybrid Averaging)"
               >
                 Multi-Seat
@@ -308,16 +308,16 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
           </div>
 
           {uploadStatus && (
-            <div className="p-2 rounded-lg bg-cyan-950/40 border border-cyan-500/30 text-[11px] text-cyan-200">
+            <div className="p-2 rounded-lg bg-cyan-50 border border-cyan-200 text-[11px] text-cyan-900 dark:bg-cyan-950/40 dark:border-cyan-500/30 dark:text-cyan-200">
               {uploadStatus}
             </div>
           )}
 
           {/* Left Speaker */}
-          <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+          <div className="p-2.5 rounded-xl bg-white border border-slate-200 dark:bg-slate-900/60 dark:border-slate-800 flex items-center justify-between shadow-sm">
             <div>
-              <div className="text-xs font-semibold text-slate-200">Left Speaker (Mains)</div>
-              <div className="text-[10px] text-slate-400">
+              <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">Left Speaker (Mains)</div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400">
                 {measurementMode === 'repeated' ? 'Select 2x - 8x sweeps (Auto +SNR)' : measurementMode === 'multi_seat' ? 'Select all seat positions' : 'REW .txt / .frd or .wav IR'}
               </div>
             </div>
@@ -331,17 +331,17 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
             />
             <button
               onClick={() => fileLeftRef.current?.click()}
-              className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium"
+              className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium transition-colors"
             >
               Browse
             </button>
           </div>
 
           {/* Right Speaker */}
-          <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+          <div className="p-2.5 rounded-xl bg-white border border-slate-200 dark:bg-slate-900/60 dark:border-slate-800 flex items-center justify-between shadow-sm">
             <div>
-              <div className="text-xs font-semibold text-slate-200">Right Speaker</div>
-              <div className="text-[10px] text-slate-400">
+              <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">Right Speaker</div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400">
                 {measurementMode === 'repeated' ? 'Select 2x - 8x sweeps (Auto +SNR)' : measurementMode === 'multi_seat' ? 'Select all seat positions' : 'REW .txt / .frd or .wav IR'}
               </div>
             </div>
@@ -355,17 +355,17 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
             />
             <button
               onClick={() => fileRightRef.current?.click()}
-              className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium"
+              className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium transition-colors"
             >
               Browse
             </button>
           </div>
 
           {/* Subwoofer */}
-          <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+          <div className="p-2.5 rounded-xl bg-white border border-slate-200 dark:bg-slate-900/60 dark:border-slate-800 flex items-center justify-between shadow-sm">
             <div>
-              <div className="text-xs font-semibold text-slate-200">Subwoofer (Optional)</div>
-              <div className="text-[10px] text-slate-400">REW .txt / .frd or .wav IR</div>
+              <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">Subwoofer (Optional)</div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400">REW .txt / .frd or .wav IR</div>
             </div>
             <input
               type="file"
@@ -377,37 +377,37 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
             />
             <button
               onClick={() => fileSubRef.current?.click()}
-              className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium"
+              className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium transition-colors"
             >
               Browse
             </button>
           </div>
 
           {/* Automated Test Signal Generator */}
-          <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-300">
+          <div className="pt-2 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
             <span className="flex items-center space-x-1.5">
-              <Download className="h-3.5 w-3.5 text-cyan-400" />
+              <Download className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
               <span>Test Sweeps (24-bit)</span>
             </span>
             <div className="flex space-x-1">
               <button
                 type="button"
                 onClick={() => downloadTestSweep('left')}
-                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-[10px] rounded text-slate-300"
+                className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 text-[10px] rounded dark:text-slate-300 transition-colors"
               >
                 Left
               </button>
               <button
                 type="button"
                 onClick={() => downloadTestSweep('right')}
-                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-[10px] rounded text-slate-300"
+                className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 text-[10px] rounded dark:text-slate-300 transition-colors"
               >
                 Right
               </button>
               <button
                 type="button"
                 onClick={() => downloadTestSweep('sub')}
-                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-[10px] rounded text-slate-300"
+                className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 text-[10px] rounded dark:text-slate-300 transition-colors"
               >
                 Sub
               </button>
@@ -415,13 +415,13 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
           </div>
 
           {/* Room Temperature & Mic Orientation */}
-          <div className="pt-2 border-t border-slate-800/80 space-y-2">
-            <div className="flex items-center justify-between text-xs text-slate-300">
+          <div className="pt-2 border-t border-slate-200 dark:border-slate-800/80 space-y-2">
+            <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
               <span className="flex items-center space-x-1">
-                <Thermometer className="h-3.5 w-3.5 text-amber-400" />
+                <Thermometer className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                 <span>Room Temp</span>
               </span>
-              <span className="font-mono text-cyan-400 font-bold">{config.temperature_celsius ?? 20}°C</span>
+              <span className="font-mono text-cyan-700 dark:text-cyan-400 font-bold">{config.temperature_celsius ?? 20}°C</span>
             </div>
             <input
               type="range"
@@ -430,15 +430,15 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
               step="1"
               value={config.temperature_celsius ?? 20}
               onChange={(e) => onChange({ ...config, temperature_celsius: parseFloat(e.target.value) })}
-              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+              className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
             />
 
-            <div className="flex items-center justify-between text-xs text-slate-300 pt-1">
+            <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 pt-1">
               <span className="flex items-center space-x-1">
-                <Compass className="h-3.5 w-3.5 text-cyan-400" />
+                <Compass className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
                 <span>Mic Polar Angle</span>
               </span>
-              <span className="font-mono text-cyan-400 font-bold">
+              <span className="font-mono text-cyan-700 dark:text-cyan-400 font-bold">
                 {(config.mic_orientation_deg ?? 0) === 90 ? '90° (Ceiling)' : '0° (On-Axis)'}
               </span>
             </div>
@@ -448,8 +448,8 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
                 onClick={() => onChange({ ...config, mic_orientation_deg: 0.0 })}
                 className={`py-1 rounded-lg text-xs font-medium border ${
                   (config.mic_orientation_deg ?? 0) === 0
-                    ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 font-bold'
-                    : 'bg-slate-900 border-slate-800 text-slate-400'
+                    ? 'bg-cyan-50 border-cyan-300 text-cyan-900 dark:bg-cyan-500/20 dark:border-cyan-500 dark:text-cyan-300 font-bold'
+                    : 'bg-white border-slate-200 text-slate-600 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400'
                 }`}
               >
                 0° On-Axis
@@ -459,8 +459,8 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
                 onClick={() => onChange({ ...config, mic_orientation_deg: 90.0 })}
                 className={`py-1 rounded-lg text-xs font-medium border ${
                   (config.mic_orientation_deg ?? 0) === 90
-                    ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 font-bold'
-                    : 'bg-slate-900 border-slate-800 text-slate-400'
+                    ? 'bg-cyan-50 border-cyan-300 text-cyan-900 dark:bg-cyan-500/20 dark:border-cyan-500 dark:text-cyan-300 font-bold'
+                    : 'bg-white border-slate-200 text-slate-600 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400'
                 }`}
               >
                 90° Diffuse
@@ -468,9 +468,9 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
             </div>
 
             {/* Relative Humidity Slider */}
-            <div className="flex items-center justify-between text-xs text-slate-300 pt-1">
+            <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 pt-1">
               <span>Relative Humidity</span>
-              <span className="font-mono text-cyan-400 font-bold">{config.relative_humidity_pct ?? 50}% RH</span>
+              <span className="font-mono text-cyan-700 dark:text-cyan-400 font-bold">{config.relative_humidity_pct ?? 50}% RH</span>
             </div>
             <input
               type="range"
@@ -479,23 +479,23 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
               step="5"
               value={config.relative_humidity_pct ?? 50}
               onChange={(e) => onChange({ ...config, relative_humidity_pct: parseFloat(e.target.value) })}
-              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+              className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
             />
           </div>
         </div>
 
         {/* Panel 2: Parametric Target Curve Tuning */}
-        <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 space-y-4">
-          <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-2">
-            <Sliders className="h-4 w-4 text-cyan-400" />
+        <div className="bg-slate-50/90 border border-slate-200 dark:bg-slate-950/60 dark:border-slate-800/80 rounded-2xl p-4 space-y-4 transition-colors">
+          <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center space-x-2">
+            <Sliders className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
             <span>Target House Curve Tuning</span>
           </h4>
 
           {/* Bass Boost */}
           <div>
-            <div className="flex justify-between text-xs font-medium text-slate-300 mb-1">
+            <div className="flex justify-between text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
               <span>Bass Shelf Boost</span>
-              <span className="font-mono text-cyan-400 font-bold">+{config.target.bass_boost_db.toFixed(1)} dB</span>
+              <span className="font-mono text-cyan-700 dark:text-cyan-400 font-bold">+{config.target.bass_boost_db.toFixed(1)} dB</span>
             </div>
             <input
               type="range"
@@ -504,15 +504,15 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
               step="0.5"
               value={config.target.bass_boost_db}
               onChange={(e) => updateTarget({ bass_boost_db: parseFloat(e.target.value) })}
-              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+              className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
             />
           </div>
 
           {/* Bass Cutoff */}
           <div>
-            <div className="flex justify-between text-xs font-medium text-slate-300 mb-1">
+            <div className="flex justify-between text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
               <span>Bass Shelf Cutoff</span>
-              <span className="font-mono text-cyan-400 font-bold">{config.target.bass_cutoff_hz.toFixed(0)} Hz</span>
+              <span className="font-mono text-cyan-700 dark:text-cyan-400 font-bold">{config.target.bass_cutoff_hz.toFixed(0)} Hz</span>
             </div>
             <input
               type="range"
@@ -521,15 +521,15 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
               step="5"
               value={config.target.bass_cutoff_hz}
               onChange={(e) => updateTarget({ bass_cutoff_hz: parseFloat(e.target.value) })}
-              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+              className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
             />
           </div>
 
           {/* Treble Roll-Off */}
           <div>
-            <div className="flex justify-between text-xs font-medium text-slate-300 mb-1">
+            <div className="flex justify-between text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
               <span>Treble Roll-off Slope</span>
-              <span className="font-mono text-cyan-400 font-bold">{config.target.hf_slope_db_per_oct.toFixed(2)} dB/oct</span>
+              <span className="font-mono text-cyan-700 dark:text-cyan-400 font-bold">{config.target.hf_slope_db_per_oct.toFixed(2)} dB/oct</span>
             </div>
             <input
               type="range"
@@ -538,24 +538,24 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
               step="0.1"
               value={config.target.hf_slope_db_per_oct}
               onChange={(e) => updateTarget({ hf_slope_db_per_oct: parseFloat(e.target.value) })}
-              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+              className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
             />
           </div>
         </div>
 
         {/* Panel 3: Acoustic Filter & DSP Parameters */}
-        <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 space-y-4 flex flex-col justify-between">
+        <div className="bg-slate-50/90 border border-slate-200 dark:bg-slate-950/60 dark:border-slate-800/80 rounded-2xl p-4 space-y-4 flex flex-col justify-between transition-colors">
           <div>
-            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-2 mb-3">
-              <Music className="h-4 w-4 text-cyan-400" />
+            <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center space-x-2 mb-3">
+              <Music className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
               <span>Acoustic Crossover & Tap Sizes</span>
             </h4>
 
             {/* Speaker Crossover */}
             <div className="mb-3">
-              <div className="flex justify-between text-xs font-medium text-slate-300 mb-1">
+              <div className="flex justify-between text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                 <span>Loudspeaker Crossover Freq</span>
-                <span className="font-mono text-cyan-400 font-bold">{config.crossover_freq_hz} Hz</span>
+                <span className="font-mono text-cyan-700 dark:text-cyan-400 font-bold">{config.crossover_freq_hz} Hz</span>
               </div>
               <input
                 type="range"
@@ -564,15 +564,15 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
                 step="50"
                 value={config.crossover_freq_hz}
                 onChange={(e) => onChange({ ...config, crossover_freq_hz: parseFloat(e.target.value) })}
-                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
               />
             </div>
 
             {/* Sub Crossover */}
             <div className="mb-3">
-              <div className="flex justify-between text-xs font-medium text-slate-300 mb-1">
+              <div className="flex justify-between text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                 <span>Subwoofer Crossover Freq</span>
-                <span className="font-mono text-cyan-400 font-bold">{config.sub_crossover_freq_hz} Hz</span>
+                <span className="font-mono text-cyan-700 dark:text-cyan-400 font-bold">{config.sub_crossover_freq_hz} Hz</span>
               </div>
               <input
                 type="range"
@@ -581,17 +581,17 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
                 step="5"
                 value={config.sub_crossover_freq_hz}
                 onChange={(e) => onChange({ ...config, sub_crossover_freq_hz: parseFloat(e.target.value) })}
-                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
               />
             </div>
 
             {/* FIR Tap Length */}
             <div>
-              <label className="text-xs font-medium text-slate-300 block mb-1">FIR Tap Length</label>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300 block mb-1">FIR Tap Length</label>
               <select
                 value={config.target_taps}
                 onChange={(e) => onChange({ ...config, target_taps: parseInt(e.target.value) })}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-cyan-400 font-semibold"
+                className="w-full bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-cyan-700 dark:text-cyan-400 font-semibold shadow-sm"
               >
                 <option value="4096">4,096 Taps (miniDSP Flex / Low Latency)</option>
                 <option value="16384">16,384 Taps (Medium Hardware)</option>

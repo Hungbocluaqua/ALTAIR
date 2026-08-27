@@ -46,4 +46,5 @@ Thumbs.db
 .codegraph/
 .reasonix/
 scratch/
-
+.agents/
+skills-lock.json

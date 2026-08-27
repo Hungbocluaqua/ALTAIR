@@ -19,6 +19,34 @@ export const App: React.FC = () => {
   const [result, setResult] = useState<OptimizationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showConsole, setShowConsole] = useState<boolean>(true);
+  
+  // Theme state: dark (Audiophile Midnight) or light (Clean Precision Studio)
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    try {
+      const saved = localStorage.getItem('altair-theme');
+      if (saved === 'light' || saved === 'dark') return saved;
+    } catch (_) {}
+    return 'dark';
+  });
+
+  useEffect(() => {
+    try {
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+      } else {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
+      }
+      localStorage.setItem('altair-theme', theme);
+    } catch (_) {}
+  }, [theme]);
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    addLog(`Theme changed to ${next === 'dark' ? 'Audiophile Midnight (Dark)' : 'Clean Precision Studio (Bright)'}`, 'info', 'UI');
+  };
 
   // Live Acoustic Terminal Console Logs
   const [logs, setLogs] = useState<ConsoleLogEntry[]>([
@@ -156,7 +184,7 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#080c14] text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
+    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#080c14] dark:text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] transition-colors">
       {/* Top Navigation */}
       <Header
         status={status}
@@ -169,6 +197,8 @@ export const App: React.FC = () => {
         showConsole={showConsole}
         onToggleConsole={() => setShowConsole(!showConsole)}
         consoleCount={logs.length}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
 
       {/* Main Content Area with Console Log on Right Side */}
@@ -177,7 +207,7 @@ export const App: React.FC = () => {
         <div className="flex-1 min-w-0 w-full space-y-6">
           {/* Error Banner */}
           {error && (
-            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-semibold flex items-center justify-between">
+            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-500 text-xs font-semibold flex items-center justify-between">
               <span>⚠️ {error}</span>
               <button onClick={() => setError(null)} className="underline ml-4">
                 Dismiss
@@ -223,6 +253,7 @@ export const App: React.FC = () => {
           <AudioPlot
             plots={result?.plots || null}
             subAlignment={result?.sub_alignment}
+            theme={theme}
           />
 
           {/* Subwoofer Alignment Interactive Tuning */}
@@ -267,9 +298,9 @@ export const App: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800/60 bg-[#080c14] py-6 text-center text-xs text-slate-500">
+      <footer className="border-t border-slate-200 bg-white dark:border-slate-800/60 dark:bg-[#080c14] py-6 text-center text-xs text-slate-500 transition-colors">
         <p>ALTAIR 1.0 • Automated Linear-phase Tuning & Acoustic Inversion Routine</p>
-        <p className="text-[11px] text-slate-600 mt-1">
+        <p className="text-[11px] text-slate-400 dark:text-slate-600 mt-1">
           Virtual Bass Array (VBA) • Tikhonov Regularized Deconvolution • 1-Cycle FDW Crossover Linearization
         </p>
       </footer>
