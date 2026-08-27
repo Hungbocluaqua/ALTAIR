@@ -43,6 +43,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { MultiSubView } from './MultiSubView';
+import { StepProgress } from './StepProgress';
 
 interface EditorialViewProps {
   config: OptimizationRequest;
@@ -139,22 +140,43 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
     runSubSimulation(result.sub_alignment.optimal_delay_ms, result.sub_alignment.polarity_multiplier);
   };
 
+  const [useSimulationSweeps, setUseSimulationSweeps] = useState<boolean>(false);
+
   // Automated Repeated Sweep Trigger
-  const handleAutoMeasure = async (channel: string) => {
+  const handleAutoMeasure = async (channel: string, forceSim = false) => {
     setIsMeasuringAuto(true);
     const chLabel = channel === 'all' ? 'FULL 2.1 SYSTEM (Mains + Sub)' : channel.toUpperCase();
-    setAutoProgressText(`⏳ Firing automated ${autoRepetitions}x coherent sweeps for ${chLabel}...`);
-    onLog?.(`Triggered automated ${autoRepetitions}x repeated sweeps for ${chLabel}...`, 'info', 'SWEEP');
+    const isSim = forceSim || useSimulationSweeps || !status?.rew_connected;
+    const modeDesc = isSim ? 'Simulated AcoustiCX' : 'REW API (:4735)';
+    setAutoProgressText(`⏳ Firing automated ${autoRepetitions}x sweeps for ${chLabel} (${modeDesc})...`);
+    onLog?.(`Triggered automated ${autoRepetitions}x repeated sweeps for ${chLabel} via ${modeDesc}...`, 'info', 'SWEEP');
 
     try {
-      const res = await triggerAutoRepeatedSweep(channel, autoRepetitions, 48000, !status?.rew_connected);
+      const res = await triggerAutoRepeatedSweep(channel, autoRepetitions, 48000, isSim);
       setAutoSweepResult(res);
       setAutoProgressText(`✅ ${chLabel} completed: ${res.status} (+${res.snr_improvement_db} dB SNR boost)`);
       onLog?.(`Completed repeated sweeps for ${chLabel} (+${res.snr_improvement_db} dB SNR boost)`, 'success', 'SWEEP');
       onChangeConfig({ ...config, use_demo_measurements: false });
     } catch (err: any) {
-      setAutoProgressText(`❌ Error: ${err.message}`);
-      onLog?.(`Auto-sweep failed: ${err.message}`, 'error', 'SWEEP');
+      const isRewCaptureFail = err.message?.includes('Ensure REW measurement mic is active') || err.message?.includes('Could not retrieve measurements');
+      if (isRewCaptureFail && !isSim) {
+        setAutoProgressText(`⚠️ REW microphone not capturing. Retrying with simulated room measurement...`);
+        onLog?.(`REW microphone not capturing. Retrying with simulated room measurement...`, 'warn', 'SWEEP');
+        try {
+          const simRes = await triggerAutoRepeatedSweep(channel, autoRepetitions, 48000, true);
+          setAutoSweepResult(simRes);
+          setAutoProgressText(`✅ ${chLabel} completed (Simulation fallback): +${simRes.snr_improvement_db} dB SNR boost`);
+          onLog?.(`Completed simulation fallback for ${chLabel} (+${simRes.snr_improvement_db} dB SNR boost)`, 'success', 'SWEEP');
+          onChangeConfig({ ...config, use_demo_measurements: false });
+          return;
+        } catch (simErr: any) {
+          setAutoProgressText(`❌ Error: ${simErr.message}`);
+          onLog?.(`Fallback failed: ${simErr.message}`, 'error', 'SWEEP');
+        }
+      } else {
+        setAutoProgressText(`❌ Error: ${err.message}`);
+        onLog?.(`Auto-sweep failed: ${err.message}`, 'error', 'SWEEP');
+      }
     } finally {
       setIsMeasuringAuto(false);
     }
@@ -667,6 +689,13 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
           </span>
         </div>
       </section>
+
+      {/* ========================================================================= */}
+      {/* OPTIMIZATION PIPELINE TELEMETRY AUDIT                                    */}
+      {/* ========================================================================= */}
+      {(isRunning || result) && (
+        <StepProgress isRunning={isRunning} result={result} progress={progress} />
+      )}
 
       {/* ========================================================================= */}
       {/* SECTION 02: NUMBERED ACOUSTIC ANALYSIS CHAPTERS (BENTO GRID)              */}

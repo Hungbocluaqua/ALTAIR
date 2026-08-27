@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { EditorialView } from './components/EditorialView';
-import { StepProgress } from './components/StepProgress';
 import { ConsoleLog, ConsoleLogEntry } from './components/ConsoleLog';
 import { StatusResponse, OptimizationRequest, OptimizationResponse, ProgressEvent } from './types';
 import { fetchStatus, runOptimizationStreamed } from './api/client';
@@ -251,11 +250,6 @@ export const App: React.FC = () => {
                 Dismiss
               </button>
             </div>
-          )}
-
-          {/* Live Step Progress (while in-flight or completed) */}
-          {(isRunning || result) && (
-            <StepProgress isRunning={isRunning} result={result} progress={progress} />
           )}
 
           {/* Unified Master Editorial Monograph & Acoustic Laboratory */}

@@ -60,7 +60,7 @@ export const StepProgress: React.FC<StepProgressProps> = ({ isRunning, result, p
       id: 6,
       title: 'Subwoofer Co-Optimization',
       detail: result && result.sub_alignment
-        ? `Aligned delay (+${result.sub_alignment.optimal_delay_ms.toFixed(2)} ms, ${result.sub_alignment.optimal_polarity}), +${result.sub_alignment.gain_improvement_db.toFixed(1)} dB boost`
+        ? `Aligned delay (${result.sub_alignment.optimal_delay_ms > 0 ? `+${result.sub_alignment.optimal_delay_ms.toFixed(2)}` : result.sub_alignment.optimal_delay_ms.toFixed(2)} ms, ${result.sub_alignment.optimal_polarity}), +${result.sub_alignment.gain_improvement_db.toFixed(1)} dB boost`
         : 'Searching optimal sub time-delay grid...',
     },
     {
