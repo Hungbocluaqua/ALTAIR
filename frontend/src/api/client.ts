@@ -331,3 +331,52 @@ export async function runRepeatedSweeps(opts: {
     message: data.message,
   };
 }
+
+// ---------------------------------------------------------------------------
+// REW Lifecycle & Auto-Start Management
+// ---------------------------------------------------------------------------
+export async function fetchRewStatus(): Promise<any> {
+  const resp = await fetch(`${API_BASE}/rew/status`);
+  if (!resp.ok) throw new Error(`REW status failed: ${resp.statusText}`);
+  return resp.json();
+}
+
+export async function detectRew(): Promise<any> {
+  const resp = await fetch(`${API_BASE}/rew/detect`, { method: 'POST' });
+  if (!resp.ok) throw new Error(`REW detection failed: ${resp.statusText}`);
+  return resp.json();
+}
+
+export async function startRew(executablePath?: string, autoStartPreference?: boolean): Promise<any> {
+  const resp = await fetch(`${API_BASE}/rew/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      executable_path: executablePath || null,
+      auto_start_preference: autoStartPreference !== undefined ? autoStartPreference : null,
+    }),
+  });
+  if (!resp.ok) {
+    const errorData = await resp.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to start REW: ${resp.statusText}`);
+  }
+  return resp.json();
+}
+
+export async function updateRewSettings(autoStart?: boolean, customPath?: string): Promise<any> {
+  const resp = await fetch(`${API_BASE}/rew/settings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      auto_start: autoStart !== undefined ? autoStart : null,
+      custom_rew_path: customPath || null,
+    }),
+  });
+  if (!resp.ok) {
+    const errorData = await resp.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to update REW settings: ${resp.statusText}`);
+  }
+  return resp.json();
+}
+
+

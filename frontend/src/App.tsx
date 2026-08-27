@@ -3,9 +3,10 @@ import { Header } from './components/Header';
 import { EditorialView } from './components/EditorialView';
 import { ConsoleLog, ConsoleLogEntry } from './components/ConsoleLog';
 import { SetupWizardModal } from './components/SetupWizardModal';
+import { RewLauncherModal } from './components/RewLauncherModal';
 import { StatusResponse, OptimizationRequest, OptimizationResponse, ProgressEvent } from './types';
-import { fetchStatus, runOptimizationStreamed } from './api/client';
-import { Terminal, X } from 'lucide-react';
+import { fetchStatus, runOptimizationStreamed, startRew } from './api/client';
+import { Terminal, X, Activity, Play, Zap } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [status, setStatus] = useState<StatusResponse | null>(null);
@@ -16,6 +17,9 @@ export const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showConsole, setShowConsole] = useState<boolean>(false);
   const [showSetupWizard, setShowSetupWizard] = useState<boolean>(false);
+  const [showRewModal, setShowRewModal] = useState<boolean>(false);
+  const [showRewPrompt, setShowRewPrompt] = useState<boolean>(true);
+  const [isStartingRew, setIsStartingRew] = useState<boolean>(false);
   const [progress, setProgress] = useState<ProgressEvent | null>(null);
   const lastLoggedStageRef = useRef<string | null>(null);
   
@@ -114,6 +118,28 @@ export const App: React.FC = () => {
       );
     } catch (e: any) {
       addLog(`Status poll failed: ${e.message}`, 'warn', 'STATUS');
+    }
+  };
+
+  const handleStartRew = async (autoStart?: boolean) => {
+    setIsStartingRew(true);
+    addLog('Launching Room EQ Wizard with -api flag...', 'info', 'REW');
+    try {
+      const res = await startRew(undefined, autoStart);
+      if (res.connected) {
+        addLog(`Room EQ Wizard connected on port 4735 (${res.elapsed_s ?? 3}s)`, 'success', 'REW');
+        setShowRewPrompt(false);
+        await checkStatus();
+      } else if (res.success) {
+        addLog(res.message || 'REW process running, awaiting API server...', 'info', 'REW');
+        await checkStatus();
+      } else {
+        addLog(`REW launch notice: ${res.error || res.message}`, 'warn', 'REW');
+      }
+    } catch (err: any) {
+      addLog(`Failed to start REW: ${err.message}`, 'error', 'REW');
+    } finally {
+      setIsStartingRew(false);
     }
   };
 
@@ -240,10 +266,61 @@ export const App: React.FC = () => {
         theme={theme}
         onToggleTheme={toggleTheme}
         onOpenSetupWizard={() => setShowSetupWizard(true)}
+        onOpenRewModal={() => setShowRewModal(true)}
       />
 
       {/* Main Full-Width Content Canvas */}
       <main className="flex-1 max-w-[1720px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Interactive REW Launch & Auto-Start Prompt Banner */}
+        {!status?.rew_connected && status?.rew_installed && showRewPrompt && (
+          <div className="mb-6 p-4 rounded-xl border border-amber-300 dark:border-amber-500/40 bg-amber-50/90 dark:bg-amber-950/20 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fadeIn">
+            <div className="flex items-start sm:items-center space-x-3.5">
+              <div className="p-2.5 rounded-lg bg-amber-600/15 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300 shrink-0">
+                <Activity className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="font-serif font-bold text-sm text-stone-900 dark:text-stone-100 flex items-center space-x-2 flex-wrap gap-1">
+                  <span>Room EQ Wizard is not running</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-200/70 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 font-bold border border-amber-300/60 dark:border-amber-700/60">
+                    {status?.rew_name || 'REW'} • {status?.rew_dir || 'C:\\Program Files\\REW'}
+                  </span>
+                </div>
+                <p className="text-xs text-stone-600 dark:text-stone-300 font-sans mt-1">
+                  Would you like to start Room EQ Wizard now with REST API (:4735) enabled, or configure it to start automatically?
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2.5 shrink-0">
+              <button
+                type="button"
+                disabled={isStartingRew}
+                onClick={() => handleStartRew(false)}
+                className="px-3.5 py-2 rounded-lg bg-amber-700 hover:bg-amber-800 text-white dark:bg-amber-500 dark:text-stone-950 dark:hover:bg-amber-400 text-xs font-sans font-bold flex items-center space-x-1.5 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                <Play className="h-3.5 w-3.5 fill-current" />
+                <span>{isStartingRew ? 'Starting REW...' : 'Start REW'}</span>
+              </button>
+              <button
+                type="button"
+                disabled={isStartingRew}
+                onClick={() => handleStartRew(true)}
+                className="px-3.5 py-2 rounded-lg bg-stone-900 hover:bg-stone-800 text-white dark:bg-stone-100 dark:text-stone-950 dark:hover:bg-stone-200 text-xs font-sans font-bold flex items-center space-x-1.5 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                <Zap className="h-3.5 w-3.5 text-amber-500 fill-current" />
+                <span>Start Automatically</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowRewPrompt(false)}
+                className="p-2 rounded-lg hover:bg-amber-200/50 dark:hover:bg-stone-800 text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 transition-colors"
+                title="Dismiss"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Error Banner */}
         {error && (
           <div className="mb-6 p-4 rounded-lg border border-red-300 bg-red-50 text-red-800 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300 text-xs font-sans font-semibold flex items-center justify-between">
@@ -268,6 +345,14 @@ export const App: React.FC = () => {
           onOpenSetupWizard={() => setShowSetupWizard(true)}
         />
       </main>
+
+      {/* Room EQ Wizard Manager Modal */}
+      <RewLauncherModal
+        isOpen={showRewModal}
+        onClose={() => setShowRewModal(false)}
+        onRefreshStatus={checkStatus}
+        onLog={addLog}
+      />
 
       {/* Setup Wizard Modal */}
       <SetupWizardModal

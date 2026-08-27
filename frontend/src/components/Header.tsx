@@ -13,6 +13,7 @@ interface HeaderProps {
   theme?: 'dark' | 'light';
   onToggleTheme?: () => void;
   onOpenSetupWizard?: () => void;
+  onOpenRewModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -26,6 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
   theme = 'dark',
   onToggleTheme,
   onOpenSetupWizard,
+  onOpenRewModal,
 }) => {
   return (
     <header className="border-b border-stone-200/90 bg-white/95 text-stone-800 dark:border-stone-800/90 dark:bg-[#121316]/95 dark:text-stone-100 backdrop-blur sticky top-0 z-40 transition-colors duration-200">
@@ -52,23 +54,35 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Controls & Badges */}
         <div className="flex items-center space-x-2.5 sm:space-x-3">
-          {/* REW API Status Indicator */}
-          <div className="hidden md:flex items-center space-x-2 bg-stone-50 border border-stone-200 text-stone-700 dark:bg-[#0E0F12] dark:border-stone-800 dark:text-stone-300 px-3 py-1.5 rounded-md text-xs font-sans transition-colors">
-            {status?.rew_connected ? (
-              <>
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400/60 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-600 dark:bg-amber-400"></span>
-                </span>
-                <span className="font-semibold text-stone-800 dark:text-stone-200">REW Active</span>
-                <span className="text-[10px] font-mono text-amber-700 dark:text-amber-400 font-bold">:4735</span>
-              </>
-            ) : (
-              <>
-                <span className="h-2 w-2 rounded-full bg-stone-400 dark:bg-stone-600"></span>
-                <span className="text-stone-500 dark:text-stone-400">Standalone</span>
-              </>
-            )}
+          {/* REW API Status Indicator (Clickable to open REW Manager) */}
+          <div className="hidden md:flex items-center space-x-2 bg-stone-50 border border-stone-200 text-stone-700 dark:bg-[#0E0F12] dark:border-stone-800 dark:text-stone-300 px-3 py-1.5 rounded-md text-xs font-sans transition-colors shadow-sm">
+            <button
+              type="button"
+              onClick={onOpenRewModal}
+              title="Click to open Room EQ Wizard Manager"
+              className="flex items-center space-x-2 hover:opacity-85 transition-opacity"
+            >
+              {status?.rew_connected ? (
+                <>
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400/60 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600 dark:bg-emerald-400"></span>
+                  </span>
+                  <span className="font-semibold text-stone-800 dark:text-stone-200">REW Active</span>
+                  <span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 font-bold">:4735</span>
+                </>
+              ) : (
+                <>
+                  <span className="h-2 w-2 rounded-full bg-stone-400 dark:bg-stone-600"></span>
+                  <span className="text-stone-600 dark:text-stone-400 font-medium">REW Offline</span>
+                  {status?.rew_installed && (
+                    <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold underline ml-1">
+                      Start
+                    </span>
+                  )}
+                </>
+              )}
+            </button>
             <button
               onClick={onRefreshStatus}
               title="Refresh REW Connection"

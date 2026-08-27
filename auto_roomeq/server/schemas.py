@@ -12,6 +12,22 @@ class StatusResponse(BaseModel):
     rew_connected: bool
     rew_base_url: str
     rew_message: Optional[str] = None
+    rew_installed: bool = False
+    rew_name: Optional[str] = None
+    rew_path: Optional[str] = None
+    rew_dir: Optional[str] = None
+    rew_process_running: bool = False
+    rew_auto_start: bool = False
+
+
+class RewLaunchRequest(BaseModel):
+    executable_path: Optional[str] = None
+    auto_start_preference: Optional[bool] = None
+
+
+class RewSettingsRequest(BaseModel):
+    auto_start: Optional[bool] = None
+    custom_rew_path: Optional[str] = None
 
 
 class TargetConfig(BaseModel):

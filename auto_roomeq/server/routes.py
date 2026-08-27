@@ -18,9 +18,18 @@ from .schemas import (
     OptimizationResponse,
     PlotData,
     AcousticIntelligence,
+    RewLaunchRequest,
+    RewSettingsRequest,
 )
 from ..orchestrator import OptimizationOrchestrator, generate_demo_room_measurements
 from ..integrations.rew_api import RewApiClient
+from ..integrations.rew_manager import (
+    get_rew_status,
+    start_rew_background,
+    save_altair_settings,
+    load_altair_settings,
+    is_rew_process_active,
+)
 from ..dsp.measurement import parse_rew_text, load_wav_ir, Measurement, hybrid_spatial_average
 from ..dsp.acquisition import load_cal_file, recorded_sweep_to_measurement
 from ..dsp.mdat_parser import parse_mdat
@@ -287,15 +296,65 @@ async def _execute_pipeline(request: OptimizationRequest) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 @router.get("/status", response_model=StatusResponse)
 async def get_status():
-    """Check REW API connectivity and system state."""
-    rew_status = await rew_client.check_connection()
+    """Check REW API connectivity, installation detection, and auto-start state."""
+    rew_conn = await rew_client.check_connection()
+    connected = rew_conn.get("connected", False)
+    rew_info = await get_rew_status(base_url=rew_client.base_url)
+
+    # If user configured auto-start and REW is installed but not running, launch it in the background!
+    if not connected and rew_info["installed"] and rew_info["auto_start"] and not rew_info["process_running"]:
+        asyncio.create_task(start_rew_background(rew_info["executable_path"]))
+
     return StatusResponse(
         app="ALTAIR",
         version="1.0.0",
-        rew_connected=rew_status.get("connected", False),
+        rew_connected=connected,
         rew_base_url=rew_client.base_url,
-        rew_message=rew_status.get("message") or rew_status.get("error"),
+        rew_message=rew_conn.get("message") or rew_conn.get("error"),
+        rew_installed=rew_info["installed"],
+        rew_name=rew_info["name"],
+        rew_path=rew_info["executable_path"],
+        rew_dir=rew_info["directory"],
+        rew_process_running=rew_info["process_running"],
+        rew_auto_start=rew_info["auto_start"],
     )
+
+
+@router.get("/rew/status")
+async def rew_status_endpoint():
+    """Get comprehensive REW installation, directory, process, and API state."""
+    return await get_rew_status(base_url=rew_client.base_url)
+
+
+@router.post("/rew/detect")
+async def rew_detect_endpoint():
+    """Search the filesystem and registry for Room EQ Wizard directory and executable."""
+    return await get_rew_status(base_url=rew_client.base_url)
+
+
+@router.post("/rew/start")
+async def rew_start_endpoint(req: Optional[RewLaunchRequest] = None):
+    """Launch Room EQ Wizard in the background with the -api flag."""
+    exe_path = req.executable_path if req else None
+    if req and req.auto_start_preference is not None:
+        settings = load_altair_settings()
+        settings["auto_start_rew"] = bool(req.auto_start_preference)
+        save_altair_settings(settings)
+
+    result = await start_rew_background(executable_path=exe_path)
+    return result
+
+
+@router.post("/rew/settings")
+async def rew_settings_endpoint(req: RewSettingsRequest):
+    """Update REW auto-start and custom directory preferences."""
+    settings = load_altair_settings()
+    if req.auto_start is not None:
+        settings["auto_start_rew"] = bool(req.auto_start)
+    if req.custom_rew_path is not None:
+        settings["custom_rew_path"] = req.custom_rew_path.strip() if req.custom_rew_path.strip() else None
+    save_altair_settings(settings)
+    return await get_rew_status(base_url=rew_client.base_url)
 
 
 @router.get("/rew/measurements")

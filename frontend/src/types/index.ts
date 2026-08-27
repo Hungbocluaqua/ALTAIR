@@ -4,6 +4,24 @@ export interface StatusResponse {
   rew_connected: boolean;
   rew_base_url: string;
   rew_message?: string;
+  rew_installed?: boolean;
+  rew_name?: string;
+  rew_path?: string;
+  rew_dir?: string;
+  rew_process_running?: boolean;
+  rew_auto_start?: boolean;
+}
+
+export interface RewStatusInfo {
+  installed: boolean;
+  name: string;
+  executable_path: string | null;
+  directory: string | null;
+  process_running: boolean;
+  api_connected: boolean;
+  auto_start: boolean;
+  port: number;
+  base_url: string;
 }
 
 export interface TargetCurveConfig {

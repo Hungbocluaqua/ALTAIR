@@ -22,6 +22,7 @@ import {
   Terminal,
   ChevronDown,
   ChevronUp,
+  Play,
 } from 'lucide-react';
 import { OptimizationRequest, StatusResponse, SessionStatus } from '../types';
 import {
@@ -30,6 +31,7 @@ import {
   uploadMultiSubMeasurementFiles,
   runRepeatedSweeps,
   getSessionStatus,
+  startRew,
 } from '../api/client';
 
 interface SetupWizardModalProps {
@@ -79,6 +81,25 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
       setSessionInfo(s);
     } catch (_) {
       /* ignore */
+    }
+  };
+
+  const [isStartingRew, setIsStartingRew] = useState<boolean>(false);
+
+  const handleStartRewModal = async (autoStart?: boolean) => {
+    setIsStartingRew(true);
+    onLog('Launching Room EQ Wizard (-api) from Wizard...', 'info', 'REW');
+    try {
+      const res = await startRew(undefined, autoStart);
+      if (res.connected) {
+        onLog(`Room EQ Wizard connected on port 4735 (${res.elapsed_s ?? 3}s)`, 'success', 'REW');
+      } else {
+        onLog(res.message || 'REW launched, waiting for API port 4735...', 'info', 'REW');
+      }
+    } catch (e: any) {
+      onLog(`Failed to launch REW: ${e.message}`, 'error', 'REW');
+    } finally {
+      setIsStartingRew(false);
     }
   };
 
@@ -408,6 +429,53 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
                 <h3 className="text-base font-serif font-bold text-stone-900 dark:text-stone-100">
                   'Single' Microphone Position Measurement Sequence
                 </h3>
+              </div>
+
+              {/* REW Integration & Launch Bar */}
+              <div className="p-3.5 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-sans transition-colors bg-stone-50 dark:bg-[#0E0F12] border-stone-200 dark:border-stone-800">
+                <div className="flex items-center space-x-3">
+                  <div className={`p-2 rounded-lg ${status?.rew_connected ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-700 dark:text-amber-400'}`}>
+                    <Activity className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-stone-900 dark:text-stone-100 flex items-center space-x-1.5">
+                      <span>Room EQ Wizard:</span>
+                      {status?.rew_connected ? (
+                        <span className="text-emerald-700 dark:text-emerald-400 font-mono text-[11px] font-bold">CONNECTED (:4735)</span>
+                      ) : (
+                        <span className="text-amber-700 dark:text-amber-400 font-mono text-[11px] font-bold">OFFLINE (Standalone)</span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-stone-500 truncate max-w-sm">
+                      {status?.rew_installed
+                        ? `${status?.rew_name || 'REW'} in ${status?.rew_dir || 'C:\\Program Files\\REW'}`
+                        : 'REW not detected in standard directories'}
+                    </div>
+                  </div>
+                </div>
+
+                {!status?.rew_connected && status?.rew_installed && (
+                  <div className="flex items-center space-x-2 shrink-0">
+                    <button
+                      type="button"
+                      disabled={isStartingRew}
+                      onClick={() => handleStartRewModal(false)}
+                      className="px-3 py-1.5 rounded-md bg-amber-700 hover:bg-amber-800 text-white dark:bg-amber-500 dark:text-stone-950 dark:hover:bg-amber-400 text-xs font-bold flex items-center space-x-1.5 transition-all active:scale-[0.98] disabled:opacity-50 shadow-sm"
+                    >
+                      <Play className="h-3 w-3 fill-current" />
+                      <span>{isStartingRew ? 'Starting...' : 'Start REW'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isStartingRew}
+                      onClick={() => handleStartRewModal(true)}
+                      className="px-3 py-1.5 rounded-md bg-stone-900 hover:bg-stone-800 text-white dark:bg-stone-100 dark:text-stone-950 dark:hover:bg-stone-200 text-xs font-bold flex items-center space-x-1.5 transition-all active:scale-[0.98] disabled:opacity-50 shadow-sm"
+                    >
+                      <Zap className="h-3 w-3 text-amber-500 fill-current" />
+                      <span>Auto-Start</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* IMPORTANT Guidelines Box (Matches AcoustiCX Note) */}
