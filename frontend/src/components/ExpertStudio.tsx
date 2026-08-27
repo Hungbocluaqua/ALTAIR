@@ -28,6 +28,7 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
   const [autoRepetitions, setAutoRepetitions] = useState<number>(4);
   const [isMeasuringAuto, setIsMeasuringAuto] = useState<boolean>(false);
   const [autoProgressText, setAutoProgressText] = useState<string | null>(null);
+  const [autoSweepResult, setAutoSweepResult] = useState<any>(null);
 
   const handleAutoMeasure = async (channel: string) => {
     setIsMeasuringAuto(true);
@@ -36,6 +37,7 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
     
     try {
       const res = await triggerAutoRepeatedSweep(channel, autoRepetitions, 48000, !rewConnected);
+      setAutoSweepResult(res);
       setAutoProgressText(`✅ ${res.message || `Captured & coherently stacked ${autoRepetitions}x sweeps (+${res.snr_improvement_db} dB SNR boost)!`}`);
       onChange({ ...config, use_demo_measurements: false });
     } catch (err: any) {
@@ -130,21 +132,22 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
           <div className="flex items-center space-x-1.5 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
             <span className="text-[11px] text-slate-400 font-semibold px-2">Stack:</span>
             {[
-              { count: 2, snr: '+3.0 dB' },
-              { count: 4, snr: '+6.0 dB' },
-              { count: 8, snr: '+9.0 dB' },
+              { count: 1, label: '1x Test', snr: 'Single' },
+              { count: 2, label: '2x Fast', snr: '+3.0 dB' },
+              { count: 4, label: '4x Rec.', snr: '+6.0 dB' },
+              { count: 8, label: '8x Safe', snr: '+9.0 dB' },
             ].map((r) => (
               <button
                 key={r.count}
                 type="button"
                 onClick={() => setAutoRepetitions(r.count)}
-                className={`px-2.5 py-1 text-xs rounded-lg font-bold transition-all ${
+                className={`px-2 py-1 text-xs rounded-lg font-bold transition-all ${
                   autoRepetitions === r.count
                     ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/25'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                {r.count}x <span className="text-[10px] font-mono opacity-80">({r.snr})</span>
+                {r.label} <span className="text-[9.5px] font-mono opacity-80">({r.snr})</span>
               </button>
             ))}
           </div>
@@ -214,6 +217,52 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
           <div className="p-3 rounded-xl bg-slate-900 border border-cyan-500/30 text-xs text-cyan-200 flex items-center justify-between animate-fadeIn">
             <span className="font-mono">{autoProgressText}</span>
             {isMeasuringAuto && <RefreshCw className="h-4 w-4 text-cyan-400 animate-spin ml-2 shrink-0" />}
+          </div>
+        )}
+
+        {/* AcoustiCX Intelligent Averaging Diagnostics */}
+        {autoSweepResult && autoSweepResult.details && (
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-emerald-500/30 space-y-2 text-xs">
+            <div className="flex items-center justify-between text-emerald-400 font-bold uppercase tracking-wider text-[11px]">
+              <span className="flex items-center space-x-1.5">
+                <span>📊 AcoustiCX Intelligent Stacking Report</span>
+              </span>
+              <span className="text-white font-mono bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/30">
+                SNR Boost: +{autoSweepResult.snr_improvement_db} dB
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 font-mono text-[11.5px]">
+              {Object.entries(autoSweepResult.details).map(([ch, det]: [string, any]) => (
+                <div key={ch} className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 space-y-1">
+                  <div className="flex items-center justify-between text-cyan-300 font-bold capitalize">
+                    <span>{ch} Channel</span>
+                    <span className="text-[10px] text-slate-400">({det.repetitions} sweeps)</span>
+                  </div>
+                  <div className="text-slate-300 space-y-0.5 text-[11px]">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Accepted:</span>
+                      <span className="text-emerald-400">{det.repetitions}/{det.total_requested || det.repetitions} ({det.rejection_rate_pct ?? 0}% rejected)</span>
+                    </div>
+                    {det.baseline_snr_db !== undefined && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Single SNR:</span>
+                        <span className="text-slate-200">{det.baseline_snr_db} dB</span>
+                      </div>
+                    )}
+                    {det.final_snr_db !== undefined && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Stacked SNR:</span>
+                        <span className="text-cyan-300 font-semibold">{det.final_snr_db} dB</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold pt-0.5 border-t border-slate-800">
+                      <span className="text-slate-400">SNR Gain:</span>
+                      <span className="text-emerald-400">+{det.snr_gain_db} dB</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

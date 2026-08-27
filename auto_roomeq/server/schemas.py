@@ -63,6 +63,9 @@ class AcousticIntelligence(BaseModel):
     pressure_kpa: Optional[float] = None
     air_absorption_loss_10k_db: Optional[float] = None
     sbir_diagnostics: Optional[List[Dict[str, Any]]] = None
+    microphone_geometry: Optional[Dict[str, Any]] = None
+    crossover_hardware_snapping: Optional[Dict[str, Any]] = None
+    split_gain_staging: Optional[Dict[str, Any]] = None
 
 
 class SubAlignmentResult(BaseModel):

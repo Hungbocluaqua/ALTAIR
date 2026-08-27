@@ -84,6 +84,60 @@ export const AcousticIntelligenceBanner: React.FC<AcousticIntelligenceBannerProp
         </div>
       </div>
 
+      {/* AcoustiCX Physical Geometry, Distances & Hardware Crossover Section */}
+      {intel.microphone_geometry && (
+        <div className="mt-3 pt-3 border-t border-slate-800/80 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          {/* Column 1: Microphone Off-Center & Distances */}
+          <div className="p-2.5 rounded-lg bg-slate-950/40 border border-slate-800/60">
+            <div className="flex items-center justify-between text-slate-300 font-semibold mb-1.5">
+              <span className="flex items-center space-x-1.5 text-cyan-400">
+                <span>📍 Physical Geometry & Distances</span>
+              </span>
+              {intel.microphone_geometry.impulse_response_correlation !== undefined && (
+                <span className="text-[11px] font-mono text-slate-400">
+                  IR Correlation: <span className="text-emerald-400">{(intel.microphone_geometry.impulse_response_correlation * 100).toFixed(1)}%</span>
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-300 font-medium mb-1">
+              {intel.microphone_geometry.geometry_summary}
+            </p>
+            <div className="flex items-center space-x-3 text-[11px] font-mono text-slate-400 mt-1.5">
+              <span>L: <span className="text-white font-semibold">{intel.microphone_geometry.distances.front_left.meters}m ({intel.microphone_geometry.distances.front_left.feet}ft)</span></span>
+              <span>R: <span className="text-white font-semibold">{intel.microphone_geometry.distances.front_right.meters}m ({intel.microphone_geometry.distances.front_right.feet}ft)</span></span>
+              {intel.microphone_geometry.distances.subwoofer && (
+                <span>Sub: <span className="text-cyan-300 font-semibold">{intel.microphone_geometry.distances.subwoofer.meters}m ({intel.microphone_geometry.distances.subwoofer.feet}ft)</span></span>
+              )}
+            </div>
+          </div>
+
+          {/* Column 2: Hardware Crossover Snapping & Split Gain Staging */}
+          <div className="p-2.5 rounded-lg bg-slate-950/40 border border-slate-800/60 flex flex-col justify-between">
+            {intel.crossover_hardware_snapping && (
+              <div>
+                <div className="flex items-center justify-between text-slate-300 font-semibold mb-1">
+                  <span className="text-amber-400">🎛️ Snapped Hardware Crossover</span>
+                  <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                    Snap: {intel.crossover_hardware_snapping.snapped_hardware_crossover_hz} Hz
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-slate-400">
+                  {intel.crossover_hardware_snapping.summary}
+                </p>
+              </div>
+            )}
+            {intel.split_gain_staging && (
+              <div className="mt-2 pt-2 border-t border-slate-800/40 flex items-center justify-between text-[11px] font-mono">
+                <span className="text-slate-400">Dynamic Range Split:</span>
+                <span className="text-slate-200">
+                  Hardware: <span className="text-amber-400 font-semibold">{intel.split_gain_staging.recommended_hardware_db} dB</span> • DSP: <span className="text-cyan-400 font-semibold">{intel.split_gain_staging.dsp_fine_trim_db > 0 ? `+${intel.split_gain_staging.dsp_fine_trim_db}` : intel.split_gain_staging.dsp_fine_trim_db} dB</span>
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Extra Row: Group Delay Crossovers & SBIR Diagnostic */}
       <div className="mt-3 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
         {intel.detected_crossovers && intel.detected_crossovers.length > 0 && (

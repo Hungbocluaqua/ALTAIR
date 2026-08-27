@@ -192,3 +192,71 @@ def test_wavelet_modal_decay_analysis():
     assert len(res) == 2
     assert res[0]["freq_hz"] == 50.0
     assert res[0]["is_true_mode"] is True
+
+
+def test_intelligent_impulse_stacking_and_outlier_rejection():
+    """Verify intelligent stacking identifies reference candidate and rejects noisy outliers."""
+    from auto_roomeq.dsp.acquisition import coherent_impulse_stack
+    
+    sr = 48000
+    n = 4096
+    clean_ir = np.zeros(n)
+    clean_ir[200] = 1.0
+    clean_ir[250] = -0.4
+    
+    # 4 clean repeats with slight noise
+    repeats = [clean_ir + np.random.normal(0, 0.005, n) for _ in range(4)]
+    # 1 outlier repeat corrupted by a burst (low correlation)
+    corrupted_ir = np.random.normal(0, 0.5, n)
+    repeats.append(corrupted_ir)
+    
+    stacked, snr_gain, diag = coherent_impulse_stack(repeats, sample_rate=sr, min_correlation_threshold=0.80, return_diagnostics=True)
+    
+    assert diag["total_count"] == 5
+    assert diag["accepted_count"] == 4
+    assert diag["rejection_rate_pct"] == 20.0
+    assert diag["snr_improvement_db"] >= 5.0  # +6 dB theoretical from 4x stack
+    assert len(diag["correlation_scores"]) == 5
+    # Corrupted one has low correlation
+    assert any(c < 0.80 for c in diag["correlation_scores"])
+
+
+def test_acoustix_microphone_geometry_and_distances():
+    """Verify physical mic offset and acoustic distance calculations (A1 Evo AcoustiCX style)."""
+    from auto_roomeq.dsp.acoustic_analysis import calculate_microphone_geometry_offset
+    
+    # 0.638 ms delay difference (FR arrives 0.638 ms later than FL)
+    geom = calculate_microphone_geometry_offset(
+        lag_ms=0.638,
+        speed_of_sound_mps=343.2,
+        ref_distance_m=2.75,
+        sub_delay_ms=16.5,
+    )
+    
+    # Path difference ~ 218.9 mm -> offset ~ 109.5 mm left off center
+    assert 105.0 <= geom["mic_off_center_mm"] <= 115.0
+    assert geom["off_center_direction"] == "left"
+    assert "left off-center" in geom["geometry_summary"].lower()
+    
+    dist = geom["distances"]
+    assert dist["front_left"]["meters"] == 2.75
+    assert abs(dist["front_left"]["feet"] - 9.02) < 0.1
+    assert dist["front_right"]["meters"] > 2.75
+    assert "subwoofer" in dist
+    assert dist["subwoofer"]["meters"] > 5.0
+
+
+def test_acoustix_crossover_snapping_and_split_gain():
+    """Verify hardware crossover snapping and split gain staging."""
+    from auto_roomeq.dsp.acoustic_analysis import calculate_snapped_crossover_pair, calculate_split_gain_staging
+    
+    # FL=57 Hz, FR=62 Hz -> avg 59.5 Hz -> snaps to 60 Hz
+    xo = calculate_snapped_crossover_pair(left_rolloff_hz=57.0, right_rolloff_hz=62.0)
+    assert xo["snapped_hardware_crossover_hz"] == 60
+    assert "60Hz" in xo["summary"]
+    
+    # -5.32 dB global headroom -> -5.5 dB hardware, +0.18 dB DSP trim
+    gain = calculate_split_gain_staging(target_attenuation_db=-5.32, step_size_db=0.5)
+    assert gain["recommended_hardware_db"] == -5.5
+    assert abs(gain["dsp_fine_trim_db"] - 0.18) < 0.01
+

@@ -345,7 +345,9 @@ async def trigger_auto_repeated_sweep(
                 noise = np.random.normal(0, 0.002, size=len(base_meas.ir))
                 noisy_repeats.append(base_meas.ir + noise)
                 
-            stacked_ir, snr_gain = coherent_impulse_stack(noisy_repeats, sample_rate=sample_rate)
+            stacked_ir, snr_gain, diag = coherent_impulse_stack(
+                noisy_repeats, sample_rate=sample_rate, return_diagnostics=True
+            )
             
             stacked_meas = Measurement(
                 name=f"ALTAIR_{ch.upper()}_{repetitions}x_Stacked",
@@ -355,7 +357,11 @@ async def trigger_auto_repeated_sweep(
             async with state_lock:
                 current_measurements[ch] = stacked_meas
             results_summary[ch] = {
-                "repetitions": repetitions,
+                "repetitions": diag["accepted_count"],
+                "total_requested": repetitions,
+                "rejection_rate_pct": diag["rejection_rate_pct"],
+                "baseline_snr_db": diag["baseline_snr_db"],
+                "final_snr_db": diag["final_snr_db"],
                 "snr_gain_db": round(float(snr_gain), 2),
                 "mode": "simulated",
             }

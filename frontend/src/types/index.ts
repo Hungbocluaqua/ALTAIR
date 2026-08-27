@@ -43,6 +43,37 @@ export interface SbirDiagnostic {
   recommendation: string;
 }
 
+export interface MicrophoneGeometry {
+  delay_offset_ms: number;
+  path_difference_mm: number;
+  mic_off_center_mm: number;
+  off_center_direction: string;
+  geometry_summary: string;
+  impulse_response_correlation?: number;
+  distances: {
+    front_left: { meters: number; feet: number };
+    front_right: { meters: number; feet: number };
+    subwoofer?: { meters: number; feet: number };
+  };
+}
+
+export interface CrossoverHardwareSnapping {
+  left_optimal_hz: number;
+  right_optimal_hz: number;
+  mathematical_average_hz: number;
+  snapped_hardware_crossover_hz: number;
+  crossover_slope: string;
+  rms_transition_error_db: number;
+  summary: string;
+}
+
+export interface SplitGainStaging {
+  net_volume_adjustment_db: number;
+  recommended_hardware_db: number;
+  dsp_fine_trim_db: number;
+  summary: string;
+}
+
 export interface AcousticIntelligence {
   detected_schroeder_hz: number;
   detected_reflection_gap_ms: number;
@@ -57,6 +88,9 @@ export interface AcousticIntelligence {
   pressure_kpa?: number;
   air_absorption_loss_10k_db?: number;
   sbir_diagnostics?: SbirDiagnostic[];
+  microphone_geometry?: MicrophoneGeometry;
+  crossover_hardware_snapping?: CrossoverHardwareSnapping;
+  split_gain_staging?: SplitGainStaging;
 }
 
 export interface PlotData {

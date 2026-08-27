@@ -12,7 +12,7 @@ Implements:
 - Multi-seat cross-position spatial variance weighting.
 """
 
-from typing import List, Tuple, Optional, Dict, Union
+from typing import List, Tuple, Optional, Dict, Union, Any
 import numpy as np
 from scipy import signal
 
@@ -489,5 +489,125 @@ def classify_sbir_boundary_cancellations(
         })
         
     return results
+
+
+def calculate_microphone_geometry_offset(
+    lag_ms: float,
+    speed_of_sound_mps: float = 343.2,
+    ref_distance_m: float = 3.0,
+    sub_delay_ms: Optional[float] = None,
+) -> Dict[str, Any]:
+    """
+    Physical Acoustic Geometry & Microphone Alignment Diagnostics.
+    (Inspired by A1 Evo AcoustiCX Sonic Precision Engine).
+    
+    Computes direct-sound path difference and physical microphone off-center offset (in mm).
+    Calculates acoustic distances in both meters and feet.
+    """
+    path_diff_m = speed_of_sound_mps * (lag_ms / 1000.0)
+    # Physical offset from center between L and R
+    offset_mm = (path_diff_m / 2.0) * 1000.0
+    
+    dist_l_m = float(ref_distance_m)
+    dist_r_m = float(ref_distance_m + path_diff_m)
+    dist_sub_m = float(ref_distance_m + speed_of_sound_mps * (sub_delay_ms / 1000.0)) if sub_delay_ms is not None else None
+    
+    m_to_ft = 3.28084
+    
+    if abs(offset_mm) <= 3.0:
+        geom_summary = "Microphone is centered at primary listening position (within +/- 3mm)."
+        off_center_direction = "center"
+    elif offset_mm > 0:
+        geom_summary = f"Microphone was {abs(offset_mm):.1f}mm left off-center during measurement (Right speaker was further away)."
+        off_center_direction = "left"
+    else:
+        geom_summary = f"Microphone was {abs(offset_mm):.1f}mm right off-center during measurement (Left speaker was further away)."
+        off_center_direction = "right"
+        
+    distances = {
+        "front_left": {
+            "meters": round(dist_l_m, 2),
+            "feet": round(dist_l_m * m_to_ft, 2),
+        },
+        "front_right": {
+            "meters": round(dist_r_m, 2),
+            "feet": round(dist_r_m * m_to_ft, 2),
+        },
+    }
+    if dist_sub_m is not None:
+        distances["subwoofer"] = {
+            "meters": round(dist_sub_m, 2),
+            "feet": round(dist_sub_m * m_to_ft, 2),
+        }
+        
+    return {
+        "delay_offset_ms": round(lag_ms, 3),
+        "path_difference_mm": round(path_diff_m * 1000.0, 1),
+        "mic_off_center_mm": round(abs(offset_mm), 1),
+        "off_center_direction": off_center_direction,
+        "geometry_summary": geom_summary,
+        "distances": distances,
+    }
+
+
+def calculate_snapped_crossover_pair(
+    left_rolloff_hz: float,
+    right_rolloff_hz: float,
+    spl_left: Optional[np.ndarray] = None,
+    spl_right: Optional[np.ndarray] = None,
+    freqs: Optional[np.ndarray] = None,
+) -> Dict[str, Any]:
+    """
+    Co-optimizes crossover for L/R pair and snaps to standard hardware frequencies
+    (40, 50, 60, 70, 80, 90, 100, 110, 120, 150, 180, 200 Hz) matching AVR / active monitor switches.
+    """
+    STANDARD_CROSSOVERS = [40, 50, 60, 70, 80, 90, 100, 110, 120, 150, 180, 200]
+    
+    math_avg = (left_rolloff_hz + right_rolloff_hz) / 2.0
+    snapped = min(STANDARD_CROSSOVERS, key=lambda x: abs(x - math_avg))
+    
+    rms_error = 0.0
+    if spl_left is not None and spl_right is not None and freqs is not None:
+        mask = (freqs >= snapped * 0.5) & (freqs <= snapped * 2.0)
+        if np.any(mask):
+            diff = spl_left[mask] - spl_right[mask]
+            rms_error = float(np.sqrt(np.mean(diff ** 2)))
+            
+    summary = (
+        f"Individual optimal: L={left_rolloff_hz:.1f}Hz, R={right_rolloff_hz:.1f}Hz. "
+        f"Mathematical average ({math_avg:.1f}Hz) snapped to nearest valid crossover: {snapped}Hz"
+    )
+    
+    return {
+        "left_optimal_hz": round(left_rolloff_hz, 1),
+        "right_optimal_hz": round(right_rolloff_hz, 1),
+        "mathematical_average_hz": round(math_avg, 1),
+        "snapped_hardware_crossover_hz": int(snapped),
+        "crossover_slope": "Linkwitz-Riley 24 dB/oct (LR4)",
+        "rms_transition_error_db": round(rms_error, 2),
+        "summary": summary,
+    }
+
+
+def calculate_split_gain_staging(
+    target_attenuation_db: float,
+    step_size_db: float = 0.5,
+) -> Dict[str, Any]:
+    """
+    Splits gain adjustment into coarse hardware volume (0.5 dB steps) and fine DSP trim.
+    Preserves maximum digital DAC dynamic range.
+    """
+    # Negative attenuation (e.g. -5.32 dB)
+    hw_steps = round(target_attenuation_db / step_size_db)
+    hw_db = hw_steps * step_size_db
+    dsp_trim_db = target_attenuation_db - hw_db
+    
+    return {
+        "net_volume_adjustment_db": round(target_attenuation_db, 2),
+        "recommended_hardware_db": round(hw_db, 1),
+        "dsp_fine_trim_db": round(dsp_trim_db, 3),
+        "summary": f"Net adjustment: {target_attenuation_db:.2f} dB (Hardware: {hw_db:.1f} dB, DSP trim: {dsp_trim_db:+.3f} dB)",
+    }
+
 
 

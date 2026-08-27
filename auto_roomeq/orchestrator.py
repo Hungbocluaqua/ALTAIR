@@ -35,6 +35,9 @@ from .dsp.acoustic_analysis import (
     analyze_wavelet_modal_decay,
     calculate_iso9613_air_absorption,
     classify_sbir_boundary_cancellations,
+    calculate_microphone_geometry_offset,
+    calculate_snapped_crossover_pair,
+    calculate_split_gain_staging,
 )
 from .dsp.targets import (
     generate_harman_target,
@@ -166,6 +169,8 @@ class OptimizationOrchestrator:
             cal_ir = np.fft.irfft(cal_H, n=meas_left.n_fft)
             meas_left = Measurement(name=meas_left.name, ir=cal_ir, sample_rate=sr, n_fft=meas_left.n_fft)
             
+        lag_r_ms = 0.0
+        impulse_correlation_lr = 1.0
         if meas_right is not None:
             if mic_orientation_deg > 10.0:
                 cal_H_r = apply_polar_diffraction_calibration(meas_right.H, meas_right.freqs, mic_orientation_deg)
@@ -174,7 +179,9 @@ class OptimizationOrchestrator:
                 
             aligned_r, lag_r, lag_r_ms = cross_correlate_align(meas_left.ir, meas_right.ir, sample_rate=sr)
             meas_right = Measurement(name=meas_right.name, ir=aligned_r, sample_rate=sr, n_fft=meas_left.n_fft)
-            update("Timing Alignment", 18, f"Aligned Right channel (offset: {lag_r_ms:.2f} ms)")
+            denom_lr = np.sqrt(np.sum(meas_left.ir ** 2) * np.sum(aligned_r ** 2)) + 1e-12
+            impulse_correlation_lr = float(np.sum(meas_left.ir * aligned_r) / denom_lr)
+            update("Timing Alignment", 18, f"Aligned Right channel (offset: {lag_r_ms:.2f} ms, correlation: {impulse_correlation_lr:.3f})")
         else:
             meas_right = meas_left
 
@@ -190,6 +197,12 @@ class OptimizationOrchestrator:
         reflection_gap_s = detect_reflection_gap(meas_left.ir, fs=sr)
         auto_fdw_cycles = ir_gap_to_fdw_cycles(reflection_gap_s)
         low_rolloff, high_rolloff = detect_speaker_rolloff(np.abs(meas_left.H), meas_left.freqs, threshold_db=-6.0)
+        low_rolloff_r, _ = detect_speaker_rolloff(np.abs(meas_right.H), meas_right.freqs, threshold_db=-6.0)
+        
+        # Snapped hardware crossover co-optimization for active monitor / AVR switches
+        snapped_xo_info = calculate_snapped_crossover_pair(
+            low_rolloff, low_rolloff_r, meas_left.spl_db, meas_right.spl_db, meas_left.freqs
+        )
         
         # SBIR boundary interference decomposition
         sbir_info_l = classify_sbir_boundary_cancellations(meas_left.freqs, meas_left.spl_db, meas_left.ir, sample_rate=sr, speed_of_sound_mps=speed_of_sound)
@@ -341,6 +354,22 @@ class OptimizationOrchestrator:
         zwicker_r = evaluate_zwicker_temporal_masking(fir_final_r, sample_rate=sr)
         
         global_preamp_db = min(preamp_l, preamp_r)
+        
+        # Microphone geometry, off-center position & physical acoustic distances (A1 Evo AcoustiCX style)
+        geom_diagnostics = calculate_microphone_geometry_offset(
+            lag_ms=lag_r_ms,
+            speed_of_sound_mps=speed_of_sound,
+            ref_distance_m=listening_distance_m,
+            sub_delay_ms=sub_delay_ms if meas_sub is not None else None,
+        )
+        geom_diagnostics["impulse_response_correlation"] = round(float(impulse_correlation_lr), 4)
+
+        # Split Gain Staging (Hardware volume vs DSP trim)
+        gain_staging = calculate_split_gain_staging(target_attenuation_db=global_preamp_db)
+        
+        acoustic_intel["microphone_geometry"] = geom_diagnostics
+        acoustic_intel["crossover_hardware_snapping"] = snapped_xo_info
+        acoustic_intel["split_gain_staging"] = gain_staging
         
         # -------------------------------------------------------------
         # STEP 9: Create Export Package (.ZIP)
