@@ -243,6 +243,7 @@ export interface SessionStatus {
   file_exists: boolean;
   path: string;
   channels: string[];
+  channel_details?: Record<string, { name: string; sample_rate: number; points: number; peak_time_ms: number }>;
   seat_sets: Record<string, number>;
   sub_measurements: number;
   cal_loaded: boolean;

@@ -650,8 +650,8 @@ async def trigger_auto_repeated_sweep(
     from ..dsp.acquisition import coherent_impulse_stack
     from ..orchestrator import generate_demo_room_measurements
 
-    # Guard bounds: repetitions clamped between 1 and 16
-    repetitions = min(16, max(1, int(repetitions)))
+    # Guard bounds: repetitions clamped between 1 and 64 (supports custom user inputs)
+    repetitions = min(64, max(1, int(repetitions)))
     sweep_length = min(1024, max(128, int(sweep_length)))
     sample_rate = min(192000, max(22050, int(sample_rate)))
 
@@ -673,10 +673,21 @@ async def trigger_auto_repeated_sweep(
                 )
                 async with state_lock:
                     current_measurements[ch] = res["measurement"]
+                diag = res.get("diagnostics", {})
+                accepted = diag.get("accepted_count", res.get("repetitions_captured", repetitions))
+                rejection_pct = diag.get("rejection_rate_pct", 0.0)
                 results_summary[ch] = {
-                    "repetitions": res.get("repetitions_captured", repetitions),
-                    "snr_gain_db": res.get("snr_improvement_db", round(10.0 * np.log10(repetitions), 2)),
+                    "repetitions": accepted,
+                    "total_requested": repetitions,
+                    "included_count": accepted,
+                    "rejected_count": max(0, repetitions - accepted),
+                    "included_pct": round((accepted / max(1, repetitions)) * 100.0, 1),
+                    "rejection_rate_pct": rejection_pct,
+                    "snr_gain_db": res.get("snr_improvement_db", round(10.0 * np.log10(max(1, accepted)), 2)),
                     "mode": "rew_api",
+                    "saved": True,
+                    "sample_rate": sample_rate,
+                    "points": len(res["measurement"].ir),
                 }
             except Exception as e:
                 # Fallback if specific REW measurement failed
@@ -688,9 +699,15 @@ async def trigger_auto_repeated_sweep(
             
             # Synthesize N repeated sweeps with independent room noise
             noisy_repeats = []
-            for _ in range(repetitions):
+            for i in range(repetitions):
                 noise = np.random.normal(0, 0.002, size=len(base_meas.ir))
-                noisy_repeats.append(base_meas.ir + noise)
+                # For demonstration of outlier rejection on larger stacks (>= 6 sweeps), simulate 1 transient noise spike
+                if repetitions >= 6 and i == 1:
+                    spike = np.zeros_like(base_meas.ir)
+                    spike[int(0.01 * sample_rate)] = 0.5
+                    noisy_repeats.append(base_meas.ir + noise + spike)
+                else:
+                    noisy_repeats.append(base_meas.ir + noise)
                 
             stacked_ir, snr_gain, diag = coherent_impulse_stack(
                 noisy_repeats, sample_rate=sample_rate, return_diagnostics=True
@@ -703,14 +720,23 @@ async def trigger_auto_repeated_sweep(
             )
             async with state_lock:
                 current_measurements[ch] = stacked_meas
+                
+            accepted = diag["accepted_count"]
+            rejection_pct = diag["rejection_rate_pct"]
             results_summary[ch] = {
-                "repetitions": diag["accepted_count"],
+                "repetitions": accepted,
                 "total_requested": repetitions,
-                "rejection_rate_pct": diag["rejection_rate_pct"],
+                "included_count": accepted,
+                "rejected_count": max(0, repetitions - accepted),
+                "included_pct": round((accepted / max(1, repetitions)) * 100.0, 1),
+                "rejection_rate_pct": rejection_pct,
                 "baseline_snr_db": diag["baseline_snr_db"],
                 "final_snr_db": diag["final_snr_db"],
                 "snr_gain_db": round(float(snr_gain), 2),
                 "mode": "simulated",
+                "saved": True,
+                "sample_rate": sample_rate,
+                "points": len(stacked_ir),
             }
 
     # Compute actual SNR boost across measured channels
@@ -984,6 +1010,15 @@ async def get_session_status():
             "file_exists": os.path.exists(SESSION_FILE),
             "path": SESSION_FILE,
             "channels": list(current_measurements.keys()),
+            "channel_details": {
+                ch: {
+                    "name": m.name,
+                    "sample_rate": m.sample_rate,
+                    "points": len(m.ir),
+                    "peak_time_ms": round(float(np.argmax(np.abs(m.ir)) / m.sample_rate * 1000.0), 2),
+                }
+                for ch, m in current_measurements.items()
+            },
             "seat_sets": {ch: len(seats) for ch, seats in current_seat_sets.items()},
             "sub_measurements": len(current_sub_measurements),
             "cal_loaded": current_cal is not None,

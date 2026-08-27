@@ -5,6 +5,7 @@ Verifies FastAPI REST endpoints, static file serving, and bundle download for AL
 
 import io
 import zipfile
+import pytest
 from fastapi.testclient import TestClient
 from auto_roomeq.server.app import app
 
@@ -96,6 +97,10 @@ def test_auto_repeated_sweep_endpoint():
     assert data_l["repetitions"] == 4
     assert data_l["snr_improvement_db"] == 6.02
     assert "left" in data_l["details"]
+    left_det = data_l["details"]["left"]
+    assert "included_pct" in left_det
+    assert "rejection_rate_pct" in left_det
+    assert left_det["saved"] is True
 
     # Test full 2.1 system (all channels)
     resp_all = client.post("/api/measurements/auto-repeated-sweep?channel=all&repetitions=2&use_simulation=true")
@@ -107,4 +112,22 @@ def test_auto_repeated_sweep_endpoint():
     assert "left" in data_all["details"]
     assert "right" in data_all["details"]
     assert "sub" in data_all["details"]
+
+    # Test custom repetitions and percentage breakdown
+    resp_custom = client.post("/api/measurements/auto-repeated-sweep?channel=left&repetitions=7&use_simulation=true")
+    assert resp_custom.status_code == 200
+    data_custom = resp_custom.json()
+    det_custom = data_custom["details"]["left"]
+    assert det_custom["total_requested"] == 7
+    assert det_custom["included_count"] > 0
+    assert det_custom["included_pct"] + det_custom["rejection_rate_pct"] == pytest.approx(100.0, abs=0.1)
+
+    # Test session channel details endpoint
+    resp_sess = client.get("/api/session")
+    assert resp_sess.status_code == 200
+    sess_data = resp_sess.json()
+    assert "channel_details" in sess_data
+    assert "left" in sess_data["channel_details"]
+    assert sess_data["channel_details"]["left"]["sample_rate"] == 48000
+    assert sess_data["channel_details"]["left"]["points"] > 0
 

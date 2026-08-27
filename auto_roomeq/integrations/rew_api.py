@@ -337,10 +337,16 @@ class RewApiClient:
         if len(captured_measurements) >= 1:
             if len(captured_measurements) > 1:
                 impulses = [m.ir for m in captured_measurements]
-                stacked_ir, snr_gain = coherent_impulse_stack(impulses, sample_rate=sample_rate)
+                stacked_ir, snr_gain, diag = coherent_impulse_stack(impulses, sample_rate=sample_rate, return_diagnostics=True)
             else:
                 stacked_ir = captured_measurements[0].ir
                 snr_gain = 0.0
+                diag = {
+                    "accepted_count": 1,
+                    "total_count": 1,
+                    "rejection_rate_pct": 0.0,
+                    "snr_improvement_db": 0.0,
+                }
                 
             clean_meas = Measurement(
                 name=f"ALTAIR_{channel.upper()}_{len(captured_measurements)}x_Stacked",
@@ -354,6 +360,7 @@ class RewApiClient:
                 "snr_improvement_db": round(float(snr_gain), 2),
                 "measurement": clean_meas,
                 "measurement_ids": captured_ids,
+                "diagnostics": diag,
             }
         else:
             raise RuntimeError(f"Could not retrieve measurements from REW for {channel}. Ensure REW measurement mic is active.")
