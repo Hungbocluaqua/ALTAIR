@@ -107,6 +107,7 @@ export const App: React.FC = () => {
             onChange={setConfig}
             onRun={handleRun}
             isRunning={isRunning}
+            rewConnected={status?.rew_connected || false}
           />
         )}
 

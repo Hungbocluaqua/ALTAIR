@@ -252,7 +252,6 @@ class RewApiClient:
                     "level": level_dbfs,
                     "sweepLength": sweep_length,
                 }
-                # REW supports /measure or /measurements/make-measurement
                 for endpoint in ["/measurements/make-measurement", "/measure"]:
                     try:
                         resp = await client.post(f"{self.base_url}{endpoint}", json=payload)
@@ -263,3 +262,83 @@ class RewApiClient:
         except Exception:
             return None
         return None
+
+    async def execute_auto_repeated_sweeps(
+        self,
+        channel: str = "left",
+        repetitions: int = 4,
+        sweep_length: int = 512,
+        sample_rate: int = 48000,
+        level_dbfs: float = -12.0,
+    ) -> Dict[str, Any]:
+        """
+        Sequentially trigger N repeated sweeps in REW, collect impulse responses,
+        and coherently stack them to reduce noise floor by 10*log10(N) dB.
+        """
+        from ..dsp.acquisition import coherent_impulse_stack
+        
+        initial_meas = await self.get_measurements()
+        known_ids = {m["id"] for m in initial_meas} if initial_meas else set()
+        
+        captured_measurements: List[Measurement] = []
+        captured_ids: List[Any] = []
+        
+        for rep in range(1, repetitions + 1):
+            name = f"ALTAIR_{channel.upper()}_Sweep_{rep}of{repetitions}"
+            trigger_res = await self.trigger_measurement(
+                name=name,
+                sweep_length=sweep_length,
+                sample_rate=sample_rate,
+                level_dbfs=level_dbfs,
+            )
+            
+            # Wait for REW to process the measurement
+            new_id = None
+            max_wait_s = 25.0
+            poll_interval_s = 1.0
+            waited = 0.0
+            
+            while waited < max_wait_s:
+                await asyncio.sleep(poll_interval_s)
+                waited += poll_interval_s
+                current_meas = await self.get_measurements()
+                current_ids = [m["id"] for m in current_meas]
+                new_found = [i for i in current_ids if i not in known_ids and i not in captured_ids]
+                if new_found:
+                    new_id = new_found[-1]
+                    captured_ids.append(new_id)
+                    break
+            
+            if new_id is not None:
+                meas_data = await self.get_measurement_data(new_id)
+                if meas_data:
+                    captured_measurements.append(meas_data)
+            elif trigger_res and "id" in trigger_res:
+                meas_data = await self.get_measurement_data(trigger_res["id"])
+                if meas_data:
+                    captured_measurements.append(meas_data)
+                    
+        if len(captured_measurements) >= 1:
+            if len(captured_measurements) > 1:
+                impulses = [m.ir for m in captured_measurements]
+                stacked_ir, snr_gain = coherent_impulse_stack(impulses, sample_rate=sample_rate)
+            else:
+                stacked_ir = captured_measurements[0].ir
+                snr_gain = 0.0
+                
+            clean_meas = Measurement(
+                name=f"ALTAIR_{channel.upper()}_{len(captured_measurements)}x_Stacked",
+                ir=stacked_ir,
+                sample_rate=sample_rate,
+            )
+            return {
+                "status": "success",
+                "channel": channel.lower(),
+                "repetitions_captured": len(captured_measurements),
+                "snr_improvement_db": round(float(snr_gain), 2),
+                "measurement": clean_meas,
+                "measurement_ids": captured_ids,
+            }
+        else:
+            raise RuntimeError(f"Could not retrieve measurements from REW for {channel}. Ensure REW measurement mic is active.")
+

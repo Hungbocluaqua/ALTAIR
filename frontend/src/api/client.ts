@@ -102,3 +102,19 @@ export function getAutoSweepDownloadUrl(channel: string = 'left', repetitions: n
   return `${API_BASE}/measurements/auto-sweep?channel=${channel}&repetitions=${repetitions}`;
 }
 
+export async function triggerAutoRepeatedSweep(
+  channel: string = 'left',
+  repetitions: number = 4,
+  sampleRate: number = 48000,
+  useSimulation: boolean = false
+): Promise<any> {
+  const resp = await fetch(`${API_BASE}/measurements/auto-repeated-sweep?channel=${channel}&repetitions=${repetitions}&sample_rate=${sampleRate}&use_simulation=${useSimulation}`, {
+    method: 'POST',
+  });
+  if (!resp.ok) {
+    const errorData = await resp.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Auto repeated sweep failed: ${resp.statusText}`);
+  }
+  return resp.json();
+}
+

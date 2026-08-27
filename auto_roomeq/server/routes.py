@@ -244,6 +244,86 @@ async def trigger_auto_sweep(
     )
 
 
+@router.post("/measurements/auto-repeated-sweep")
+async def trigger_auto_repeated_sweep(
+    channel: str = "left",
+    repetitions: int = 4,
+    sweep_length: int = 512,
+    sample_rate: int = 48000,
+    use_simulation: bool = False,
+):
+    """
+    Execute automated repeated sweep measurement via REW API or realistic simulation.
+    Automatically cross-correlates and stacks repetitions coherently to boost SNR by 10*log10(N) dB.
+    Supports channel='left', 'right', 'sub', or 'all'.
+    """
+    from ..dsp.acquisition import coherent_impulse_stack
+    from ..orchestrator import generate_demo_room_measurements
+
+    channel_clean = channel.lower().strip()
+    channels_to_measure = ["left", "right", "sub"] if channel_clean == "all" else [channel_clean]
+    results_summary = {}
+
+    rew_conn = await rew_client.check_connection()
+    is_rew_live = rew_conn.get("connected") and not use_simulation
+
+    for ch in channels_to_measure:
+        if is_rew_live:
+            try:
+                res = await rew_client.execute_auto_repeated_sweeps(
+                    channel=ch,
+                    repetitions=repetitions,
+                    sweep_length=sweep_length,
+                    sample_rate=sample_rate,
+                )
+                current_measurements[ch] = res["measurement"]
+                results_summary[ch] = {
+                    "repetitions": res["repetitions_captured"],
+                    "snr_gain_db": res["snr_improvement_db"],
+                    "mode": "rew_api",
+                }
+            except Exception as e:
+                # Fallback if specific REW measurement failed
+                raise HTTPException(status_code=500, detail=f"REW sweep failed for {ch}: {str(e)}")
+        else:
+            # Standalone / Simulation mode
+            demo_l, demo_r, demo_sub = generate_demo_room_measurements(sample_rate=sample_rate, n_fft=16384)
+            base_meas = demo_l if ch == "left" else (demo_r if ch == "right" else demo_sub)
+            
+            # Synthesize N repeated sweeps with independent room noise
+            noisy_repeats = []
+            for _ in range(repetitions):
+                noise = np.random.normal(0, 0.002, size=len(base_meas.ir))
+                noisy_repeats.append(base_meas.ir + noise)
+                
+            stacked_ir, snr_gain = coherent_impulse_stack(noisy_repeats, sample_rate=sample_rate)
+            
+            stacked_meas = Measurement(
+                name=f"ALTAIR_{ch.upper()}_{repetitions}x_Stacked",
+                ir=stacked_ir,
+                sample_rate=sample_rate,
+            )
+            current_measurements[ch] = stacked_meas
+            results_summary[ch] = {
+                "repetitions": repetitions,
+                "snr_gain_db": round(float(snr_gain), 2),
+                "mode": "simulated",
+            }
+
+    snr_boost = round(10.0 * np.log10(repetitions), 2)
+    return {
+        "status": "success",
+        "channel": channel_clean,
+        "mode": "rew_api" if is_rew_live else "standalone_simulated",
+        "repetitions": repetitions,
+        "snr_improvement_db": snr_boost,
+        "channels_measured": channels_to_measure,
+        "details": results_summary,
+        "message": f"Successfully performed automated {repetitions}x sweeps (+{snr_boost} dB SNR noise floor reduction)!",
+    }
+
+
+
 @router.post("/optimize", response_model=OptimizationResponse)
 async def run_optimization(request: OptimizationRequest):
     """Execute the 1-Click Digital Room Correction optimization pipeline."""

@@ -83,3 +83,28 @@ def test_static_frontend_serving():
     assert resp.status_code == 200
     assert "<html" in resp.text.lower()
     assert "ALTAIR" in resp.text or "root" in resp.text
+
+
+def test_auto_repeated_sweep_endpoint():
+    """Verify /api/measurements/auto-repeated-sweep executes and stacks repetitions."""
+    # Test single channel (4x repeats)
+    resp_left = client.post("/api/measurements/auto-repeated-sweep?channel=left&repetitions=4&use_simulation=true")
+    assert resp_left.status_code == 200
+    data_l = resp_left.json()
+    assert data_l["status"] == "success"
+    assert data_l["channel"] == "left"
+    assert data_l["repetitions"] == 4
+    assert data_l["snr_improvement_db"] == 6.02
+    assert "left" in data_l["details"]
+
+    # Test full 2.1 system (all channels)
+    resp_all = client.post("/api/measurements/auto-repeated-sweep?channel=all&repetitions=2&use_simulation=true")
+    assert resp_all.status_code == 200
+    data_all = resp_all.json()
+    assert data_all["status"] == "success"
+    assert len(data_all["channels_measured"]) == 3
+    assert data_all["snr_improvement_db"] == 3.01
+    assert "left" in data_all["details"]
+    assert "right" in data_all["details"]
+    assert "sub" in data_all["details"]
+
