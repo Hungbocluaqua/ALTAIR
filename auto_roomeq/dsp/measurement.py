@@ -119,7 +119,9 @@ def cross_correlate_align(
     
     # Shift zero lag to center
     lags = np.arange(-len(target_ir) + 1, len(ref_ir))
-    corr = np.concatenate([R[-(len(target_ir) - 1):], R[:len(ref_ir)]])
+    neg_len = len(target_ir) - 1
+    neg_part = R[-neg_len:] if neg_len > 0 else np.empty(0, dtype=R.dtype)
+    corr = np.concatenate([neg_part, R[:len(ref_ir)]])
     
     # Restrict to search window
     valid_mask = np.abs(lags) <= max_lag_samples

@@ -329,6 +329,11 @@ class RewApiClient:
                 if meas_data:
                     captured_measurements.append(meas_data)
                     
+            # Fast failure detection: if the first repetition timed out without capturing any data,
+            # REW has no measurement mic armed/active. Break early instead of looping for remaining reps.
+            if rep == 1 and len(captured_measurements) == 0:
+                break
+                    
         if len(captured_measurements) >= 1:
             if len(captured_measurements) > 1:
                 impulses = [m.ir for m in captured_measurements]

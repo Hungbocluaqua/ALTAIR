@@ -286,13 +286,28 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
   const minSpl = 40;
   const maxSpl = 100;
 
-  const xPos = (f: number) => pad.left + (Math.log10(Math.max(f, minF) / minF) / Math.log10(maxF / minF)) * pw;
-  const yPos = (s: number) => pad.top + ((maxSpl - Math.max(Math.min(s, maxSpl), minSpl)) / (maxSpl - minSpl)) * ph;
+  const xPos = (f: number) => {
+    const val = Number.isFinite(f) ? f : 100;
+    return pad.left + (Math.log10(Math.max(val, minF) / minF) / Math.log10(maxF / minF)) * pw;
+  };
+  const yPos = (s: number) => {
+    const val = Number.isFinite(s) ? s : 70;
+    return pad.top + ((maxSpl - Math.max(Math.min(val, maxSpl), minSpl)) / (maxSpl - minSpl)) * ph;
+  };
 
   // Phase & Time Mappers
-  const phaseToY = (deg: number) => pad.top + ((180 - Math.max(-180, Math.min(180, deg))) / 360) * ph;
-  const timeToX = (t: number) => pad.left + ((Math.max(-20, Math.min(30, t)) - -20) / 50) * pw;
-  const stepToY = (amp: number) => pad.top + ((1.2 - Math.max(-1.2, Math.min(1.2, amp))) / 2.4) * ph;
+  const phaseToY = (deg: number) => {
+    const val = Number.isFinite(deg) ? deg : 0;
+    return pad.top + ((180 - Math.max(-180, Math.min(180, val))) / 360) * ph;
+  };
+  const timeToX = (t: number) => {
+    const val = Number.isFinite(t) ? t : 0;
+    return pad.left + ((Math.max(-20, Math.min(30, val)) - -20) / 50) * pw;
+  };
+  const stepToY = (amp: number) => {
+    const val = Number.isFinite(amp) ? amp : 0;
+    return pad.top + ((1.2 - Math.max(-1.2, Math.min(1.2, val))) / 2.4) * ph;
+  };
 
   const makePath = (freqs?: number[], spls?: number[]) => {
     if (!freqs || !spls || freqs.length === 0) return '';
@@ -300,7 +315,7 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
     const step = Math.max(1, Math.floor(freqs.length / 280));
     for (let i = 0; i < freqs.length; i += step) {
       if (freqs[i] >= minF && freqs[i] <= maxF) {
-        pts.push(`${xPos(freqs[i]).toFixed(1)},${yPos(spls[i]).toFixed(1)}`);
+        pts.push(`${xPos(freqs[i]).toFixed(1)},${yPos(spls[i] ?? 70).toFixed(1)}`);
       }
     }
     return pts.length > 0 ? `M ${pts.join(' L ')}` : '';
@@ -312,7 +327,7 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
     const step = Math.max(1, Math.floor(freqs.length / 280));
     for (let i = 0; i < freqs.length; i += step) {
       if (freqs[i] >= minF && freqs[i] <= maxF) {
-        pts.push(`${xPos(freqs[i]).toFixed(1)},${phaseToY(phases[i]).toFixed(1)}`);
+        pts.push(`${xPos(freqs[i]).toFixed(1)},${phaseToY(phases[i] ?? 0).toFixed(1)}`);
       }
     }
     return pts.length > 0 ? `M ${pts.join(' L ')}` : '';
@@ -321,7 +336,7 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
   const makeStepPath = (times?: number[], steps?: number[]) => {
     if (!times || !steps || times.length === 0) return '';
     return times
-      .map((t, i) => `${i === 0 ? 'M' : 'L'} ${timeToX(t).toFixed(1)},${stepToY(steps[i]).toFixed(1)}`)
+      .map((t, i) => `${i === 0 ? 'M' : 'L'} ${timeToX(t).toFixed(1)},${stepToY(steps[i] ?? 0).toFixed(1)}`)
       .join(' ');
   };
 
@@ -855,7 +870,7 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
             </div>
             <div>
               <div className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest">
-                SECTION 04 // MEASUREMENT STUDIO
+                SECTION 03 // AUTOMATED SWEEPS
               </div>
               <h2 className="text-lg font-serif font-bold text-stone-900 dark:text-stone-100 tracking-tight">
                 Automated Repeated Sweep Studio & Noise Rejection
@@ -998,7 +1013,7 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
           </div>
           <div>
             <div className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest">
-              SECTION 05 // LABORATORY INGESTION
+              SECTION 04 // LABORATORY INGESTION
             </div>
             <h2 className="text-lg font-serif font-bold text-stone-900 dark:text-stone-100 tracking-tight">
               Acoustic Measurement Ingestion & Environmental Physics
@@ -1248,7 +1263,7 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
           <div>
             <div className="flex items-center justify-between mb-1">
               <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest">
-                SECTION 06 // TARGET SYNTHESIS
+                SECTION 05 // TARGET SYNTHESIS
               </span>
               <span className="text-[10px] font-mono text-stone-400">HARMAN / B&K / OCA</span>
             </div>
@@ -1423,6 +1438,9 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
       <section id="export" className="border border-stone-200 dark:border-stone-800 rounded-lg p-6 bg-white dark:bg-[#121316] space-y-4 shadow-sm transition-colors">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-100 dark:border-stone-800/80 pb-4">
           <div>
+            <div className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest mb-1">
+              SECTION 06 // CONVOLVER DEPLOYMENT
+            </div>
             <div className="flex items-center space-x-2">
               <FileCode className="h-5 w-5 text-amber-700 dark:text-amber-500" />
               <h3 className="font-serif font-bold text-stone-900 dark:text-stone-100 text-base">

@@ -909,7 +909,10 @@ async def download_bundle():
     return StreamingResponse(
         io.BytesIO(bundle),
         media_type="application/zip",
-        headers={"Content-Disposition": 'attachment; filename="ALTAIR_Filters_Export.zip"'},
+        headers={
+            "Content-Disposition": 'attachment; filename="ALTAIR_Filters_Export.zip"',
+            "Content-Length": str(len(bundle)),
+        },
     )
 
 
@@ -930,14 +933,20 @@ async def simulate_sub_delay(
         meas_l, _, meas_sub = generate_demo_room_measurements()
         
     sr = meas_l.sample_rate
-    n_fft = max(meas_l.n_fft, meas_sub.n_fft)
+    sub_ir = meas_sub.ir
+    if meas_sub.sample_rate != sr:
+        from math import gcd
+        g = gcd(sr, meas_sub.sample_rate)
+        sub_ir = signal.resample_poly(sub_ir, sr // g, meas_sub.sample_rate // g)
+        
+    n_fft = max(meas_l.n_fft, 2 ** int(np.ceil(np.log2(max(1, len(sub_ir))))))
     freqs = np.fft.rfftfreq(n_fft, d=1.0 / sr)
     
     # Apply crossover filtering (LPF on Sub, HPF on Main)
     sos_lpf = signal.butter(2, crossover_freq, btype='low', fs=sr, output='sos')
     sos_hpf = signal.butter(2, crossover_freq, btype='high', fs=sr, output='sos')
     
-    sub_filtered_ir = signal.sosfilt(sos_lpf, meas_sub.ir)
+    sub_filtered_ir = signal.sosfilt(sos_lpf, sub_ir)
     main_filtered_ir = signal.sosfilt(sos_hpf, meas_l.ir)
     
     H_main_xo = np.fft.rfft(main_filtered_ir, n=n_fft)

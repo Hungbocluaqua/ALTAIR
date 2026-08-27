@@ -313,9 +313,10 @@ export async function runRepeatedSweeps(opts: {
   channel: string;
   repetitions: number;
   outlier_rejection?: boolean;
+  use_simulation?: boolean;
 }): Promise<RepeatedSweepResult> {
   const channel = opts.channel === 'both' ? 'all' : opts.channel;
-  const data = await triggerAutoRepeatedSweep(channel, opts.repetitions, 48000, false);
+  const data = await triggerAutoRepeatedSweep(channel, opts.repetitions, 48000, opts.use_simulation ?? false);
   return {
     status: data.status ?? 'success',
     channel: data.channel ?? channel,

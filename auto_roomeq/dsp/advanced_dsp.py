@@ -262,7 +262,7 @@ def generate_hybrid_iir_fir_split(
         
     # Deconvolve the IIR biquad response from target FIR: H_residue = H_target / H_iir
     H_target = np.fft.rfft(target_fir, n=n_fft)
-    H_residue = H_target / np.maximum(np.abs(H_iir_total), 1e-6) * np.exp(1j * (np.angle(H_target) - np.angle(H_iir_total)))
+    H_residue = (np.abs(H_target) / np.maximum(np.abs(H_iir_total), 1e-6)) * np.exp(1j * (np.angle(H_target) - np.angle(H_iir_total)))
     
     # Convert residue back to time domain
     h_residue = np.fft.irfft(H_residue, n=n_fft)
@@ -414,7 +414,7 @@ def synthesize_time_reversed_excess_phase_filter(
     
     # Window to max_corr_ms around center
     center_idx = n_fft // 2
-    half_win = int((max_corr_ms / 1000.0) * sample_rate)
+    half_win = min(center_idx - 1, max(1, int((max_corr_ms / 1000.0) * sample_rate)))
     
     win = np.zeros(n_fft)
     tukey_seg = signal.windows.tukey(half_win * 2, alpha=0.1)
