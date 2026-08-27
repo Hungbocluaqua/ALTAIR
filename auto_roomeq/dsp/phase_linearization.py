@@ -153,12 +153,58 @@ def synthesize_low_q_phase_correction(
     return H_corr
 
 
+def synthesize_regularized_excess_phase_inverse(
+    freqs: np.ndarray,
+    excess_phase_rad: np.ndarray,
+    f_fade_start: float = 250.0,
+    f_active_max: float = 500.0,
+    max_delta_deg: float = 45.0,
+) -> np.ndarray:
+    """
+    Bounded homomorphic-style excess-phase inversion (regularized cousin of
+    synthesize_time_reversed_excess_phase_filter).
+
+    Full homomorphic all-pass division is numerically fragile on FDW responses
+    that contain deep room nulls (|H| -> 0 makes H/H_min unbounded). This
+    regularized form inverts the measured excess phase per-bin with the same
+    safety design used by the low-Q unwrap:
+
+        H_inv(f) = exp(-j * clip(excess_phase(f), -max_delta, +max_delta) * taper(f))
+
+    - Fully active below f_fade_start (default 250 Hz),
+    - half-Hann cosine fade-out between f_fade_start and f_active_max,
+    - zero correction above f_active_max,
+    - per-bin clamp of +/-max_delta_deg (default 45 deg, Q <= 1.0 equivalent).
+
+    Phase-only (unit magnitude) so it can never inject spectral gain, and the
+    bounded phase delta guarantees no audible pre-echo.
+    """
+    max_delta_rad = np.radians(max_delta_deg)
+    H_corr = np.ones_like(freqs, dtype=np.complex128)
+    
+    mask_active = (freqs >= 20.0) & (freqs < f_fade_start)
+    mask_fade = (freqs >= f_fade_start) & (freqs <= f_active_max)
+    
+    if np.any(mask_active):
+        clamped = np.clip(excess_phase_rad[mask_active], -max_delta_rad, max_delta_rad)
+        H_corr[mask_active] = np.exp(-1j * clamped)
+        
+    if np.any(mask_fade):
+        clamped = np.clip(excess_phase_rad[mask_fade], -max_delta_rad, max_delta_rad)
+        fade_taper = 0.5 * (1.0 + np.cos(np.pi * (freqs[mask_fade] - f_fade_start) / max(1.0, f_active_max - f_fade_start)))
+        H_corr[mask_fade] = np.exp(-1j * clamped * fade_taper)
+        
+    return H_corr
+
+
 def synthesize_phase_linearization_filter(
     measurement_h2: Measurement,
     crossover_freq: float = 2500.0,
     crossover_order: int = 4,
     apply_low_q_modal_unwrap: bool = True,
     sample_rate: Optional[int] = None,
+    max_delta_deg: float = 45.0,
+    apply_excess_phase_inversion: bool = False,
 ) -> Tuple[np.ndarray, Measurement]:
     """
     Synthesize Module 3: Phase Linearization filter h_phase[n].
@@ -166,7 +212,18 @@ def synthesize_phase_linearization_filter(
     1. Apply 1-cycle FDW to isolate direct sound phase.
     2. Synthesize analytical crossover phase reversal all-pass filter.
     3. Synthesize low-Q modal unwrapping (< 500 Hz, Q <= 1.0) with smooth cosine taper.
-    4. Convolve phase correction in frequency domain: H_phase(f) = H_crossover(f) * H_low_q(f).
+    4. Optionally apply the regularized homomorphic excess-phase inversion
+       (synthesize_regularized_excess_phase_inverse) to linearize residual
+       low-frequency room group delay without pre-echo.
+    5. Convolve phase correction in frequency domain:
+       H_phase(f) = H_crossover(f) * H_low_q(f) [* H_excess_inv(f)]
+    
+    Args:
+        max_delta_deg: Maximum per-bin phase wrap correction (<= 45 deg recommended).
+            Scaled down by the closed-loop pre-ringing safeguard when audible
+            pre-echo is detected (Q-factor attenuation).
+        apply_excess_phase_inversion: When True, apply the regularized bounded
+            excess-phase inverse restricted to f <= 500 Hz.
     
     Returns:
         (h_phase, measurement_h3)
@@ -209,12 +266,26 @@ def synthesize_phase_linearization_filter(
             f_fade_start=250.0,
             f_max=500.0,
             max_q=1.0,
-            max_delta_deg=45.0,
+            max_delta_deg=max_delta_deg,
             n_fft=n_fft,
         )
         # Combine in frequency domain cleanly without time-domain truncation or boundary artifacts
         H_crossover = np.fft.rfft(h_crossover, n=n_fft)
         H_phase_total = H_crossover * H_low_q
+        
+        # Optional regularized homomorphic excess-phase inverse for residual
+        # modal group delay. Bounded per-bin (+/-max_delta_deg) and phase-only,
+        # so it cannot inject spectral gain or pre-echo.
+        if apply_excess_phase_inversion:
+            H_excess_inv = synthesize_regularized_excess_phase_inverse(
+                freqs=measurement_h2.freqs,
+                excess_phase_rad=excess_phase_rad,
+                f_fade_start=250.0,
+                f_active_max=500.0,
+                max_delta_deg=max_delta_deg,
+            )
+            H_phase_total = H_phase_total * H_excess_inv
+        
         h_phase = np.fft.irfft(H_phase_total, n=n_fft)
         win = signal.windows.tukey(n_fft, alpha=0.05)
         h_phase = h_phase * win

@@ -27,7 +27,7 @@ flowchart TD
     subgraph Three_Filter_DSP["3. Core 3-Module DSP Pipeline"]
         subgraph Mod1["Module 1: Virtual Bass Array (VBA)"]
             ModalExtract["Modal Peak & Dip Scan (20-150Hz) +/-10% Window"]
-            LPF_Synth["8th-Order 48dB/oct Min-Phase LPF (f_cutoff = 3.5 * f_opt)"]
+            LPF_Synth["4th-Order 24dB/oct Min-Phase LPF (f_cutoff = 3.5 * f_opt)"]
             VBA_Pulse["Delayed Pulse: h_VBA[n] = delta[n] - 0.5 * h_LPF[n - d]"]
             ModalExtract --> LPF_Synth --> VBA_Pulse
         end
@@ -144,4 +144,11 @@ Run the automated test suite with pytest:
 ```bash
 pytest tests/ -v
 ```
-All 20 tests verify DSP acquisition, deconvolution, vector averaging, Module 1 VBA, Module 2 Tikhonov inversion, Module 3 phase linearization, acoustic intelligence, pre-ringing safeguards, and end-to-end orchestrator execution.
+All **89 tests** verify DSP acquisition, deconvolution, vector averaging, Module 1 VBA, Module 2 Tikhonov inversion (incl. SBIR/wavelet-decay hard-clamping and spatial variance weighting), Module 3 phase linearization (incl. regularized excess-phase inversion), acoustic intelligence (Schroeder, reflection gap, ISO 9613-1), Farina sweep ingestion, mic .cal application, pre-ringing safeguards with the Zwicker audibility gate, multi-sub MSO, WFIR exports, `.mdat` parsing, SSE streaming, session persistence, and end-to-end orchestrator execution.
+
+## Recent Enhancements (Roadmap Activation)
+- **Live pipeline wiring**: Farina harmonic separation (recorded-sweep uploads), mic `.cal` ingestion, multi-seat spatial variance weighting, wavelet modal-decay gating, SBIR hard clamps, closed-loop pre-ringing attenuation with Zwicker masking gate, and Multi-Sub Matrix Optimization (2–4 subwoofers).
+- **Physics & psychoacoustics**: ISO 9613-1 air-absorption target adaptation and continuous ERB smoothing for multi-seat averaging.
+- **DSP/export**: regularized excess-phase deconvolution in Module 3, hybrid IIR+FIR miniDSP setup file, and optional Warped FIR (WFIR) exports for embedded DSPs.
+- **System & UX**: live SSE progress streaming (`POST /api/optimize/stream`) into the UI, best-effort `.mdat` parsing, and JSON project session persistence (`altair_project.json`).
+See `ARCHITECTURE_ANALYSIS.md` for the complete architecture reference.

@@ -57,3 +57,56 @@ def export_minidsp_biquads(
         lines.append(f"a1={bq.get('a1', 0.0):.10f},")
         lines.append(f"a2={bq.get('a2', 0.0):.10f},")
     return "\n".join(lines)
+
+
+def export_minidsp_hybrid_project(
+    biquads_left: List[Dict[str, float]],
+    biquads_right: List[Dict[str, float]],
+    sample_rate: int = 48000,
+    preamp_db: float = -4.0,
+    compact_fir_taps: int = 4096,
+) -> str:
+    """
+    Human-readable miniDSP Hybrid IIR+FIR deployment summary.
+
+    Explains the split architecture: deep sub-bass modal cuts (20-150 Hz) are
+    handled by high-precision parametric IIR peaking biquads (sub-Hz resolution),
+    while the remaining 4,096 FIR taps are reserved for linear-phase crossover
+    reversal and mid/high frequency smoothing.
+    """
+    lines = [
+        "# ========================================================",
+        "# ALTAIR miniDSP Hybrid IIR+FIR Setup (Flex / SHD / OpenDRC)",
+        "# Automated Linear-phase Tuning & Acoustic Inversion Routine",
+        "# ========================================================",
+        "",
+        f"# Sample rate: {sample_rate} Hz",
+        f"# Global preamp (recommended): {preamp_db:.2f} dB",
+        "",
+        "# STEP 1 - Load parametric PEQ biquads into the PEQ slots.",
+        "#   Left channel  (PEQ 1..N):",
+    ]
+    for i, bq in enumerate(biquads_left, 1):
+        lines.append(
+            f"#     PEQ{i}: {bq.get('frequency_hz', 0.0):.1f} Hz, "
+            f"{bq.get('gain_db', 0.0):+.2f} dB, Q {bq.get('q', 0.0):.2f}"
+        )
+    lines.append("#   Right channel (PEQ 1..N):")
+    for i, bq in enumerate(biquads_right, 1):
+        lines.append(
+            f"#     PEQ{i}: {bq.get('frequency_hz', 0.0):.1f} Hz, "
+            f"{bq.get('gain_db', 0.0):+.2f} dB, Q {bq.get('q', 0.0):.2f}"
+        )
+    lines.extend(
+        [
+            "",
+            "# STEP 2 - Load the compact FIR into the FIR slots:",
+            f"#   fir_coeffs_left.txt  -> Channel 1 FIR ({compact_fir_taps} taps)",
+            f"#   fir_coeffs_right.txt -> Channel 2 FIR ({compact_fir_taps} taps)",
+            "",
+            "# Advanced-mode biquad coefficients are in:",
+            "#   biquad_coeffs_left.txt / biquad_coeffs_right.txt",
+            "# ========================================================",
+        ]
+    )
+    return "\n".join(lines)

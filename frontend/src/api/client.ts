@@ -1,4 +1,4 @@
-import { StatusResponse, OptimizationRequest, OptimizationResponse } from '../types';
+import { StatusResponse, OptimizationRequest, OptimizationResponse, ProgressEvent, SessionStatus } from '../types';
 
 const API_BASE = '/api';
 
@@ -23,22 +23,157 @@ export async function runOptimization(req: OptimizationRequest): Promise<Optimiz
   return resp.json();
 }
 
+export interface StreamHandlers {
+  onProgress: (evt: ProgressEvent) => void;
+  onResult: (result: OptimizationResponse) => void;
+  onError: (message: string) => void;
+}
+
+/**
+ * Run the optimization with live Server-Sent Events progress streaming.
+ * Falls back to the plain endpoint when streaming fails.
+ */
+export async function runOptimizationStreamed(req: OptimizationRequest, handlers: StreamHandlers): Promise<OptimizationResponse> {
+  let sawAnyEvent = false;
+  let serverError: string | null = null;
+
+  try {
+    const resp = await fetch(`${API_BASE}/optimize/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    });
+    if (!resp.ok || !resp.body) {
+      throw new Error(`Stream failed with status ${resp.status}`);
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let result: OptimizationResponse | null = null;
+
+    const dispatch = (eventName: string, data: string) => {
+      if (!data.trim()) return;
+      try {
+        const payload = JSON.parse(data);
+        if (eventName === 'progress') {
+          sawAnyEvent = true;
+          handlers.onProgress(payload as ProgressEvent);
+        } else if (eventName === 'result') {
+          sawAnyEvent = true;
+          result = payload as OptimizationResponse;
+          handlers.onResult(payload as OptimizationResponse);
+        } else if (eventName === 'error') {
+          sawAnyEvent = true;
+          const msg = payload.detail || 'Optimization failed';
+          serverError = msg;
+          handlers.onError(msg);
+        }
+      } catch (_) {
+        /* ignore malformed frames */
+      }
+    };
+
+    let eventName = 'message';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const frames = buffer.split('\n\n');
+      buffer = frames.pop() || '';
+      for (const frame of frames) {
+        for (const line of frame.split('\n')) {
+          if (line.startsWith('event:')) {
+            eventName = line.slice(6).trim();
+          } else if (line.startsWith('data:')) {
+            dispatch(eventName, line.slice(5).trim());
+          }
+        }
+      }
+    }
+    if (buffer.trim()) {
+      for (const line of buffer.split('\n')) {
+        if (line.startsWith('event:')) {
+          eventName = line.slice(6).trim();
+        } else if (line.startsWith('data:')) {
+          dispatch(eventName, line.slice(5).trim());
+        }
+      }
+    }
+
+    if (serverError) {
+      throw new Error(serverError);
+    }
+    if (!result) {
+      throw new Error('Optimization stream ended without a result event');
+    }
+    return result;
+  } catch (e: any) {
+    // Fall back to the plain endpoint ONLY on transport failure before the
+    // server emitted any event. Once the server spoke (progress/result/error),
+    // its answer is authoritative — never silently re-run the optimization.
+    if (sawAnyEvent || serverError) {
+      throw e;
+    }
+    return runOptimization(req);
+  }
+}
+
 export function getExportBundleUrl(): string {
   return `${API_BASE}/export/bundle`;
 }
 
-export async function uploadMeasurementFile(file: File, channel: string): Promise<any> {
+export async function uploadMeasurementFile(
+  file: File,
+  channel: string,
+  measurementType: 'ir' | 'sweep' = 'ir'
+): Promise<any> {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('channel', channel);
   formData.append('sample_rate', '48000');
+  formData.append('measurement_type', measurementType);
 
   const resp = await fetch(`${API_BASE}/measurements/upload`, {
     method: 'POST',
     body: formData,
   });
   if (!resp.ok) {
-    throw new Error(`Upload failed: ${resp.statusText}`);
+    const errorData = await resp.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Upload failed: ${resp.statusText}`);
+  }
+  return resp.json();
+}
+
+export async function uploadCalFile(file: File): Promise<any> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const resp = await fetch(`${API_BASE}/measurements/upload-cal`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!resp.ok) {
+    const errorData = await resp.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Calibration upload failed: ${resp.statusText}`);
+  }
+  return resp.json();
+}
+
+export async function uploadMultiSubMeasurementFiles(files: FileList | File[]): Promise<any> {
+  const formData = new FormData();
+  Array.from(files).forEach((file) => {
+    formData.append('files', file);
+  });
+  formData.append('sample_rate', '48000');
+
+  const resp = await fetch(`${API_BASE}/measurements/upload-multi-sub`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!resp.ok) {
+    const errorData = await resp.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Multi-sub upload failed: ${resp.statusText}`);
   }
   return resp.json();
 }
@@ -118,3 +253,80 @@ export async function triggerAutoRepeatedSweep(
   return resp.json();
 }
 
+// ---------------------------------------------------------------------------
+// Session persistence
+// ---------------------------------------------------------------------------
+export async function getSessionStatus(): Promise<SessionStatus> {
+  const resp = await fetch(`${API_BASE}/session`);
+  if (!resp.ok) throw new Error(`Session status failed: ${resp.statusText}`);
+  return resp.json();
+}
+
+export async function saveSession(): Promise<any> {
+  const resp = await fetch(`${API_BASE}/session/save`, { method: 'POST' });
+  if (!resp.ok) {
+    const errorData = await resp.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Session save failed: ${resp.statusText}`);
+  }
+  return resp.json();
+}
+
+export async function loadSession(): Promise<any> {
+  const resp = await fetch(`${API_BASE}/session/load`, { method: 'POST' });
+  if (!resp.ok) {
+    const errorData = await resp.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Session load failed: ${resp.statusText}`);
+  }
+  return resp.json();
+}
+
+export async function clearSession(): Promise<any> {
+  const resp = await fetch(`${API_BASE}/session/clear`, { method: 'POST' });
+  if (!resp.ok) {
+    const errorData = await resp.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Session clear failed: ${resp.statusText}`);
+  }
+  return resp.json();
+}
+
+export interface RepeatedSweepResult {
+  status: string;
+  channel: string;
+  mode: string;
+  estimated_snr_db: number;
+  valid_sweeps: number;
+  repetitions_requested: number;
+  snr_improvement_db?: number;
+  repetitions?: number;
+  channels_measured?: string[];
+  details?: Record<string, any>;
+  message?: string;
+}
+
+/**
+ * Run N repeated sweeps on a channel and return the coherently stacked result.
+ * Mirrors the backend /api/measurements/auto-repeated-sweep endpoint, renaming
+ * its response fields to the names the editorial UI expects.
+ * 'both' is mapped to the backend's 'all' (left + right + sub).
+ */
+export async function runRepeatedSweeps(opts: {
+  channel: string;
+  repetitions: number;
+  outlier_rejection?: boolean;
+}): Promise<RepeatedSweepResult> {
+  const channel = opts.channel === 'both' ? 'all' : opts.channel;
+  const data = await triggerAutoRepeatedSweep(channel, opts.repetitions, 48000, false);
+  return {
+    status: data.status ?? 'success',
+    channel: data.channel ?? channel,
+    mode: data.mode ?? 'unknown',
+    estimated_snr_db: typeof data.snr_improvement_db === 'number' ? data.snr_improvement_db : 0,
+    valid_sweeps: typeof data.repetitions === 'number' ? data.repetitions : opts.repetitions,
+    repetitions_requested: opts.repetitions,
+    snr_improvement_db: data.snr_improvement_db,
+    repetitions: data.repetitions,
+    channels_measured: data.channels_measured,
+    details: data.details,
+    message: data.message,
+  };
+}

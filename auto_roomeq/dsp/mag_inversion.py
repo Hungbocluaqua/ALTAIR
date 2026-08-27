@@ -30,6 +30,7 @@ def tikhonov_magnitude_inversion(
     f_high_limit: float = 20000.0,
     snr_mask: Optional[np.ndarray] = None,
     spatial_variance_weights: Optional[np.ndarray] = None,
+    forced_neutral_mask: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """
     Perform Tikhonov regularized magnitude inversion with continuous frequency-dependent beta(f),
@@ -46,6 +47,10 @@ def tikhonov_magnitude_inversion(
         f_high_limit: Upper frequency boundary for correction.
         snr_mask: Optional [0.0 to 1.0] SNR confidence mask.
         spatial_variance_weights: Optional [0.0 to 1.0] multi-seat spatial variance weights.
+        forced_neutral_mask: Optional boolean/0-1 array. Where True, the correction is forced to
+            0 dB — the mathematical equivalent of beta(f) -> infinity. Used to hard-block correction
+            at non-minimum-phase SBIR boundary nulls and fast-decay (non-modal) cancellation dips
+            that must never be boosted.
         
     Returns:
         Complex frequency response of the regularized inversion filter H_inv(f).
@@ -83,6 +88,14 @@ def tikhonov_magnitude_inversion(
     if snr_mask is not None and len(snr_mask) == len(freqs):
         # Blend toward 0 dB (no EQ) where SNR is low
         inv_mag_db_clamped = inv_mag_db_clamped * np.clip(snr_mask, 0.0, 1.0)
+
+    # Hard neutral mask: force 0 dB correction (beta -> infinity) at flagged frequencies
+    # (non-minimum-phase SBIR nulls, fast-decay non-modal dips). Applied after the other
+    # masks so that no amount of regularization scaling can re-open the boost.
+    if forced_neutral_mask is not None and len(forced_neutral_mask) == len(freqs):
+        inv_mag_db_clamped = np.where(
+            np.asarray(forced_neutral_mask, dtype=np.float64) > 0.5, 0.0, inv_mag_db_clamped
+        )
         
     # Smooth roll-off at infrasonic and ultrasonic boundaries to 0 dB
     low_mask = freqs < f_low_limit
@@ -148,6 +161,7 @@ def synthesize_mag_inversion_filter(
     f_high_limit: float = 20000.0,
     snr_mask: Optional[np.ndarray] = None,
     spatial_variance_weights: Optional[np.ndarray] = None,
+    forced_neutral_mask: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, Measurement, np.ndarray]:
     """
     Synthesize Module 2 magnitude inversion filter.
@@ -173,6 +187,7 @@ def synthesize_mag_inversion_filter(
         f_high_limit=f_high_limit,
         snr_mask=snr_mask,
         spatial_variance_weights=spatial_variance_weights,
+        forced_neutral_mask=forced_neutral_mask,
     )
     
     # Extract minimum phase

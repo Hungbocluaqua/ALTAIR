@@ -11,6 +11,7 @@ Supports:
 """
 
 from typing import Dict, List, Optional, Any, Union, Tuple
+import asyncio
 import base64
 import httpx
 import numpy as np
@@ -156,6 +157,7 @@ class RewApiClient:
     def _parse_frequency_response_data(self, data: Any) -> Tuple[np.ndarray, np.ndarray]:
         """
         Helper to parse frequency response from diverse REW API formats.
+        Frequency axes are always returned sorted ascending (np.interp requires it).
         """
         if isinstance(data, dict):
             # Implicit startFreq + ppo/freqStep
@@ -178,23 +180,32 @@ class RewApiClient:
                         freqs = start_freq + np.arange(len(mags)) * step
                     else:
                         freqs = start_freq + np.arange(len(mags))
-                    return freqs, mags
+                    return self._sort_freq_axis(freqs, mags)
 
             # Explicit arrays
             if "frequencies" in data and "spl" in data:
-                return np.array(data["frequencies"], dtype=np.float64), np.array(data["spl"], dtype=np.float64)
+                return self._sort_freq_axis(
+                    np.array(data["frequencies"], dtype=np.float64),
+                    np.array(data["spl"], dtype=np.float64),
+                )
                 
         if isinstance(data, list) and len(data) > 0:
             if isinstance(data[0], dict) and "freq" in data[0] and "spl" in data[0]:
                 freqs = np.array([pt["freq"] for pt in data], dtype=np.float64)
                 spl = np.array([pt["spl"] for pt in data], dtype=np.float64)
-                return freqs, spl
+                return self._sort_freq_axis(freqs, spl)
             elif isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
                 freqs = np.array([pt[0] for pt in data], dtype=np.float64)
                 spl = np.array([pt[1] for pt in data], dtype=np.float64)
-                return freqs, spl
+                return self._sort_freq_axis(freqs, spl)
                 
         raise ValueError("Unrecognized REW frequency response data format.")
+
+    @staticmethod
+    def _sort_freq_axis(freqs: np.ndarray, spl: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """Return (freqs, spl) sorted by ascending frequency."""
+        idx = np.argsort(freqs)
+        return freqs[idx], spl[idx]
 
     async def align_impulse_responses(self, ref_id: int, target_ids: List[int]) -> bool:
         """

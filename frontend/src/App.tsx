@@ -1,18 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
-import { QuickRunCard } from './components/QuickRunCard';
+import { EditorialView } from './components/EditorialView';
+import { ExpertStudio } from './components/ExpertStudio';
 import { StepProgress } from './components/StepProgress';
-import { AcousticIntelligenceBanner } from './components/AcousticIntelligenceBanner';
 import { AudioPlot } from './components/AudioPlot';
 import { SubAlignmentView } from './components/SubAlignmentView';
+import { MultiSubView } from './components/MultiSubView';
 import { ExportCard } from './components/ExportCard';
-import { ExpertStudio } from './components/ExpertStudio';
 import { ConsoleLog, ConsoleLogEntry } from './components/ConsoleLog';
-import { StudioMonolithView } from './components/StudioMonolithView';
-import { AudiophileEditorialView } from './components/AudiophileEditorialView';
-import { CyberGlassView } from './components/CyberGlassView';
-import { StatusResponse, OptimizationRequest, OptimizationResponse } from './types';
-import { fetchStatus, runOptimization } from './api/client';
+import { StatusResponse, OptimizationRequest, OptimizationResponse, ProgressEvent } from './types';
+import { fetchStatus, runOptimizationStreamed } from './api/client';
 
 export const App: React.FC = () => {
   const [status, setStatus] = useState<StatusResponse | null>(null);
@@ -22,23 +19,10 @@ export const App: React.FC = () => {
   const [result, setResult] = useState<OptimizationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showConsole, setShowConsole] = useState<boolean>(true);
+  const [progress, setProgress] = useState<ProgressEvent | null>(null);
+  const lastLoggedStageRef = useRef<string | null>(null);
   
-  // UI Redesign Option: 'monolith' (Option A), 'editorial' (Option B), 'cyber' (Option C), 'classic' (Default)
-  const [designStyle, setDesignStyle] = useState<'monolith' | 'editorial' | 'cyber' | 'classic'>(() => {
-    try {
-      const saved = localStorage.getItem('altair-design-style');
-      if (saved === 'monolith' || saved === 'editorial' || saved === 'cyber' || saved === 'classic') return saved;
-    } catch (_) {}
-    return 'monolith';
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('altair-design-style', designStyle);
-    } catch (_) {}
-  }, [designStyle]);
-  
-  // Theme state: dark (Audiophile Midnight) or light (Clean Precision Studio)
+  // Theme state: dark (Midnight Charcoal) or light (Warm Washi Paper)
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     try {
       const saved = localStorage.getItem('altair-theme');
@@ -49,58 +33,62 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     try {
+      localStorage.setItem('altair-theme', theme);
       if (theme === 'dark') {
         document.documentElement.classList.add('dark');
         document.documentElement.classList.remove('light');
       } else {
-        document.documentElement.classList.remove('dark');
         document.documentElement.classList.add('light');
+        document.documentElement.classList.remove('dark');
       }
-      localStorage.setItem('altair-theme', theme);
     } catch (_) {}
   }, [theme]);
 
   const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    addLog(`Theme changed to ${next === 'dark' ? 'Audiophile Midnight (Dark)' : 'Clean Precision Studio (Bright)'}`, 'info', 'UI');
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  // Live Acoustic Terminal Console Logs
+  // Live Acoustic Console Terminal Logs
   const [logs, setLogs] = useState<ConsoleLogEntry[]>([
     {
-      id: 'boot-1',
+      id: 'init-1',
       timestamp: new Date().toLocaleTimeString(),
       level: 'info',
       tag: 'SYS',
-      message: 'ALTAIR Sonic Precision Engine v2.4 initialized',
+      message: 'ALTAIR Editorial Acoustic Engine initialized.',
     },
     {
-      id: 'boot-2',
+      id: 'init-2',
       timestamp: new Date().toLocaleTimeString(),
       level: 'info',
       tag: 'ENV',
-      message: 'Atmospheric calibration loaded: c = 343.2 m/s (20.0°C, 50% RH)',
+      message: 'Physical parameters: 20°C, 50% RH, c = 343.2 m/s, air absorption 0.18 dB/m.',
+    },
+    {
+      id: 'init-3',
+      timestamp: new Date().toLocaleTimeString(),
+      level: 'info',
+      tag: 'MON',
+      message: 'Reference monitors: Edifier MR3 + Edifier T5s Subwoofer.',
     },
   ]);
 
   const addLog = (
     message: string,
-    level: ConsoleLogEntry['level'] = 'info',
-    tag = 'SYS',
-    detail?: string
+    level: 'info' | 'success' | 'warn' | 'error' | 'dsp' | 'geom' = 'info',
+    tag: string = 'ALTAIR'
   ) => {
-    const entry: ConsoleLogEntry = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+    const newEntry: ConsoleLogEntry = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       timestamp: new Date().toLocaleTimeString(),
       level,
       tag,
       message,
-      detail,
     };
-    setLogs((prev) => [...prev.slice(-400), entry]);
+    setLogs((prev) => [...prev.slice(-199), newEntry]);
   };
 
+  // Optimization Configuration (Edifier MR3 + T5s Subwoofer defaults)
   const [config, setConfig] = useState<OptimizationRequest>({
     target: {
       name: 'harman',
@@ -116,83 +104,120 @@ export const App: React.FC = () => {
     use_demo_measurements: true,
   });
 
+  const initialRunRef = useRef(false);
+
   const checkStatus = async () => {
     try {
       const s = await fetchStatus();
       setStatus(s);
-      if (s.rew_connected) {
-        addLog('REW REST API connected at localhost:4735', 'success', 'REW');
-        setConfig((prev) => ({ ...prev, use_demo_measurements: false }));
-        setInputSource('rew');
-      } else {
-        addLog('REW offline. Running in Standalone Digital Room Correction mode', 'info', 'SYS');
-      }
-    } catch (e) {
-      addLog('Backend status check probe failed, will retry in background', 'warn', 'SYS');
+      addLog(
+        `Engine online. REW connected: ${s.rew_connected ? 'YES (Port 4735)' : 'NO (Standalone)'}`,
+        s.rew_connected ? 'success' : 'info',
+        'STATUS'
+      );
+    } catch (e: any) {
+      addLog(`Status poll failed: ${e.message}`, 'warn', 'STATUS');
     }
   };
 
-  const initialRunRef = useRef(false);
+  const handleResult = (res: OptimizationResponse) => {
+    setResult(res);
+    
+    const intel = res.acoustic_intelligence;
+    if (intel) {
+      addLog(`Schroeder transition detected: ${intel.detected_schroeder_hz} Hz`, 'dsp', 'SCHROEDER');
+      addLog(`First reflection arrival: ${intel.detected_reflection_gap_ms} ms (Auto-FDW: ${intel.recommended_fdw_cycles} cycles)`, 'geom', 'FDW');
+      const micGeom = intel.microphone_geometry;
+      if (micGeom) {
+        addLog(`Lateral microphone offset: ${micGeom.mic_off_center_mm} mm (${micGeom.delay_offset_ms} ms)`, 'geom', 'MIC');
+      }
+      addLog(`Speed of sound calibrated: ${intel.speed_of_sound_mps} m/s`, 'info', 'TEMP');
+      if (intel.mic_calibration) {
+        addLog(`Microphone .cal applied: ${intel.mic_calibration.points} points${intel.mic_calibration.has_phase ? ' (mag+phase)' : ''}`, 'success', 'CAL');
+      }
+      if (intel.sbir_neutral_mask_frequencies && intel.sbir_neutral_mask_frequencies.length > 0) {
+        addLog(`SBIR hard-clamp: no correction at ${intel.sbir_neutral_mask_frequencies.map((f) => `${f.toFixed(0)} Hz`).join(', ')}`, 'warn', 'SBIR');
+      }
+      if (typeof intel.target_air_adaptation_db_10k === 'number') {
+        addLog(`Air absorption target adaptation: ${intel.target_air_adaptation_db_10k.toFixed(2)} dB @10kHz`, 'info', 'ISO9613');
+      }
+      if (intel.spatial_variance_weighting && intel.spatial_variance_weighting.seats > 0) {
+        addLog(`Spatial variance weighting active (${intel.spatial_variance_weighting.seats} seats)`, 'dsp', 'SPATIAL');
+      }
+    }
+    
+    const sub = res.sub_alignment;
+    if (sub) {
+      addLog(`Subwoofer alignment: ${sub.optimal_delay_ms} ms (${sub.optimal_polarity}), +${sub.gain_improvement_db} dB summation boost`, 'success', 'SUB');
+    }
+    const mso = res.multi_sub_alignment;
+    if (mso) {
+      addLog(`Multi-Sub Matrix Optimization: ${mso.sub_count} subwoofers aligned at ${mso.crossover_freq_hz} Hz`, 'success', 'MSO');
+    }
+    
+    const sdL = res.safeguard_decision_left;
+    const sdR = res.safeguard_decision_right;
+    if (sdL && sdR) {
+      const attempts = res.safeguard_loop?.attempts ?? 1;
+      const attenuated = res.safeguard_loop?.auto_attenuated ?? false;
+      addLog(
+        `Safeguards: L ${sdL.pre_ringing_passed ? 'PASS' : 'ringing'} / R ${sdR.pre_ringing_passed ? 'PASS' : 'ringing'} — Zwicker gate ${sdL.zwicker_masked && sdR.zwicker_masked ? 'masked' : 'audible'}${attenuated ? ` (auto-attenuated ${attempts}x)` : ''}`,
+        sdL.audible_pre_echo || sdR.audible_pre_echo ? 'warn' : 'success',
+        'GUARD'
+      );
+    }
+    
+    const tpL = res.true_peak_left_dbfs !== undefined ? `${res.true_peak_left_dbfs.toFixed(2)} dBTP` : 'N/A';
+    const tpR = res.true_peak_right_dbfs !== undefined ? `${res.true_peak_right_dbfs.toFixed(2)} dBTP` : 'N/A';
+    addLog(`True-Peak 4x oversampled: Left: ${tpL} | Right: ${tpR}`, 'dsp', 'TP');
+    addLog(`Export package ready: EqAPO, CamillaDSP, miniDSP & WAV (${res.global_preamp_db} dB preamp)${res.wfir_taps ? ` + WFIR ${res.wfir_taps} taps` : ''}`, 'success', 'EXPORT');
+  };
 
   const handleRun = async () => {
     setIsRunning(true);
     setError(null);
-    addLog(`Starting optimization: ${config.target.name.toUpperCase()} target, ${config.target_taps.toLocaleString()} taps...`, 'info', 'PIPE');
+    setProgress(null);
+    lastLoggedStageRef.current = null;
+    addLog(`Initiating acoustic calibration with ${config.target.name.toUpperCase()} target curve...`, 'info', 'START');
+    addLog(`Physical constraints: FDW 1-cycle crossover, VBA modal mitigation: ON`, 'info', 'DSP');
     
     try {
-      const res = await runOptimization({
+      const runConfig = {
         ...config,
-        use_demo_measurements: mode === 'expert' ? config.use_demo_measurements : inputSource === 'demo',
-      });
-      setResult(res);
+        use_demo_measurements: inputSource === 'demo',
+      };
       
-      addLog(`Impulses loaded: ${res.sample_rate.toLocaleString()} Hz, ${res.target_taps.toLocaleString()} taps`, 'success', 'INGEST');
-      
-      if (res.acoustic_intelligence) {
-        const intel = res.acoustic_intelligence;
-        addLog(`Schroeder transition: ${intel.detected_schroeder_hz} Hz | Reflection gap: ${intel.detected_reflection_gap_ms} ms (auto FDW: ${intel.recommended_fdw_cycles} cyc)`, 'dsp', 'SCHROEDER');
-        addLog(`Loudspeaker acoustic roll-off: L=${intel.speaker_low_rolloff_hz} Hz, R=${intel.speaker_high_rolloff_hz} Hz`, 'dsp', 'ROLLOFF');
-        
-        if (intel.microphone_geometry) {
-          const geom = intel.microphone_geometry;
-          addLog(geom.geometry_summary, 'geom', 'GEOM');
-          addLog(`Acoustic distances: L: ${geom.distances.front_left.meters}m (${geom.distances.front_left.feet}ft) | R: ${geom.distances.front_right.meters}m (${geom.distances.front_right.feet}ft)${geom.distances.subwoofer ? ` | SW: ${geom.distances.subwoofer.meters}m (${geom.distances.subwoofer.feet}ft)` : ''}`, 'geom', 'DIST');
-          if (geom.impulse_response_correlation !== undefined) {
-            addLog(`Stereo IR Correlation: ${(geom.impulse_response_correlation * 100).toFixed(1)}%`, 'geom', 'ALIGN');
+      let resultHandled = false;
+      const res = await runOptimizationStreamed(runConfig, {
+        onProgress: (evt) => {
+          setProgress(evt);
+          if (evt.step !== lastLoggedStageRef.current) {
+            lastLoggedStageRef.current = evt.step;
+            addLog(`[${evt.pct}%] ${evt.step}${evt.detail ? ` — ${evt.detail}` : ''}`, 'dsp', 'STAGE');
           }
-        }
-        
-        if (intel.crossover_hardware_snapping) {
-          addLog(intel.crossover_hardware_snapping.summary, 'dsp', 'XO');
-        }
-        
-        if (intel.split_gain_staging) {
-          addLog(intel.split_gain_staging.summary, 'dsp', 'GAIN');
-        }
-      }
+        },
+        onResult: (r) => {
+          resultHandled = true;
+          handleResult(r);
+        },
+        onError: (message) => {
+          setError(message);
+          addLog(`Optimization error: ${message}`, 'error', 'ERR');
+        },
+      });
       
-      if (res.modal_info_left) {
-        addLog(`Virtual Bass Array synthesized: Mode P1=${res.modal_info_left.f_1.toFixed(1)} Hz (reflection canceller active)`, 'dsp', 'VBA');
-      }
-      
-      if (res.sub_alignment) {
-        const sub = res.sub_alignment;
-        addLog(`Subwoofer alignment: ${sub.optimal_delay_ms} ms (${sub.optimal_polarity}), +${sub.gain_improvement_db} dB summation boost`, 'success', 'SUB');
-      }
-      
-      const tpL = res.true_peak_left_dbfs !== undefined ? `${res.true_peak_left_dbfs.toFixed(2)} dBTP` : 'N/A';
-      const tpR = res.true_peak_right_dbfs !== undefined ? `${res.true_peak_right_dbfs.toFixed(2)} dBTP` : 'N/A';
-      addLog(`True-Peak 4x oversampled: Left: ${tpL} | Right: ${tpR}`, 'dsp', 'TP');
-      addLog(`Export package ready: EqAPO, CamillaDSP, miniDSP, rePhase & WAV (${res.global_preamp_db} dB preamp)`, 'success', 'EXPORT');
+      // Fallback path (non-streamed) returns the result here
+      if (res && !resultHandled) handleResult(res);
     } catch (e: any) {
       setError(e.message || 'Optimization failed');
       addLog(`Optimization error: ${e.message || 'Unknown error'}`, 'error', 'ERR');
     } finally {
       setIsRunning(false);
+      setProgress(null);
     }
   };
 
-  // Initial load: check status and auto-run demo optimization for instant UI gratification!
+  // Initial load
   useEffect(() => {
     checkStatus();
     if (!initialRunRef.current) {
@@ -202,14 +227,14 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#080c14] dark:text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] transition-colors">
+    <div className="min-h-screen bg-[#F9F8F6] text-stone-900 dark:bg-[#121316] dark:text-stone-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] transition-colors duration-200">
       {/* Top Navigation */}
       <Header
         status={status}
         mode={mode}
         onModeChange={(m) => {
           setMode(m);
-          addLog(`Switched view to ${m === 'wizard' ? '1-Click Wizard' : 'Expert Studio'}`, 'info', 'UI');
+          addLog(`Switched view to ${m === 'wizard' ? 'Editorial Monograph' : 'Expert Studio'}`, 'info', 'UI');
         }}
         onRefreshStatus={checkStatus}
         showConsole={showConsole}
@@ -217,20 +242,15 @@ export const App: React.FC = () => {
         consoleCount={logs.length}
         theme={theme}
         onToggleTheme={toggleTheme}
-        designStyle={designStyle}
-        onChangeDesignStyle={(s) => {
-          setDesignStyle(s);
-          addLog(`Switched UI redesign style to ${s.toUpperCase()}`, 'info', 'UI');
-        }}
       />
 
       {/* Main Content Area with Console Log on Right Side */}
-      <main className="flex-1 max-w-[1720px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col xl:flex-row gap-6 items-start">
+      <main className="flex-1 max-w-[1720px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col xl:flex-row gap-8 items-start">
         {/* Left / Center Work Area */}
         <div className="flex-1 min-w-0 w-full space-y-6">
           {/* Error Banner */}
           {error && (
-            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-500 text-xs font-semibold flex items-center justify-between">
+            <div className="p-4 rounded border border-red-300 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-400 text-xs font-semibold flex items-center justify-between">
               <span>⚠️ {error}</span>
               <button onClick={() => setError(null)} className="underline ml-4">
                 Dismiss
@@ -238,9 +258,9 @@ export const App: React.FC = () => {
             </div>
           )}
 
-          {/* Conditional Redesign Views */}
-          {designStyle === 'monolith' ? (
-            <StudioMonolithView
+          {/* Primary View Switcher: Editorial Monograph vs Expert Studio */}
+          {mode === 'wizard' ? (
+            <EditorialView
               config={config}
               onChangeConfig={setConfig}
               result={result}
@@ -248,62 +268,21 @@ export const App: React.FC = () => {
               onRun={handleRun}
               status={status}
               theme={theme}
-            />
-          ) : designStyle === 'editorial' ? (
-            <AudiophileEditorialView
-              config={config}
-              onChangeConfig={setConfig}
-              result={result}
-              isRunning={isRunning}
-              onRun={handleRun}
-              status={status}
-              theme={theme}
-            />
-          ) : designStyle === 'cyber' ? (
-            <CyberGlassView
-              config={config}
-              onChangeConfig={setConfig}
-              result={result}
-              isRunning={isRunning}
-              onRun={handleRun}
-              status={status}
-              theme={theme}
+              onLog={addLog}
             />
           ) : (
-            <>
-              {/* Wizard or Expert Mode Switch */}
-              {mode === 'wizard' ? (
-                <QuickRunCard
-                  target={config.target}
-                  onTargetChange={(t) => setConfig({ ...config, target: t })}
-                  inputSource={inputSource}
-                  onInputSourceChange={setInputSource}
-                  isRunning={isRunning}
-                  onRun={handleRun}
-                  rewConnected={status?.rew_connected || false}
-                />
-              ) : (
-                <ExpertStudio
-                  config={config}
-                  onChange={setConfig}
-                  onRun={handleRun}
-                  isRunning={isRunning}
-                  rewConnected={status?.rew_connected || false}
-                  onLog={addLog}
-                />
-              )}
+            <div className="space-y-6">
+              <ExpertStudio
+                config={config}
+                onChange={setConfig}
+                onRun={handleRun}
+                isRunning={isRunning}
+                rewConnected={status?.rew_connected || false}
+                onLog={addLog}
+              />
 
               {/* Live Step Progress */}
-              <StepProgress isRunning={isRunning} result={result} />
-
-              {/* Acoustic Intelligence Metrics */}
-              {result?.acoustic_intelligence && (
-                <AcousticIntelligenceBanner
-                  intel={result.acoustic_intelligence}
-                  truePeakDb={result.true_peak_left_dbfs}
-                  isZwickerMasked={result.zwicker_masking_left?.is_masked}
-                />
-              )}
+              <StepProgress isRunning={isRunning} result={result} progress={progress} />
 
               {/* Interactive Audio Plots */}
               <AudioPlot
@@ -311,6 +290,11 @@ export const App: React.FC = () => {
                 subAlignment={result?.sub_alignment}
                 theme={theme}
               />
+
+              {/* Multi-Sub Matrix Optimization (MSO) Results */}
+              {result?.multi_sub_alignment && (
+                <MultiSubView multiSubAlignment={result.multi_sub_alignment} />
+              )}
 
               {/* Subwoofer Alignment Interactive Tuning */}
               {result?.sub_alignment && (
@@ -338,7 +322,7 @@ export const App: React.FC = () => {
                   taps={result.target_taps}
                 />
               )}
-            </>
+            </div>
           )}
         </div>
 
@@ -355,10 +339,10 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white dark:border-slate-800/60 dark:bg-[#080c14] py-6 text-center text-xs text-slate-500 transition-colors">
-        <p>ALTAIR 1.0 • Automated Linear-phase Tuning & Acoustic Inversion Routine</p>
-        <p className="text-[11px] text-slate-400 dark:text-slate-600 mt-1">
+      {/* Editorial Monograph Footer */}
+      <footer className="border-t border-stone-200 bg-white dark:border-stone-800 dark:bg-[#121316] py-7 text-center text-xs text-stone-500 font-mono transition-colors">
+        <p className="tracking-wide">ALTAIR 1.0 • AUTOMATED LINEAR-PHASE TUNING & ACOUSTIC INVERSION ROUTINE</p>
+        <p className="text-[11px] text-stone-400 dark:text-stone-600 mt-1">
           Virtual Bass Array (VBA) • Tikhonov Regularized Deconvolution • 1-Cycle FDW Crossover Linearization
         </p>
       </footer>

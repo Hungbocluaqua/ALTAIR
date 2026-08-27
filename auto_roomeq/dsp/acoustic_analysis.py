@@ -448,6 +448,50 @@ def adapt_target_curve_from_rt60(
     return adapted
 
 
+def adapt_target_for_air_absorption(
+    target_spl_db: np.ndarray,
+    freqs: np.ndarray,
+    air_loss_db: np.ndarray,
+    max_adaptation_db: float = 6.0,
+    blend_start_hz: float = 1000.0,
+    blend_end_hz: float = 4000.0,
+) -> np.ndarray:
+    """
+    Distance-Dependent Air Absorption Target Adaptation (ISO 9613-1).
+    
+    High-frequency air damping is a physical room property, not a loudspeaker deficiency:
+    if the measured response has already lost energy to atmospheric absorption, the
+    inversion engine must NOT re-boost it (that would waste headroom and over-drive
+    tweeters). This function bends the house target down by the air-loss curve:
+    
+        target_adapted(f) = target(f) - clip(air_loss(f), 0, max_adaptation_db)
+    
+    with a smooth half-Hann blend-in between blend_start_hz and blend_end_hz so the
+    bass/mid target is untouched.
+    
+    Args:
+        target_spl_db: Anchored target curve in dB.
+        freqs: Frequency axis (same length as target).
+        air_loss_db: ISO 9613-1 loss curve (POSITIVE dB attenuation, as returned by
+            calculate_iso9613_air_absorption).
+        max_adaptation_db: Cap on how far the target may be bent (default 6 dB).
+        blend_start_hz / blend_end_hz: Smooth ramp-in band for the adaptation.
+    """
+    if air_loss_db is None or len(air_loss_db) != len(freqs):
+        return target_spl_db
+        
+    # Air absorption is reported as a positive attenuation; the target bend is negative.
+    loss = -np.clip(np.asarray(air_loss_db, dtype=np.float64), 0.0, max_adaptation_db)
+    
+    blend = np.ones_like(freqs, dtype=np.float64)
+    fade_mask = (freqs >= blend_start_hz) & (freqs <= blend_end_hz)
+    if np.any(fade_mask):
+        blend[fade_mask] = 0.5 * (1.0 - np.cos(np.pi * (freqs[fade_mask] - blend_start_hz) / max(1.0, blend_end_hz - blend_start_hz)))
+    blend[freqs < blend_start_hz] = 0.0
+    
+    return target_spl_db + loss * blend
+
+
 def classify_sbir_boundary_cancellations(
     freqs: np.ndarray,
     spl_db: np.ndarray,

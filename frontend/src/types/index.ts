@@ -25,6 +25,7 @@ export interface OptimizationRequest {
   pressure_kpa?: number;
   listening_distance_m?: number;
   mic_orientation_deg?: number;
+  wfir_taps?: number | null;
   use_demo_measurements: boolean;
   rew_measurement_ids?: number[];
 }
@@ -74,6 +75,23 @@ export interface SplitGainStaging {
   summary: string;
 }
 
+export interface MicCalibrationInfo {
+  points: number;
+  applied: boolean;
+  has_phase: boolean;
+}
+
+export interface SpatialVarianceWeighting {
+  left_active: boolean;
+  right_active: boolean;
+  seats: number;
+}
+
+export interface WaveletDecayGating {
+  left_true_modes: number[];
+  left_fast_decay_dips: number[];
+}
+
 export interface AcousticIntelligence {
   detected_schroeder_hz: number;
   detected_reflection_gap_ms: number;
@@ -91,6 +109,11 @@ export interface AcousticIntelligence {
   microphone_geometry?: MicrophoneGeometry;
   crossover_hardware_snapping?: CrossoverHardwareSnapping;
   split_gain_staging?: SplitGainStaging;
+  mic_calibration?: MicCalibrationInfo;
+  spatial_variance_weighting?: SpatialVarianceWeighting;
+  target_air_adaptation_db_10k?: number;
+  sbir_neutral_mask_frequencies?: number[];
+  wavelet_decay_gating?: WaveletDecayGating;
 }
 
 export interface PlotData {
@@ -116,6 +139,12 @@ export interface ModalInfo {
   d_samples?: number;
 }
 
+export interface ModalDecayEntry {
+  freq_hz: number;
+  decay_rt60_ms: number;
+  is_true_mode: boolean;
+}
+
 export interface PreringingMetrics {
   passed: boolean;
   max_pre_amplitude: number;
@@ -135,6 +164,20 @@ export interface ZwickerMaskingMetrics {
   max_pre_amp_pct: number;
 }
 
+export interface SafeguardLoop {
+  attempts: number;
+  q_scale: number;
+  beta_scale: number;
+  auto_attenuated: boolean;
+}
+
+export interface SafeguardDecision {
+  pre_ringing_passed: boolean;
+  zwicker_masked: boolean;
+  audible_pre_echo: boolean;
+  verdict: string;
+}
+
 export interface SubAlignmentResult {
   optimal_delay_ms: number;
   optimal_delay_samples: number;
@@ -149,6 +192,21 @@ export interface SubAlignmentResult {
   spl_sub_only_db: number[];
 }
 
+export interface SubAlignmentInfo {
+  sub_index: number;
+  name: string;
+  delay_ms: number;
+  delay_samples: number;
+  gain_db: number;
+  polarity: number;
+}
+
+export interface MultiSubAlignment {
+  sub_count: number;
+  crossover_freq_hz: number;
+  alignments: SubAlignmentInfo[];
+}
+
 export interface OptimizationResponse {
   status: string;
   sample_rate: number;
@@ -157,12 +215,36 @@ export interface OptimizationResponse {
   acoustic_intelligence?: AcousticIntelligence;
   modal_info_left: ModalInfo;
   modal_info_right: ModalInfo;
+  modal_decay_left?: ModalDecayEntry[];
+  modal_decay_right?: ModalDecayEntry[];
   preringing_left: PreringingMetrics;
   preringing_right: PreringingMetrics;
   zwicker_masking_left?: ZwickerMaskingMetrics;
   zwicker_masking_right?: ZwickerMaskingMetrics;
+  safeguard_loop?: SafeguardLoop;
+  safeguard_decision_left?: SafeguardDecision;
+  safeguard_decision_right?: SafeguardDecision;
   sub_alignment?: SubAlignmentResult;
+  multi_sub_alignment?: MultiSubAlignment;
+  wfir_taps?: number | null;
   true_peak_left_dbfs?: number;
   true_peak_right_dbfs?: number;
   plots: PlotData;
+}
+
+export interface ProgressEvent {
+  type: 'progress';
+  step: string;
+  pct: number;
+  detail: string;
+}
+
+export interface SessionStatus {
+  file_exists: boolean;
+  path: string;
+  channels: string[];
+  seat_sets: Record<string, number>;
+  sub_measurements: number;
+  cal_loaded: boolean;
+  result_cached: boolean;
 }

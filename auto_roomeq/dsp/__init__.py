@@ -7,7 +7,10 @@ from .acquisition import (
     deconvolve,
     load_cal_file,
     apply_cal_file,
+    coherent_impulse_stack,
+    recorded_sweep_to_measurement,
 )
+from .mdat_parser import parse_mdat
 from .measurement import (
     Measurement,
     cross_correlate_align,
@@ -37,6 +40,7 @@ from .phase_linearization import (
     frequency_dependent_window,
     synthesize_crossover_phase_reversal,
     synthesize_low_q_phase_correction,
+    synthesize_regularized_excess_phase_inverse,
     synthesize_phase_linearization_filter,
 )
 from .preringing import (
@@ -60,6 +64,7 @@ from .acoustic_analysis import (
     detect_speaker_rolloff,
     compute_spatial_variance_weight,
     analyze_wavelet_modal_decay,
+    adapt_target_for_air_absorption,
 )
 from .farina import (
     farina_harmonic_separation,

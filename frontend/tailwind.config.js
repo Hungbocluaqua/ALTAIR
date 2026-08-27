@@ -7,20 +7,22 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      fontFamily: {
+        serif: ['Newsreader', 'Georgia', 'Cambria', 'serif'],
+        sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'Menlo', 'Consolas', 'monospace'],
+      },
       colors: {
-        dark: {
-          900: '#0b0f19',
-          800: '#111827',
-          700: '#1f293d',
-          600: '#2d3748',
+        editorial: {
+          bg: '#F9F8F6',
+          surface: '#FFFFFF',
+          border: '#E5E3DF',
+          darkBg: '#121316',
+          darkSurface: '#17181C',
+          darkBorder: '#26282E',
+          amber: '#D97706',
+          amberDark: '#F59E0B',
         },
-        audiophile: {
-          cyan: '#06b6d4',
-          emerald: '#10b981',
-          amber: '#f59e0b',
-          rose: '#f43f5e',
-          indigo: '#6366f1',
-        }
       },
     },
   },

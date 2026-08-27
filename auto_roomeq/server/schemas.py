@@ -33,6 +33,7 @@ class OptimizationRequest(BaseModel):
     pressure_kpa: float = Field(101.325, ge=50.0, le=120.0)
     listening_distance_m: float = Field(3.0, ge=0.1, le=30.0)
     mic_orientation_deg: float = Field(0.0, ge=0.0, le=90.0)  # 0.0 on-axis, 90.0 ceiling/diffuse
+    wfir_taps: Optional[int] = Field(None, ge=512, le=16384)  # Warped FIR export target taps
     use_demo_measurements: bool = False
     rew_measurement_ids: Optional[List[int]] = None
 
@@ -66,6 +67,11 @@ class AcousticIntelligence(BaseModel):
     microphone_geometry: Optional[Dict[str, Any]] = None
     crossover_hardware_snapping: Optional[Dict[str, Any]] = None
     split_gain_staging: Optional[Dict[str, Any]] = None
+    mic_calibration: Optional[Dict[str, Any]] = None
+    spatial_variance_weighting: Optional[Dict[str, Any]] = None
+    target_air_adaptation_db_10k: Optional[float] = None
+    sbir_neutral_mask_frequencies: Optional[List[float]] = None
+    wavelet_decay_gating: Optional[Dict[str, Any]] = None
 
 
 class SubAlignmentResult(BaseModel):
@@ -90,11 +96,18 @@ class OptimizationResponse(BaseModel):
     acoustic_intelligence: Optional[AcousticIntelligence] = None
     modal_info_left: Dict[str, Any]
     modal_info_right: Dict[str, Any]
+    modal_decay_left: Optional[List[Dict[str, Any]]] = None
+    modal_decay_right: Optional[List[Dict[str, Any]]] = None
     preringing_left: Dict[str, Any]
     preringing_right: Dict[str, Any]
     zwicker_masking_left: Optional[Dict[str, Any]] = None
     zwicker_masking_right: Optional[Dict[str, Any]] = None
+    safeguard_loop: Optional[Dict[str, Any]] = None
+    safeguard_decision_left: Optional[Dict[str, Any]] = None
+    safeguard_decision_right: Optional[Dict[str, Any]] = None
     sub_alignment: Optional[SubAlignmentResult] = None
+    multi_sub_alignment: Optional[Dict[str, Any]] = None
+    wfir_taps: Optional[int] = None
     true_peak_left_dbfs: Optional[float] = None
     true_peak_right_dbfs: Optional[float] = None
     plots: PlotData

@@ -49,29 +49,29 @@ export const QuickRunCard: React.FC<QuickRunCardProps> = ({
   ];
 
   return (
-    <div className="bg-white border border-slate-200 text-slate-800 shadow-xl shadow-slate-200/50 dark:bg-gradient-to-b dark:from-slate-900 dark:via-slate-900/90 dark:to-slate-950 dark:border-slate-800 dark:text-slate-100 dark:shadow-2xl rounded-3xl p-6 relative overflow-hidden transition-colors">
+    <div className="bg-white border border-stone-200 text-stone-800 shadow-xl shadow-stone-200/50 dark:bg-gradient-to-b dark:from-stone-900 dark:via-stone-900/90 dark:to-stone-950 dark:border-stone-800 dark:text-stone-100 dark:shadow-2xl rounded-lg p-6 relative overflow-hidden transition-colors">
       {/* Glow highlight */}
-      <div className="absolute -top-24 -right-24 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute -top-24 -right-24 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
       {/* Title */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 rounded-xl bg-cyan-50 border border-cyan-200 text-cyan-600 dark:bg-cyan-500/10 dark:border-cyan-500/20 dark:text-cyan-400">
+          <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400">
             <Sparkles className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight">1-Click Room Correction Wizard</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Automated VBA, Tikhonov Inversion, Crossover Phase & Sub Alignment</p>
+            <h2 className="text-lg font-extrabold text-stone-900 dark:text-white tracking-tight">1-Click Room Correction Wizard</h2>
+            <p className="text-xs text-stone-500 dark:text-stone-400">Automated VBA, Tikhonov Inversion, Crossover Phase & Sub Alignment</p>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Step 1: Input Measurement Source */}
-        <div className="bg-slate-50/90 border border-slate-200 dark:bg-slate-950/60 dark:border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between transition-colors">
+        <div className="bg-stone-50/90 border border-stone-200 dark:bg-stone-950/60 dark:border-stone-800/80 rounded-lg p-4 flex flex-col justify-between transition-colors">
           <div>
-            <div className="flex items-center space-x-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
-              <span className="h-5 w-5 rounded-full bg-cyan-100 text-cyan-800 dark:bg-cyan-500/20 dark:text-cyan-400 flex items-center justify-center text-[10px]">1</span>
+            <div className="flex items-center space-x-2 text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-3">
+              <span className="h-5 w-5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400 flex items-center justify-center text-[10px]">1</span>
               <span>Measurement Source</span>
             </div>
 
@@ -80,8 +80,8 @@ export const QuickRunCard: React.FC<QuickRunCardProps> = ({
                 onClick={() => onInputSourceChange('demo')}
                 className={`flex items-start space-x-3 p-3 rounded-xl border cursor-pointer transition-all ${
                   inputSource === 'demo'
-                    ? 'border-cyan-500 bg-cyan-50/80 text-cyan-950 dark:bg-cyan-500/10 dark:text-white shadow-sm'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-400 dark:hover:border-slate-700'
+                    ? 'border-amber-500 bg-amber-50/80 text-amber-950 dark:bg-amber-500/10 dark:text-white shadow-sm'
+                    : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300 dark:border-stone-800 dark:bg-stone-900/40 dark:text-stone-400 dark:hover:border-stone-700'
                 }`}
               >
                 <input
@@ -89,11 +89,11 @@ export const QuickRunCard: React.FC<QuickRunCardProps> = ({
                   name="inputSource"
                   checked={inputSource === 'demo'}
                   onChange={() => onInputSourceChange('demo')}
-                  className="mt-0.5 text-cyan-500 focus:ring-0"
+                  className="mt-0.5 text-amber-500 focus:ring-0"
                 />
                 <div>
-                  <div className="font-semibold text-xs text-slate-800 dark:text-slate-200">Demo Audiophile Room</div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Stereo Mains + Subwoofer with room modes</div>
+                  <div className="font-semibold text-xs text-stone-800 dark:text-stone-200">Demo Audiophile Room</div>
+                  <div className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">Stereo Mains + Subwoofer with room modes</div>
                 </div>
               </label>
 
@@ -101,10 +101,10 @@ export const QuickRunCard: React.FC<QuickRunCardProps> = ({
                 onClick={() => rewConnected && onInputSourceChange('rew')}
                 className={`flex items-start space-x-3 p-3 rounded-xl border transition-all ${
                   !rewConnected
-                    ? 'opacity-40 cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-slate-800 dark:bg-slate-900/20 dark:text-slate-500'
+                    ? 'opacity-40 cursor-not-allowed border-stone-200 bg-stone-100 text-stone-400 dark:border-stone-800 dark:bg-stone-900/20 dark:text-stone-500'
                     : inputSource === 'rew'
-                    ? 'border-cyan-500 bg-cyan-50/80 text-cyan-950 dark:bg-cyan-500/10 dark:text-white cursor-pointer shadow-sm'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-400 dark:hover:border-slate-700 cursor-pointer'
+                    ? 'border-amber-500 bg-amber-50/80 text-amber-950 dark:bg-amber-500/10 dark:text-white cursor-pointer shadow-sm'
+                    : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300 dark:border-stone-800 dark:bg-stone-900/40 dark:text-stone-400 dark:hover:border-stone-700 cursor-pointer'
                 }`}
               >
                 <input
@@ -113,11 +113,11 @@ export const QuickRunCard: React.FC<QuickRunCardProps> = ({
                   checked={inputSource === 'rew'}
                   disabled={!rewConnected}
                   onChange={() => onInputSourceChange('rew')}
-                  className="mt-0.5 text-cyan-500 focus:ring-0"
+                  className="mt-0.5 text-amber-500 focus:ring-0"
                 />
                 <div>
-                  <div className="font-semibold text-xs text-slate-800 dark:text-slate-200">Pull from REW API</div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  <div className="font-semibold text-xs text-stone-800 dark:text-stone-200">Pull from REW API</div>
+                  <div className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
                     {rewConnected ? 'Ready (localhost:4735)' : 'Start REW with -api to enable'}
                   </div>
                 </div>
@@ -125,16 +125,16 @@ export const QuickRunCard: React.FC<QuickRunCardProps> = ({
             </div>
           </div>
 
-          <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800/60 flex items-center text-[11px] text-slate-500 dark:text-slate-400">
+          <div className="mt-3 pt-3 border-t border-stone-200 dark:border-stone-800/60 flex items-center text-[11px] text-stone-500 dark:text-stone-400">
             <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mr-1.5 shrink-0" />
             <span>Harmonic modal scan (±10% tol)</span>
           </div>
         </div>
 
         {/* Step 2: House Target Curve */}
-        <div className="bg-slate-50/90 border border-slate-200 dark:bg-slate-950/60 dark:border-slate-800/80 rounded-2xl p-4 transition-colors">
-          <div className="flex items-center space-x-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
-            <span className="h-5 w-5 rounded-full bg-cyan-100 text-cyan-800 dark:bg-cyan-500/20 dark:text-cyan-400 flex items-center justify-center text-[10px]">2</span>
+        <div className="bg-stone-50/90 border border-stone-200 dark:bg-stone-950/60 dark:border-stone-800/80 rounded-lg p-4 transition-colors">
+          <div className="flex items-center space-x-2 text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-3">
+            <span className="h-5 w-5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400 flex items-center justify-center text-[10px]">2</span>
             <span>Target House Curve</span>
           </div>
 
@@ -153,15 +153,15 @@ export const QuickRunCard: React.FC<QuickRunCardProps> = ({
                   }
                   className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
                     isSelected
-                      ? 'border-cyan-500 bg-cyan-50/80 text-cyan-950 dark:border-cyan-500 dark:bg-cyan-500/10 dark:text-white shadow-sm'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-400 dark:hover:border-slate-700'
+                      ? 'border-amber-500 bg-amber-50/80 text-amber-950 dark:border-amber-500 dark:bg-amber-500/10 dark:text-white shadow-sm'
+                      : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300 dark:border-stone-800 dark:bg-stone-900/40 dark:text-stone-400 dark:hover:border-stone-700'
                   }`}
                 >
                   <div>
-                    <div className="font-semibold text-xs text-slate-800 dark:text-slate-200">{p.label}</div>
-                    <div className="text-[10px] text-slate-500 dark:text-slate-400">{p.desc}</div>
+                    <div className="font-semibold text-xs text-stone-800 dark:text-stone-200">{p.label}</div>
+                    <div className="text-[10px] text-stone-500 dark:text-stone-400">{p.desc}</div>
                   </div>
-                  {isSelected && <CheckCircle2 className="h-4 w-4 text-cyan-600 dark:text-cyan-400 shrink-0 ml-2" />}
+                  {isSelected && <CheckCircle2 className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 ml-2" />}
                 </div>
               );
             })}
@@ -169,34 +169,34 @@ export const QuickRunCard: React.FC<QuickRunCardProps> = ({
         </div>
 
         {/* Step 3: Hardware Profile & Run Button */}
-        <div className="bg-slate-50/90 border border-slate-200 dark:bg-slate-950/60 dark:border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between transition-colors">
+        <div className="bg-stone-50/90 border border-stone-200 dark:bg-stone-950/60 dark:border-stone-800/80 rounded-lg p-4 flex flex-col justify-between transition-colors">
           <div>
-            <div className="flex items-center space-x-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
-              <span className="h-5 w-5 rounded-full bg-cyan-100 text-cyan-800 dark:bg-cyan-500/20 dark:text-cyan-400 flex items-center justify-center text-[10px]">3</span>
+            <div className="flex items-center space-x-2 text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-3">
+              <span className="h-5 w-5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400 flex items-center justify-center text-[10px]">3</span>
               <span>Convolver & Hardware Targets</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-[11px] font-medium text-slate-700 dark:text-slate-300">
-              <div className="p-2 rounded-lg bg-white border border-slate-200 dark:bg-slate-900/60 dark:border-slate-800 flex items-center space-x-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-cyan-500"></span>
+            <div className="grid grid-cols-2 gap-2 text-[11px] font-medium text-stone-700 dark:text-stone-300">
+              <div className="p-2 rounded-lg bg-white border border-stone-200 dark:bg-stone-900/60 dark:border-stone-800 flex items-center space-x-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
                 <span>Equalizer APO</span>
               </div>
-              <div className="p-2 rounded-lg bg-white border border-slate-200 dark:bg-slate-900/60 dark:border-slate-800 flex items-center space-x-2">
+              <div className="p-2 rounded-lg bg-white border border-stone-200 dark:bg-stone-900/60 dark:border-stone-800 flex items-center space-x-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
                 <span>CamillaDSP</span>
               </div>
-              <div className="p-2 rounded-lg bg-white border border-slate-200 dark:bg-slate-900/60 dark:border-slate-800 flex items-center space-x-2">
+              <div className="p-2 rounded-lg bg-white border border-stone-200 dark:bg-stone-900/60 dark:border-stone-800 flex items-center space-x-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
                 <span>miniDSP Flex</span>
               </div>
-              <div className="p-2 rounded-lg bg-white border border-slate-200 dark:bg-slate-900/60 dark:border-slate-800 flex items-center space-x-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500"></span>
+              <div className="p-2 rounded-lg bg-white border border-stone-200 dark:bg-stone-900/60 dark:border-stone-800 flex items-center space-x-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-stone-500"></span>
                 <span>Roon / WAV FIR</span>
               </div>
             </div>
 
-            <div className="mt-3 text-[11px] text-slate-500 dark:text-slate-400">
-              Tap length: <span className="font-mono text-cyan-700 dark:text-cyan-400 font-bold">65,536 Taps</span> (32-bit Float)
+            <div className="mt-3 text-[11px] text-stone-500 dark:text-stone-400">
+              Tap length: <span className="font-mono text-amber-700 dark:text-amber-400 font-bold">65,536 Taps</span> (32-bit Float)
             </div>
           </div>
 
@@ -206,13 +206,13 @@ export const QuickRunCard: React.FC<QuickRunCardProps> = ({
             disabled={isRunning}
             className={`w-full mt-4 py-3.5 px-4 rounded-xl font-extrabold text-sm tracking-wide flex items-center justify-center space-x-2 transition-all shadow-lg ${
               isRunning
-                ? 'bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400 cursor-not-allowed'
-                : 'bg-gradient-to-r from-cyan-500 via-teal-400 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:scale-[1.01] active:scale-[0.99]'
+                ? 'bg-stone-200 text-stone-500 dark:bg-stone-800 dark:text-stone-400 cursor-not-allowed'
+                : 'bg-gradient-to-r from-amber-500 via-amber-400 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-stone-950 shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-[1.01] active:scale-[0.99]'
             }`}
           >
             {isRunning ? (
               <>
-                <div className="h-4 w-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="h-4 w-4 border-2 border-stone-500 border-t-transparent rounded-full animate-spin"></div>
                 <span>Optimizing Acoustic Filters...</span>
               </>
             ) : (

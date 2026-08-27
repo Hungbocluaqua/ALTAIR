@@ -48,3 +48,5 @@ Thumbs.db
 scratch/
 .agents/
 skills-lock.json
+# Session persistence file (created by /api/session/save)
+altair_project.json

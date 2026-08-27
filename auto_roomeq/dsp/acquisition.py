@@ -9,6 +9,8 @@ Implements:
 from typing import Tuple, Optional, Union, Dict, Any
 import numpy as np
 
+from .measurement import Measurement
+
 
 def generate_log_chirp(
     f_start: float = 10.0,
@@ -36,6 +38,17 @@ def generate_log_chirp(
     """
     duration = length_samples / sample_rate
     t = np.linspace(0, duration, length_samples, endpoint=False)
+    
+    # The log-sweep phase formula divides by ln(f_end/f_start) — degenerate
+    # parameters would silently produce a wrong sweep, so reject them loudly.
+    if not np.isfinite(f_start) or not np.isfinite(f_end):
+        raise ValueError("Sweep frequencies must be finite.")
+    if f_start <= 0.0:
+        raise ValueError(f"f_start must be positive (got {f_start}).")
+    if f_end <= f_start:
+        raise ValueError(f"f_end must be greater than f_start (got {f_start}..{f_end}).")
+    if f_end > sample_rate / 2.0:
+        raise ValueError(f"f_end must not exceed Nyquist ({sample_rate / 2.0} Hz).")
     
     # Logarithmic chirp instantaneous phase:
     # phi(t) = 2*pi * f_start * duration / ln(f_end/f_start) * ((f_end/f_start)^(t/duration) - 1)
@@ -188,6 +201,108 @@ def apply_cal_file(
         H_mic = mag_mic
         
     return H_complex / np.maximum(H_mic, 1e-12)
+
+
+def _detect_timing_preamble(rec: np.ndarray, sample_rate: int) -> int:
+    """
+    Heuristic detection of the ALTAIR timing preamble prepended by
+    generate_log_chirp(include_timing_ref=True): a 10 ms 8 kHz burst followed
+    by 100 ms of silence. Returns the preamble length in samples (0 when the
+    recording starts directly with the sweep).
+    """
+    ref_len = int(0.010 * sample_rate)
+    silence_len = int(0.100 * sample_rate)
+    available_tail = len(rec) - ref_len - silence_len
+    if available_tail < int(0.05 * sample_rate):
+        return 0
+    tail_len = min(int(1.0 * sample_rate), available_tail)
+    burst_energy = float(np.mean(rec[:ref_len] ** 2))
+    gap_energy = float(np.mean(rec[ref_len:ref_len + silence_len] ** 2) + 1e-12)
+    tail_energy = float(np.mean(rec[ref_len + silence_len:ref_len + silence_len + tail_len] ** 2))
+    if burst_energy > 10.0 * gap_energy and tail_energy > 5.0 * gap_energy:
+        return ref_len + silence_len
+    return 0
+
+
+def recorded_sweep_to_measurement(
+    recorded_sweep: np.ndarray,
+    sample_rate: int = 48000,
+    f_start: float = 10.0,
+    f_end: Optional[float] = None,
+    name: str = "Recorded Sweep Measurement",
+    n_fft: int = 65536,
+    max_harmonic: int = 5,
+) -> Tuple["Measurement", Dict[str, Any]]:
+    """
+    Convert a RAW recorded log-sine sweep into a clean Measurement via
+    Angelo Farina harmonic distortion separation.
+
+    1. Strips the ALTAIR timing preamble (10 ms burst + 100 ms silence) when
+       detected, so the sweep portion is length-aligned with the reference.
+    2. farina_harmonic_separation synthesizes the inverse sweep, deconvolves
+       the recording, and windows out the 2nd..5th harmonic distortion bursts
+       that appear at negative time offsets
+       Delta_t_k = -T/ln(f_end/f_start) * ln(k) before the linear impulse.
+
+    IMPORTANT: the input must be the raw microphone recording — NOT an
+    already-deconvolved impulse response (Farina performs the deconvolution
+    internally, and feeding it a deconvolved IR would tilt the spectrum).
+
+    Returns:
+        (Measurement, diagnostics dict with thd_percent, harmonics windowed,
+        sweep duration and detected preamble length)
+    """
+    from .farina import farina_harmonic_separation
+    
+    rec = np.nan_to_num(np.asarray(recorded_sweep, dtype=np.float64))
+    if len(rec) == 0:
+        raise ValueError("Recorded sweep is empty.")
+        
+    if f_end is None:
+        f_end = min(24000.0, sample_rate * 0.48)
+    
+    # Strip the timing preamble so the recording aligns with the reference sweep
+    preamble_samples = _detect_timing_preamble(rec, int(sample_rate))
+    sweep_part = rec[preamble_samples:] if preamble_samples > 0 else rec
+    if len(sweep_part) < 2:
+        raise ValueError("Recorded sweep is too short after preamble removal.")
+    
+    sweep_duration_s = len(sweep_part) / sample_rate
+    farina_result = farina_harmonic_separation(
+        sweep_part,
+        f_start=f_start,
+        f_end=f_end,
+        sample_rate=int(sample_rate),
+        sweep_duration_s=sweep_duration_s,
+        max_harmonic=max_harmonic,
+    )
+    
+    linear_ir = farina_result["linear_ir"]
+    
+    # Farina deconvolution places the linear impulse near index ~ sweep_length
+    # (the inverse sweep is time-reversed, so the correlation peak lands at the
+    # end of the sweep). Extract a canonical n_fft-length window CENTERED just
+    # before that peak (1,024 samples of pre-arrival context = ~21 ms at 48 kHz),
+    # zero-padding at the boundaries.
+    peak_idx = int(np.argmax(np.abs(linear_ir)))
+    pre_context = min(1024, peak_idx)
+    start = peak_idx - pre_context
+    out_len = int(n_fft) if n_fft else len(linear_ir)
+    if start + out_len > len(linear_ir):
+        segment = linear_ir[start:]
+        linear_ir = np.pad(segment, (0, max(0, out_len - len(segment))))
+    else:
+        linear_ir = linear_ir[start:start + out_len]
+        
+    meas = Measurement(name=name, ir=linear_ir, sample_rate=sample_rate, n_fft=n_fft)
+    diagnostics = {
+        "thd_percent": farina_result.get("thd_percent", 0.0),
+        "harmonics_windowed": [2, 3, 4, 5][: max(0, max_harmonic - 1)],
+        "sweep_duration_s": round(sweep_duration_s, 3),
+        "preamble_samples": int(preamble_samples),
+        "linear_peak_index": int(peak_idx),
+    }
+    return meas, diagnostics
 
 
 def coherent_impulse_stack(

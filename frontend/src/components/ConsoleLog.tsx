@@ -52,8 +52,8 @@ export const ConsoleLog: React.FC<ConsoleLogProps> = ({
   };
 
   const filteredLogs = logs.filter((l) => {
-    if (filter === 'geom') return l.tag === 'GEOM' || l.tag === 'ALIGN' || l.tag === 'DIST';
-    if (filter === 'dsp') return l.level === 'dsp' || l.tag === 'XO' || l.tag === 'VBA' || l.tag === 'SUB';
+    if (filter === 'geom') return l.tag === 'GEOM' || l.tag === 'ALIGN' || l.tag === 'DIST' || l.tag === 'MIC';
+    if (filter === 'dsp') return l.level === 'dsp' || l.tag === 'XO' || l.tag === 'VBA' || l.tag === 'SUB' || l.tag === 'SCHROEDER';
     if (filter === 'err') return l.level === 'error' || l.level === 'warn';
     return true;
   });
@@ -63,25 +63,24 @@ export const ConsoleLog: React.FC<ConsoleLogProps> = ({
       case 'REW':
       case 'SWEEP':
       case 'STACK':
-        return 'text-cyan-800 bg-cyan-50 border-cyan-300 dark:text-cyan-400 dark:bg-cyan-950/60 dark:border-cyan-500/30';
+        return 'text-amber-800 bg-amber-50 border-amber-300 dark:text-amber-400 dark:bg-amber-950/50 dark:border-amber-500/30';
       case 'GEOM':
       case 'ALIGN':
       case 'DIST':
-        return 'text-amber-800 bg-amber-50 border-amber-300 dark:text-amber-400 dark:bg-amber-950/60 dark:border-amber-500/30';
+      case 'MIC':
+        return 'text-amber-900 bg-amber-100/70 border-amber-300 dark:text-amber-300 dark:bg-amber-900/30 dark:border-amber-600/40';
       case 'XO':
-        return 'text-purple-800 bg-purple-50 border-purple-300 dark:text-purple-400 dark:bg-purple-950/60 dark:border-purple-500/30';
       case 'SUB':
-        return 'text-teal-800 bg-teal-50 border-teal-300 dark:text-teal-400 dark:bg-teal-950/60 dark:border-teal-500/30';
       case 'VBA':
       case 'DSP':
-      case 'GAIN':
+      case 'SCHROEDER':
       case 'TP':
-        return 'text-emerald-800 bg-emerald-50 border-emerald-300 dark:text-emerald-400 dark:bg-emerald-950/60 dark:border-emerald-500/30';
+        return 'text-stone-800 bg-stone-100 border-stone-300 dark:text-stone-200 dark:bg-stone-800/80 dark:border-stone-700';
       default:
         if (level === 'error') return 'text-red-700 bg-red-50 border-red-300 dark:text-red-400 dark:bg-red-950/60 dark:border-red-500/30';
-        if (level === 'warn') return 'text-amber-700 bg-amber-50 border-amber-300 dark:text-yellow-400 dark:bg-yellow-950/60 dark:border-yellow-500/30';
+        if (level === 'warn') return 'text-amber-700 bg-amber-50 border-amber-300 dark:text-amber-400 dark:bg-amber-950/60 dark:border-amber-500/30';
         if (level === 'success') return 'text-emerald-700 bg-emerald-50 border-emerald-300 dark:text-emerald-400 dark:bg-emerald-950/60 dark:border-emerald-500/30';
-        return 'text-slate-600 bg-slate-100 border-slate-300 dark:text-slate-400 dark:bg-slate-900 dark:border-slate-700';
+        return 'text-stone-600 bg-stone-100 border-stone-200 dark:text-stone-400 dark:bg-stone-900 dark:border-stone-800';
     }
   };
 
@@ -90,29 +89,29 @@ export const ConsoleLog: React.FC<ConsoleLogProps> = ({
       case 'error':
         return 'text-red-600 dark:text-red-300 font-medium';
       case 'warn':
-        return 'text-amber-700 dark:text-yellow-300 font-medium';
+        return 'text-amber-700 dark:text-amber-300 font-medium';
       case 'success':
         return 'text-emerald-700 dark:text-emerald-300 font-medium';
       case 'geom':
-        return 'text-amber-800 dark:text-amber-200';
+        return 'text-amber-800 dark:text-amber-300';
       case 'dsp':
-        return 'text-cyan-800 dark:text-cyan-200';
+        return 'text-stone-900 dark:text-stone-200';
       default:
-        return 'text-slate-700 dark:text-slate-300';
+        return 'text-stone-700 dark:text-stone-300';
     }
   };
 
   if (isCollapsed) {
     return (
-      <div className="bg-white border-slate-200 dark:bg-[#050811] dark:border-slate-800 rounded-2xl p-3 shadow-md dark:shadow-xl flex items-center justify-between transition-colors">
-        <div className="flex items-center space-x-2 text-xs font-mono text-cyan-600 dark:text-cyan-400">
+      <div className="bg-white border border-stone-200 dark:bg-[#121316] dark:border-stone-800 rounded-lg p-3 shadow-sm flex items-center justify-between transition-colors">
+        <div className="flex items-center space-x-2 text-xs font-mono text-amber-700 dark:text-amber-500">
           <Terminal className="h-4 w-4" />
-          <span>ALTAIR CONSOLE ({logs.length})</span>
+          <span>ACOUSTIC LEDGER ({logs.length})</span>
         </div>
         {onToggleCollapse && (
           <button
             onClick={onToggleCollapse}
-            className="px-2 py-1 text-[11px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 dark:bg-cyan-500/10 dark:text-cyan-400 dark:border-cyan-500/30 rounded-lg hover:bg-cyan-100 dark:hover:bg-cyan-500/20 transition-colors"
+            className="px-2.5 py-1 text-[11px] font-mono font-bold bg-stone-100 text-stone-700 border border-stone-300 dark:bg-stone-800 dark:text-stone-300 dark:border-stone-700 rounded hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
           >
             Expand Terminal
           </button>
@@ -122,43 +121,38 @@ export const ConsoleLog: React.FC<ConsoleLogProps> = ({
   }
 
   return (
-    <div className="bg-white border-slate-200 dark:bg-[#050811] dark:border-slate-800/90 rounded-2xl shadow-xl dark:shadow-2xl flex flex-col h-full overflow-hidden transition-colors">
-      {/* Terminal Titlebar */}
-      <div className="bg-slate-100/90 px-3.5 py-2.5 border-b border-slate-200 dark:bg-[#080d1a] dark:border-slate-800/80 flex items-center justify-between select-none transition-colors">
+    <div className="bg-white border border-stone-200 dark:bg-[#121316] dark:border-stone-800 rounded-lg shadow-sm flex flex-col h-full overflow-hidden transition-colors">
+      {/* Editorial Titlebar */}
+      <div className="bg-stone-50 px-4 py-3 border-b border-stone-200 dark:bg-[#0E0F12] dark:border-stone-800 flex items-center justify-between select-none transition-colors">
         <div className="flex items-center space-x-2.5">
-          {/* Traffic light dots */}
-          <div className="flex space-x-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-red-400 dark:bg-red-500/80 inline-block"></span>
-            <span className="h-2.5 w-2.5 rounded-full bg-amber-400 dark:bg-amber-500/80 inline-block"></span>
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 dark:bg-emerald-500/80 inline-block"></span>
-          </div>
-
-          <div className="flex items-center space-x-1.5 text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
-            <Terminal className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-            <span className="tracking-tight">ALTAIR CONSOLE</span>
+          <div className="flex items-center space-x-2">
+            <span className="h-2 w-2 rounded-full bg-amber-600 dark:bg-amber-500 inline-block"></span>
+            <span className="font-serif font-bold text-sm tracking-tight text-stone-900 dark:text-stone-100">
+              Acoustic Ledger
+            </span>
           </div>
 
           {/* Running status indicator */}
           {isRunning ? (
-            <span className="flex items-center space-x-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-300 dark:bg-cyan-950 dark:text-cyan-400 dark:border-cyan-500/30 animate-pulse">
+            <span className="flex items-center space-x-1 text-[10px] font-mono px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-500/30 animate-pulse font-bold">
               <Zap className="h-3 w-3" />
               <span>LIVE</span>
             </span>
           ) : (
-            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-200/80 text-slate-600 border border-slate-300 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800">
-              READY
+            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-stone-200 text-stone-600 dark:bg-stone-800 dark:text-stone-400">
+              SYNC
             </span>
           )}
         </div>
 
         {/* Console Action Buttons */}
-        <div className="flex items-center space-x-1 text-slate-500 dark:text-slate-400">
+        <div className="flex items-center space-x-1 text-stone-500 dark:text-stone-400">
           <button
             type="button"
             onClick={() => setAutoScroll(!autoScroll)}
             title={autoScroll ? 'Pause auto-scroll' : 'Resume auto-scroll'}
-            className={`p-1.5 rounded-md hover:text-slate-900 dark:hover:text-white transition-colors ${
-              autoScroll ? 'text-cyan-700 bg-cyan-50 dark:text-cyan-400 dark:bg-cyan-500/10' : 'text-slate-400 dark:text-slate-500'
+            className={`p-1.5 rounded hover:text-stone-900 dark:hover:text-white transition-colors ${
+              autoScroll ? 'text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/40' : 'text-stone-400 dark:text-stone-500'
             }`}
           >
             {autoScroll ? <ArrowDownCircle className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
@@ -168,7 +162,7 @@ export const ConsoleLog: React.FC<ConsoleLogProps> = ({
             type="button"
             onClick={copyLogs}
             title="Copy logs to clipboard"
-            className="p-1.5 rounded-md hover:text-slate-900 dark:hover:text-white transition-colors"
+            className="p-1.5 rounded hover:text-stone-900 dark:hover:text-white transition-colors"
           >
             {copied ? <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
           </button>
@@ -177,7 +171,7 @@ export const ConsoleLog: React.FC<ConsoleLogProps> = ({
             type="button"
             onClick={onClear}
             title="Clear console"
-            className="p-1.5 rounded-md hover:text-red-600 dark:hover:text-red-400 transition-colors"
+            className="p-1.5 rounded hover:text-red-600 dark:hover:text-red-400 transition-colors"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -187,85 +181,87 @@ export const ConsoleLog: React.FC<ConsoleLogProps> = ({
               type="button"
               onClick={onToggleCollapse}
               title="Collapse console"
-              className="p-1.5 rounded-md hover:text-slate-900 dark:hover:text-white transition-colors text-xs font-mono ml-1"
+              className="px-2 py-0.5 ml-1 text-[11px] font-mono rounded border border-stone-300 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
             >
-              ✕
+              Hide
             </button>
           )}
         </div>
       </div>
 
-      {/* Quick Filters */}
-      <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 dark:bg-[#060a14] dark:border-slate-800/60 flex items-center justify-between text-[11px] font-mono transition-colors">
+      {/* Filter Tabs */}
+      <div className="px-3 py-2 bg-stone-50/50 border-b border-stone-200/80 dark:bg-[#0E0F12]/60 dark:border-stone-800 flex items-center justify-between text-[11px] font-mono">
         <div className="flex items-center space-x-1">
-          <Filter className="h-3 w-3 text-slate-400 dark:text-slate-500 mr-1" />
+          <Filter className="h-3 w-3 text-stone-400 mr-1" />
           {(['all', 'geom', 'dsp', 'err'] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-2 py-0.5 rounded capitalize transition-colors ${
+              className={`px-2 py-0.5 rounded transition-all font-semibold ${
                 filter === f
-                  ? 'bg-white text-cyan-800 font-bold border border-slate-300 shadow-sm dark:bg-slate-800 dark:text-cyan-300 dark:border-slate-700'
-                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-500 dark:hover:text-slate-300'
+                  ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950 shadow-sm'
+                  : 'text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white'
               }`}
             >
-              {f}
+              {f === 'all' ? 'All' : f === 'geom' ? 'Geometry' : f === 'dsp' ? 'DSP' : 'Alerts'}
             </button>
           ))}
         </div>
-        <span className="text-slate-500 text-[10px]">
-          {filteredLogs.length} events
+
+        <span className="text-[10px] text-stone-400">
+          {filteredLogs.length} entries
         </span>
       </div>
 
-      {/* Scrollable Terminal Output */}
+      {/* Log Feed */}
       <div
         ref={scrollRef}
-        className="flex-1 p-3 overflow-y-auto space-y-1.5 font-mono text-[11.5px] leading-relaxed select-text bg-white dark:bg-[#050811] transition-colors"
-        style={{ scrollbarWidth: 'thin' }}
+        className="flex-1 p-3 overflow-y-auto font-mono text-[11px] leading-relaxed space-y-1.5 divide-y divide-stone-100 dark:divide-stone-900/60"
       >
         {filteredLogs.length === 0 ? (
-          <div className="text-slate-400 dark:text-slate-600 italic py-4 text-center">No logs matching filter.</div>
+          <div className="h-full flex flex-col items-center justify-center text-stone-400 text-center py-12">
+            <Terminal className="h-6 w-6 mb-2 opacity-40 text-stone-500" />
+            <p className="font-serif italic text-stone-500">No telemetry logged in this category</p>
+          </div>
         ) : (
           filteredLogs.map((log) => (
-            <div key={log.id} className="flex items-start space-x-2 group hover:bg-slate-50 dark:hover:bg-slate-900/40 p-0.5 rounded transition-colors">
+            <div key={log.id} className="pt-1.5 flex items-start space-x-2 select-text group">
               {/* Timestamp */}
-              <span className="text-slate-400 dark:text-slate-600 text-[10.5px] shrink-0 select-none">
+              <span className="text-[10px] text-stone-400 shrink-0 select-none pt-0.5">
                 {log.timestamp}
               </span>
 
               {/* Tag Badge */}
               <span
-                className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded border shrink-0 uppercase ${getTagColor(
+                className={`text-[9px] font-bold px-1.5 py-0.2 rounded border shrink-0 tracking-wider uppercase ${getTagColor(
                   log.tag,
                   log.level
                 )}`}
               >
-                {log.tag || log.level}
+                {log.tag || log.level.toUpperCase()}
               </span>
 
               {/* Message */}
               <div className="flex-1 break-words">
                 <span className={getTextColor(log.level)}>{log.message}</span>
                 {log.detail && (
-                  <span className="text-slate-500 block text-[10.5px] mt-0.5 pl-2 border-l border-slate-200 dark:border-slate-800">
-                    {log.detail}
+                  <span className="text-stone-400 text-[10px] ml-1.5">
+                    ({log.detail})
                   </span>
                 )}
               </div>
             </div>
           ))
         )}
+      </div>
 
-        {/* Terminal Blinking Prompt */}
-        <div className="flex items-center space-x-2 pt-2 text-slate-500 text-xs select-none">
-          <span className="text-emerald-600 dark:text-emerald-500 font-bold">altair@engine:~$</span>
-          {isRunning ? (
-            <span className="text-cyan-600 dark:text-cyan-400 animate-pulse">processing acoustic pipeline...</span>
-          ) : (
-            <span className="inline-block w-2 h-3.5 bg-cyan-600 dark:bg-cyan-400/80 animate-pulse"></span>
-          )}
-        </div>
+      {/* Editorial Footer Status */}
+      <div className="px-3.5 py-2 border-t border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-[#0E0F12] text-[10px] font-mono text-stone-500 flex items-center justify-between">
+        <span className="flex items-center space-x-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-600 dark:bg-amber-500"></span>
+          <span>Acoustic Inversion Feed</span>
+        </span>
+        <span>Auto-Scroll: {autoScroll ? 'Active' : 'Paused'}</span>
       </div>
     </div>
   );

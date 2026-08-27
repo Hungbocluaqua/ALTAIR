@@ -198,6 +198,8 @@ def test_intelligent_impulse_stacking_and_outlier_rejection():
     """Verify intelligent stacking identifies reference candidate and rejects noisy outliers."""
     from auto_roomeq.dsp.acquisition import coherent_impulse_stack
     
+    np.random.seed(42)  # deterministic outlier/noise generation (flakiness fix)
+    
     sr = 48000
     n = 4096
     clean_ir = np.zeros(n)

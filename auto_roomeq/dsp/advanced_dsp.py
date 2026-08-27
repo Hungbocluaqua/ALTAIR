@@ -403,7 +403,12 @@ def synthesize_time_reversed_excess_phase_filter(
         # Blend phase angle smoothly to 0 at high frequencies
         phase_inv = np.angle(H_ap_inv[mask_hf]) * (1.0 - alpha_fade)
         H_ap_inv[mask_hf] = np.exp(1j * phase_inv)
-        
+    
+    # Force unit magnitude: this is a PHASE-ONLY correction. Truncation and
+    # cepstral reconstruction can leave |H_ap| != 1 at isolated bins, which
+    # would otherwise be amplified into huge spectral gains downstream.
+    H_ap_inv = H_ap_inv / np.maximum(np.abs(H_ap_inv), 1e-12)
+    
     H_ap_centered = H_ap_inv * carrier
     h_excess_corr = np.fft.irfft(H_ap_centered, n=n_fft)
     

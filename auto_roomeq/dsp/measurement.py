@@ -231,11 +231,19 @@ def hybrid_spatial_average(
     measurements: List[Measurement],
     f_trans: float = 300.0,
     name: str = "Hybrid Spatial Average",
+    erb_smooth: bool = False,
 ) -> Measurement:
     """
     Compute hybrid spatial average:
     - Vector averaging below f_trans (coherent modal region).
     - RMS magnitude averaging above f_trans (diffuse field, prevents comb-filtering cancellation).
+    
+    Args:
+        erb_smooth: When True, applies continuous Equivalent Rectangular Bandwidth (ERB)
+            psychoacoustic smoothing to the combined magnitude before minimum-phase
+            reconstruction. ERB(f) = 24.7 * (4.37 * f / 1000 + 1) models the human
+            auditory filter bank, so residual high-frequency comb-filtering that the
+            ear naturally integrates is not over-corrected later.
     """
     if len(measurements) <= 1:
         return vector_average(measurements, name=name)
@@ -253,6 +261,14 @@ def hybrid_spatial_average(
     weight_vec = 1.0 - weight_rms
     
     combined_mag = weight_vec * mag_vec + weight_rms * mag_rms
+    
+    # Optional continuous ERB-scale psychoacoustic smoothing
+    if erb_smooth:
+        from .acoustic_analysis import erb_smoothed_fast
+        
+        combined_db = 20.0 * np.log10(np.maximum(combined_mag, 1e-12))
+        combined_db_smoothed = erb_smoothed_fast(combined_db, freqs)
+        combined_mag = 10.0 ** (combined_db_smoothed / 20.0)
     
     # Reconstruct minimum phase using Hilbert transform of ln|H|
     log_mag = np.log(np.maximum(combined_mag, 1e-12))
