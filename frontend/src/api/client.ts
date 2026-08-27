@@ -384,4 +384,14 @@ export async function updateRewSettings(autoStart?: boolean, customPath?: string
   return resp.json();
 }
 
+export async function applyRewDefaults(): Promise<any> {
+  const resp = await fetch(`${API_BASE}/rew/apply-defaults`, { method: 'POST' });
+  if (!resp.ok) {
+    const errorData = await resp.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to apply REW defaults: ${resp.statusText}`);
+  }
+  return resp.json();
+}
+
+
 

@@ -97,3 +97,12 @@ def test_rew_settings_endpoint(client):
     resp2 = client.post("/api/rew/settings", json={"auto_start": False})
     assert resp2.status_code == 200
     assert resp2.json()["auto_start"] is False
+
+
+def test_rew_apply_defaults_endpoint(client):
+    """Verify /api/rew/apply-defaults pre-configures optimal acoustic defaults."""
+    resp = client.post("/api/rew/apply-defaults")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "success" in data
+

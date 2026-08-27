@@ -209,6 +209,39 @@ async def get_rew_status(base_url: str = "http://localhost:4735") -> Dict[str, A
     }
 
 
+def apply_rew_recommended_defaults() -> Dict[str, Any]:
+    """
+    Pre-configure optimal acoustic measurement defaults in REW preferences (Windows Registry):
+    - Sweep Level: -12.0 dBFS (safe headroom, prevents DAC inter-sample clipping)
+    - Sweep Length: 262144 (256k samples, optimal modal resolution down to 10 Hz)
+    - Sweep Start: 10 Hz
+    - Sweep End: 20000 Hz (full audible bandwidth)
+    - API Port: 4735
+    - API Host: localhost
+    """
+    applied = {}
+    if sys.platform == "win32":
+        try:
+            import winreg
+            key_path = r"Software\JavaSoft\Prefs\room eq wizard"
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path) as key:
+                defaults = {
+                    "last/Measurement/Level": "-12.0",
+                    "sweeplength": "262144",
+                    "lastsweepstart": "10",
+                    "lastsweepend": "20000",
+                    "apiport": "4735",
+                    "apihost": "localhost",
+                }
+                for name, val in defaults.items():
+                    winreg.SetValueEx(key, name, 0, winreg.REG_SZ, str(val))
+                    applied[name] = val
+            return {"success": True, "applied": applied}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    return {"success": False, "message": "Registry defaults only applicable on Windows"}
+
+
 async def start_rew_background(
     executable_path: Optional[str] = None,
     port: int = 4735,
@@ -218,6 +251,7 @@ async def start_rew_background(
     """
     Launch REW with the -api flag in a background process and wait for API to become ready.
     When show_window is True (default), REW displays its full graphical user interface window on the desktop.
+    Automatically seeds recommended acoustic defaults (-12 dBFS, 256k sweep, 10Hz-20kHz, :4735) prior to launch.
     """
     if not executable_path:
         exe, _ = find_rew_executable()
@@ -229,6 +263,9 @@ async def start_rew_background(
             "connected": False,
             "error": "REW executable not found. Please install Room EQ Wizard or specify directory.",
         }
+
+    # Automatically pre-seed recommended acoustic defaults into REW configuration
+    apply_rew_recommended_defaults()
 
     # If API is already reachable, nothing more needed
     if await check_rew_api_alive(f"http://localhost:{port}"):

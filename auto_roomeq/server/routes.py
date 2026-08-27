@@ -29,6 +29,7 @@ from ..integrations.rew_manager import (
     save_altair_settings,
     load_altair_settings,
     is_rew_process_active,
+    apply_rew_recommended_defaults,
 )
 from ..dsp.measurement import parse_rew_text, load_wav_ir, Measurement, hybrid_spatial_average
 from ..dsp.acquisition import load_cal_file, recorded_sweep_to_measurement
@@ -356,6 +357,12 @@ async def rew_settings_endpoint(req: RewSettingsRequest):
         settings["custom_rew_path"] = req.custom_rew_path.strip() if req.custom_rew_path.strip() else None
     save_altair_settings(settings)
     return await get_rew_status(base_url=rew_client.base_url)
+
+
+@router.post("/rew/apply-defaults")
+async def rew_apply_defaults_endpoint():
+    """Set recommended acoustic defaults in REW preferences (-12 dBFS level, 256k sweep, 10Hz-20kHz, :4735)."""
+    return apply_rew_recommended_defaults()
 
 
 @router.get("/rew/measurements")

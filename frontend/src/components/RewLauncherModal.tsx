@@ -10,9 +10,10 @@ import {
   RefreshCw,
   AlertCircle,
   Settings2,
+  ShieldCheck,
 } from 'lucide-react';
 import { RewStatusInfo } from '../types';
-import { fetchRewStatus, detectRew, startRew, updateRewSettings } from '../api/client';
+import { fetchRewStatus, detectRew, startRew, updateRewSettings, applyRewDefaults } from '../api/client';
 
 interface RewLauncherModalProps {
   isOpen: boolean;
@@ -35,8 +36,27 @@ export const RewLauncherModal: React.FC<RewLauncherModalProps> = ({
   const [customPath, setCustomPath] = useState<string>('');
   const [showCustomInput, setShowCustomInput] = useState<boolean>(false);
   const [openAsWindow, setOpenAsWindow] = useState<boolean>(true);
+  const [isApplyingDefaults, setIsApplyingDefaults] = useState<boolean>(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const handleApplyDefaults = async () => {
+    setIsApplyingDefaults(true);
+    setError(null);
+    try {
+      const res = await applyRewDefaults();
+      if (res.success) {
+        setMessage('✓ Pre-configured REW measurement defaults: -12.0 dBFS sweep level, 256k samples, 10Hz–20kHz, and :4735 REST API.');
+        onLog?.('Acoustic defaults written to REW: -12 dBFS, 256k, 10Hz-20kHz, :4735', 'success', 'REW');
+      } else {
+        setError(res.error || res.message || 'Failed to apply defaults');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to apply REW defaults');
+    } finally {
+      setIsApplyingDefaults(false);
+    }
+  };
 
   const loadStatus = async () => {
     setIsLoading(true);
@@ -195,6 +215,40 @@ export const RewLauncherModal: React.FC<RewLauncherModalProps> = ({
                   Version: <strong className="text-stone-700 dark:text-stone-300">{rewInfo.name}</strong>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Acoustic Accuracy Pre-Configuration Card */}
+          <div className="p-3.5 rounded-lg bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <ShieldCheck className="h-4 w-4 text-amber-700 dark:text-amber-500" />
+                <span className="font-bold text-stone-900 dark:text-stone-100 text-xs">
+                  Acoustic Accuracy Defaults
+                </span>
+              </div>
+              <button
+                type="button"
+                disabled={isApplyingDefaults}
+                onClick={handleApplyDefaults}
+                className="px-2.5 py-1 rounded bg-stone-200 hover:bg-stone-300 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 font-bold text-[11px] transition-colors flex items-center space-x-1"
+              >
+                <span>{isApplyingDefaults ? 'Applying...' : 'Apply to REW'}</span>
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-[11px] text-stone-600 dark:text-stone-400 font-mono">
+              <div className="p-1.5 rounded bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800">
+                • Level: <strong className="text-stone-900 dark:text-stone-100">-12.0 dBFS</strong>
+              </div>
+              <div className="p-1.5 rounded bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800">
+                • Length: <strong className="text-stone-900 dark:text-stone-100">256k (5.5s)</strong>
+              </div>
+              <div className="p-1.5 rounded bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800">
+                • Range: <strong className="text-stone-900 dark:text-stone-100">10 Hz – 20 kHz</strong>
+              </div>
+              <div className="p-1.5 rounded bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800">
+                • API Port: <strong className="text-stone-900 dark:text-stone-100">:4735</strong>
+              </div>
             </div>
           </div>
 
