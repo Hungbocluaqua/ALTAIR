@@ -8,9 +8,9 @@ import { SubAlignmentView } from './components/SubAlignmentView';
 import { ExportCard } from './components/ExportCard';
 import { ExpertStudio } from './components/ExpertStudio';
 import { ConsoleLog, ConsoleLogEntry } from './components/ConsoleLog';
-import { StudioMonolithView } from './components/StudioMonolithView';
-import { AudiophileEditorialView } from './components/AudiophileEditorialView';
-import { CyberGlassView } from './components/CyberGlassView';
+import { EditorialArchitecturalView } from './components/EditorialArchitecturalView';
+import { EditorialTokyoArchiveView } from './components/EditorialTokyoArchiveView';
+import { EditorialResearchLedgerView } from './components/EditorialResearchLedgerView';
 import { StatusResponse, OptimizationRequest, OptimizationResponse } from './types';
 import { fetchStatus, runOptimization } from './api/client';
 
@@ -23,18 +23,18 @@ export const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showConsole, setShowConsole] = useState<boolean>(true);
   
-  // UI Redesign Option: 'monolith' (Option A), 'editorial' (Option B), 'cyber' (Option C), 'classic' (Default)
-  const [designStyle, setDesignStyle] = useState<'monolith' | 'editorial' | 'cyber' | 'classic'>(() => {
+  // Editorial Redesign Variations: 'architectural' (1), 'tokyo' (2), 'ledger' (3), 'classic' (Default)
+  const [designStyle, setDesignStyle] = useState<'architectural' | 'tokyo' | 'ledger' | 'classic'>(() => {
     try {
-      const saved = localStorage.getItem('altair-design-style');
-      if (saved === 'monolith' || saved === 'editorial' || saved === 'cyber' || saved === 'classic') return saved;
+      const saved = localStorage.getItem('altair-editorial-style');
+      if (saved === 'architectural' || saved === 'tokyo' || saved === 'ledger' || saved === 'classic') return saved;
     } catch (_) {}
-    return 'monolith';
+    return 'architectural';
   });
 
   useEffect(() => {
     try {
-      localStorage.setItem('altair-design-style', designStyle);
+      localStorage.setItem('altair-editorial-style', designStyle);
     } catch (_) {}
   }, [designStyle]);
   
@@ -238,9 +238,9 @@ export const App: React.FC = () => {
             </div>
           )}
 
-          {/* Conditional Redesign Views */}
-          {designStyle === 'monolith' ? (
-            <StudioMonolithView
+          {/* Conditional Editorial Redesign Views */}
+          {designStyle === 'architectural' ? (
+            <EditorialArchitecturalView
               config={config}
               onChangeConfig={setConfig}
               result={result}
@@ -249,8 +249,8 @@ export const App: React.FC = () => {
               status={status}
               theme={theme}
             />
-          ) : designStyle === 'editorial' ? (
-            <AudiophileEditorialView
+          ) : designStyle === 'tokyo' ? (
+            <EditorialTokyoArchiveView
               config={config}
               onChangeConfig={setConfig}
               result={result}
@@ -259,8 +259,8 @@ export const App: React.FC = () => {
               status={status}
               theme={theme}
             />
-          ) : designStyle === 'cyber' ? (
-            <CyberGlassView
+          ) : designStyle === 'ledger' ? (
+            <EditorialResearchLedgerView
               config={config}
               onChangeConfig={setConfig}
               result={result}

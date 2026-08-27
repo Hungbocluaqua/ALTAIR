@@ -12,8 +12,8 @@ interface HeaderProps {
   consoleCount?: number;
   theme?: 'dark' | 'light';
   onToggleTheme?: () => void;
-  designStyle?: 'monolith' | 'editorial' | 'cyber' | 'classic';
-  onChangeDesignStyle?: (style: 'monolith' | 'editorial' | 'cyber' | 'classic') => void;
+  designStyle?: 'architectural' | 'tokyo' | 'ledger' | 'classic';
+  onChangeDesignStyle?: (style: 'architectural' | 'tokyo' | 'ledger' | 'classic') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -26,7 +26,7 @@ export const Header: React.FC<HeaderProps> = ({
   consoleCount,
   theme = 'dark',
   onToggleTheme,
-  designStyle = 'monolith',
+  designStyle = 'architectural',
   onChangeDesignStyle,
 }) => {
   return (
@@ -109,51 +109,51 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
 
-          {/* Redesign Style Selector */}
+          {/* Editorial Variations Selector */}
           {onChangeDesignStyle && (
             <div className="hidden lg:flex bg-slate-100 p-1 rounded-lg border border-slate-200 dark:bg-slate-900/90 dark:border-slate-800 transition-colors text-xs font-mono">
-              <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase px-2 self-center font-bold">
-                Redesign:
+              <span className="text-[10px] text-amber-700 dark:text-amber-500 uppercase px-2 self-center font-bold">
+                Editorial:
               </span>
               <button
-                onClick={() => onChangeDesignStyle('monolith')}
-                title="Option A: Precision Studio Monolith (Hardware Rack Console)"
+                onClick={() => onChangeDesignStyle('architectural')}
+                title="Variation 1: Architectural Monograph (Swiss / Bauhaus 12-Column Grid)"
                 className={`px-2.5 py-1 rounded-md transition-all font-semibold ${
-                  designStyle === 'monolith'
-                    ? 'bg-slate-900 text-white dark:bg-sky-500 dark:text-slate-950 shadow-sm'
+                  designStyle === 'architectural'
+                    ? 'bg-stone-900 text-white dark:bg-amber-500 dark:text-stone-950 shadow-sm'
                     : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                 }`}
               >
-                A: Monolith
+                1: Architectural
               </button>
               <button
-                onClick={() => onChangeDesignStyle('editorial')}
-                title="Option B: Audiophile Editorial (Japanese Acoustic Journal)"
+                onClick={() => onChangeDesignStyle('tokyo')}
+                title="Variation 2: Tokyo Sound Archive (Japanese Audiophile Journal / Stereo Sound)"
                 className={`px-2.5 py-1 rounded-md transition-all font-semibold ${
-                  designStyle === 'editorial'
-                    ? 'bg-slate-900 text-white dark:bg-amber-500 dark:text-slate-950 shadow-sm'
+                  designStyle === 'tokyo'
+                    ? 'bg-stone-900 text-white dark:bg-amber-500 dark:text-stone-950 shadow-sm'
                     : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                 }`}
               >
-                B: Editorial
+                2: Tokyo Archive
               </button>
               <button
-                onClick={() => onChangeDesignStyle('cyber')}
-                title="Option C: Cyber-Acoustic Glass (Modern Floating HUD)"
+                onClick={() => onChangeDesignStyle('ledger')}
+                title="Variation 3: Acoustic Research Ledger (AES Technical Preprint Paper)"
                 className={`px-2.5 py-1 rounded-md transition-all font-semibold ${
-                  designStyle === 'cyber'
-                    ? 'bg-slate-900 text-white dark:bg-cyan-400 dark:text-slate-950 shadow-sm'
+                  designStyle === 'ledger'
+                    ? 'bg-stone-900 text-white dark:bg-blue-600 dark:text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                 }`}
               >
-                C: Cyber Glass
+                3: Research Ledger
               </button>
               <button
                 onClick={() => onChangeDesignStyle('classic')}
                 title="Classic ALTAIR Studio Layout"
                 className={`px-2.5 py-1 rounded-md transition-all font-semibold ${
                   designStyle === 'classic'
-                    ? 'bg-slate-900 text-white dark:bg-emerald-500 dark:text-slate-950 shadow-sm'
+                    ? 'bg-stone-900 text-white dark:bg-emerald-500 dark:text-stone-950 shadow-sm'
                     : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                 }`}
               >
