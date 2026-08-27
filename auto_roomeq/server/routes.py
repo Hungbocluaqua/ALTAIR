@@ -77,7 +77,8 @@ async def upload_measurement(
             text_content = content_bytes.decode("utf-8", errors="ignore")
             meas = parse_rew_text(text_content, sample_rate=sample_rate, name=filename)
             
-        current_measurements[channel.lower()] = meas
+        async with state_lock:
+            current_measurements[channel.lower()] = meas
         return {
             "status": "success",
             "channel": channel.lower(),
@@ -128,7 +129,8 @@ async def upload_repeated_measurements(
             sample_rate=sample_rate,
         )
         
-        current_measurements[channel.lower()] = stacked_meas
+        async with state_lock:
+            current_measurements[channel.lower()] = stacked_meas
         return {
             "status": "success",
             "channel": channel.lower(),
@@ -180,7 +182,8 @@ async def upload_multi_seat_measurements(
             name=f"{channel.upper()} Multi-Seat Average ({len(meas_list)} positions)",
         )
         
-        current_measurements[channel.lower()] = spat_meas
+        async with state_lock:
+            current_measurements[channel.lower()] = spat_meas
         return {
             "status": "success",
             "channel": channel.lower(),
@@ -208,7 +211,12 @@ async def download_test_sweep(
     from ..dsp.acquisition import generate_log_chirp
     import soundfile as sf
 
-    length_samples = int(float(duration_s) * int(sample_rate))
+    # Bound inputs to prevent unbounded memory allocation / DoS
+    duration_s = min(60.0, max(0.5, float(duration_s)))
+    sample_rate = min(192000, max(22050, int(sample_rate)))
+    repetitions = min(16, max(1, int(repetitions)))
+
+    length_samples = int(duration_s * sample_rate)
     sweep, _ = generate_log_chirp(
         f_start=10.0,
         f_end=min(24000.0, float(sample_rate) * 0.48),
@@ -241,6 +249,10 @@ async def trigger_auto_sweep_rew(
     from ..dsp.acquisition import generate_log_chirp
     import soundfile as sf
 
+    duration_s = min(60.0, max(0.5, float(duration_s)))
+    sample_rate = min(192000, max(22050, int(sample_rate)))
+    repetitions = min(16, max(1, int(repetitions)))
+
     rew_conn = await rew_client.check_connection()
     if rew_conn.get("connected"):
         sweep_k = min(1024, max(128, int(2 ** round(np.log2(duration_s * sample_rate / 1024)))))
@@ -258,7 +270,7 @@ async def trigger_auto_sweep_rew(
             }
             
     # Standalone mode: return 24-bit test sweep WAV audio
-    length_samples = int(float(duration_s) * int(sample_rate))
+    length_samples = int(duration_s * sample_rate)
     sweep, _ = generate_log_chirp(
         f_start=10.0,
         f_end=min(24000.0, float(sample_rate) * 0.48),
@@ -291,6 +303,11 @@ async def trigger_auto_repeated_sweep(
     from ..dsp.acquisition import coherent_impulse_stack
     from ..orchestrator import generate_demo_room_measurements
 
+    # Guard bounds: repetitions clamped between 1 and 16
+    repetitions = min(16, max(1, int(repetitions)))
+    sweep_length = min(1024, max(128, int(sweep_length)))
+    sample_rate = min(192000, max(22050, int(sample_rate)))
+
     channel_clean = channel.lower().strip()
     channels_to_measure = ["left", "right", "sub"] if channel_clean == "all" else [channel_clean]
     results_summary = {}
@@ -307,10 +324,11 @@ async def trigger_auto_repeated_sweep(
                     sweep_length=sweep_length,
                     sample_rate=sample_rate,
                 )
-                current_measurements[ch] = res["measurement"]
+                async with state_lock:
+                    current_measurements[ch] = res["measurement"]
                 results_summary[ch] = {
-                    "repetitions": res["repetitions_captured"],
-                    "snr_gain_db": res["snr_improvement_db"],
+                    "repetitions": res.get("repetitions_captured", repetitions),
+                    "snr_gain_db": res.get("snr_improvement_db", round(10.0 * np.log10(repetitions), 2)),
                     "mode": "rew_api",
                 }
             except Exception as e:
@@ -334,23 +352,26 @@ async def trigger_auto_repeated_sweep(
                 ir=stacked_ir,
                 sample_rate=sample_rate,
             )
-            current_measurements[ch] = stacked_meas
+            async with state_lock:
+                current_measurements[ch] = stacked_meas
             results_summary[ch] = {
                 "repetitions": repetitions,
                 "snr_gain_db": round(float(snr_gain), 2),
                 "mode": "simulated",
             }
 
-    snr_boost = round(10.0 * np.log10(repetitions), 2)
+    # Compute actual SNR boost across measured channels
+    avg_reps = sum(r["repetitions"] for r in results_summary.values()) / max(1, len(results_summary))
+    snr_boost = round(float(10.0 * np.log10(max(1.0, avg_reps))), 2)
     return {
         "status": "success",
         "channel": channel_clean,
         "mode": "rew_api" if is_rew_live else "standalone_simulated",
-        "repetitions": repetitions,
+        "repetitions": int(round(avg_reps)),
         "snr_improvement_db": snr_boost,
         "channels_measured": channels_to_measure,
         "details": results_summary,
-        "message": f"Successfully performed automated {repetitions}x sweeps (+{snr_boost} dB SNR noise floor reduction)!",
+        "message": f"Successfully performed automated {int(round(avg_reps))}x sweeps (+{snr_boost} dB SNR noise floor reduction)!",
     }
 
 
@@ -388,11 +409,24 @@ async def run_optimization(request: OptimizationRequest):
                 rew_conn = await rew_client.check_connection()
                 if rew_conn.get("connected"):
                     rew_meas_list = await rew_client.get_measurements()
-                    if rew_meas_list and len(rew_meas_list) > 0:
+                    parsed_ids = []
+                    if isinstance(rew_meas_list, dict):
+                        rew_meas_list = rew_meas_list.get("measurements", [])
+                    if isinstance(rew_meas_list, list):
+                        for item in rew_meas_list:
+                            if isinstance(item, dict):
+                                if "id" in item:
+                                    parsed_ids.append(item["id"])
+                                elif "measurementId" in item:
+                                    parsed_ids.append(item["measurementId"])
+                            elif isinstance(item, (int, str)):
+                                parsed_ids.append(item)
+                                
+                    if parsed_ids:
                         try:
-                            meas_l = await rew_client.get_measurement_data(rew_meas_list[0]["id"])
-                            meas_r = await rew_client.get_measurement_data(rew_meas_list[1]["id"]) if len(rew_meas_list) > 1 else meas_l
-                            meas_sub = await rew_client.get_measurement_data(rew_meas_list[2]["id"]) if len(rew_meas_list) > 2 else None
+                            meas_l = await rew_client.get_measurement_data(parsed_ids[0])
+                            meas_r = await rew_client.get_measurement_data(parsed_ids[1]) if len(parsed_ids) > 1 else meas_l
+                            meas_sub = await rew_client.get_measurement_data(parsed_ids[2]) if len(parsed_ids) > 2 else None
                         except Exception as e:
                             raise HTTPException(status_code=400, detail=f"Failed to pull active measurements from REW: {str(e)}")
                     else:
@@ -423,14 +457,11 @@ async def run_optimization(request: OptimizationRequest):
                 mic_orientation_deg=request.mic_orientation_deg,
             )
             
-            latest_zip_bundle = result["zip_bundle_bytes"]
-            latest_result_cache = result
-            
             intel = None
             if "acoustic_intelligence" in result and result["acoustic_intelligence"]:
                 intel = AcousticIntelligence(**result["acoustic_intelligence"])
             
-            return OptimizationResponse(
+            resp_obj = OptimizationResponse(
                 status=result["status"],
                 sample_rate=result["sample_rate"],
                 target_taps=result["target_taps"],
@@ -447,18 +478,25 @@ async def run_optimization(request: OptimizationRequest):
                 true_peak_right_dbfs=result.get("true_peak_right_dbfs"),
                 plots=PlotData(**result["plots"]),
             )
+            
+            latest_zip_bundle = result["zip_bundle_bytes"]
+            # Cache serializable dict without binary zip_bundle_bytes
+            latest_result_cache = resp_obj.model_dump()
+            
+            return resp_obj
         except HTTPException:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Optimization failed: {str(e)}")
 
 
-@router.get("/optimization/latest")
+@router.get("/optimization/latest", response_model=OptimizationResponse)
 async def get_latest_optimization():
     """Retrieve the cached result of the most recent optimization run."""
-    if latest_result_cache is None:
-        raise HTTPException(status_code=404, detail="No optimization has been run yet.")
-    return latest_result_cache
+    async with state_lock:
+        if latest_result_cache is None:
+            raise HTTPException(status_code=404, detail="No optimization has been run yet.")
+        return latest_result_cache
 
 
 @router.get("/export/bundle")
@@ -489,11 +527,12 @@ async def simulate_sub_delay(
     """Real-time simulation of subwoofer summation for interactive slider."""
     from scipy import signal
     
-    if "left" in current_measurements and "sub" in current_measurements:
-        meas_l = current_measurements["left"]
-        meas_sub = current_measurements["sub"]
-    else:
-        meas_l, _, meas_sub = generate_demo_room_measurements()
+    async with state_lock:
+        if "left" in current_measurements and "sub" in current_measurements:
+            meas_l = current_measurements["left"]
+            meas_sub = current_measurements["sub"]
+        else:
+            meas_l, _, meas_sub = generate_demo_room_measurements()
         
     sr = meas_l.sample_rate
     n_fft = max(meas_l.n_fft, meas_sub.n_fft)

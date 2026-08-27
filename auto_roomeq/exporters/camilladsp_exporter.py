@@ -68,7 +68,7 @@ def export_camilladsp_config(
 """ + "\n".join(f"      - {f}" for f in ch1_filters),
     ]
 
-    if (has_sub and sub_delay_ms > 0) or has_inversion:
+    if actual_channels >= 3:
         pipeline_entries.append(
             f"""  - type: Filter
     channel: 2

@@ -152,7 +152,7 @@ def auto_attenuate_preringing(
             return impulse, metrics, best_q, best_beta
             
     best_metrics["iterations_needed"] = max_iterations
-    best_metrics["auto_attenuated"] = True
+    best_metrics["auto_attenuated"] = bool(best_metrics["passed"])
     return best_impulse, best_metrics, best_q, best_beta
 
 

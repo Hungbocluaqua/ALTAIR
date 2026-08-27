@@ -77,7 +77,7 @@ def optimize_sub_mains_alignment(
                 best_delay_samples = int(d_samp)
                 best_polarity = pol
                 
-    # Fine optimization within +/- 2 samples
+    # Fine optimization within +/- 10 samples
     fine_delays = np.arange(best_delay_samples - 10, best_delay_samples + 11)
     for d_samp in fine_delays:
         dt_s = d_samp / sr
@@ -92,51 +92,47 @@ def optimize_sub_mains_alignment(
             best_score = score
             best_delay_samples = int(d_samp)
             
-    optimal_delay_ms = float((best_delay_samples / sr) * 1000.0)
+    optimal_delay_ms = (best_delay_samples / sr) * 1000.0
     
-    # 4. Generate before/after combined SPL curves across entire 20 Hz - 500 Hz band
+    # Generate before/after combined SPL curves across entire 20 Hz - 500 Hz display band
     disp_mask = (freqs >= 20.0) & (freqs <= 500.0)
     disp_freqs = freqs[disp_mask]
     
-    # Unaligned summation (0 ms delay, normal polarity)
     H_sum_unaligned = H_main_xo[disp_mask] + H_sub_xo[disp_mask]
-    spl_unaligned = 20.0 * np.log10(np.maximum(np.abs(H_sum_unaligned), 1e-12))
+    spl_unaligned_db = 20.0 * np.log10(np.maximum(np.abs(H_sum_unaligned), 1e-12))
     
-    # Aligned summation
-    dt_opt_s = best_delay_samples / sr
-    shift_opt = np.exp(-1j * 2.0 * np.pi * disp_freqs * dt_opt_s)
-    H_sum_aligned = H_main_xo[disp_mask] + (best_polarity * H_sub_xo[disp_mask] * shift_opt)
-    spl_aligned = 20.0 * np.log10(np.maximum(np.abs(H_sum_aligned), 1e-12))
+    shift_opt = np.exp(-1j * 2.0 * np.pi * disp_freqs * (best_delay_samples / sr))
+    H_sum_opt = H_main_xo[disp_mask] + (best_polarity * H_sub_xo[disp_mask] * shift_opt)
+    spl_aligned_db = 20.0 * np.log10(np.maximum(np.abs(H_sum_opt), 1e-12))
     
-    spl_main_only = 20.0 * np.log10(np.maximum(np.abs(H_main_xo[disp_mask]), 1e-12))
-    spl_sub_only = 20.0 * np.log10(np.maximum(np.abs(H_sub_xo[disp_mask]), 1e-12))
+    spl_main_only_db = 20.0 * np.log10(np.maximum(np.abs(H_main_xo[disp_mask]), 1e-12))
+    spl_sub_only_db = 20.0 * np.log10(np.maximum(np.abs(H_sub_xo[disp_mask]), 1e-12))
     
-    gain_improvement_db = float(np.mean(spl_aligned) - np.mean(spl_unaligned))
+    improvement_db = float(np.mean(spl_aligned_db) - np.mean(spl_unaligned_db))
     
     return {
         "optimal_delay_ms": round(optimal_delay_ms, 2),
         "optimal_delay_samples": int(best_delay_samples),
-        "optimal_polarity": "Positive (+)" if best_polarity > 0 else "Inverted (-)",
+        "optimal_polarity": "Inverted (-)" if best_polarity < 0 else "Normal (+)",
         "polarity_multiplier": float(best_polarity),
         "crossover_freq_hz": float(crossover_freq),
-        "gain_improvement_db": round(gain_improvement_db, 2),
+        "gain_improvement_db": round(max(0.0, improvement_db), 2),
         "freqs": disp_freqs.tolist(),
-        "spl_unaligned_db": spl_unaligned.tolist(),
-        "spl_aligned_db": spl_aligned.tolist(),
-        "spl_main_only_db": spl_main_only.tolist(),
-        "spl_sub_only_db": spl_sub_only.tolist(),
+        "spl_aligned_db": spl_aligned_db.tolist(),
+        "spl_unaligned_db": spl_unaligned_db.tolist(),
+        "spl_main_only_db": spl_main_only_db.tolist(),
+        "spl_sub_only_db": spl_sub_only_db.tolist(),
     }
 
 
 def optimize_multi_sub_matrix(
     sub_measurements: List[Measurement],
     crossover_freq: float = 80.0,
-    search_range_ms: float = 30.0,
+    search_range_ms: float = 20.0,
 ) -> Dict[str, any]:
     """
-    Multi-Subwoofer Optimization (MSO Matrix Engine).
-    
-    Optimizes relative delays (ms), gain offsets (dB), and polarities (+/-)
+    Multi-Subwoofer Global Bass Optimization.
+    Co-optimizes relative delays (-20ms to +20ms), gains (-6dB to 0dB), and polarity
     for 2 to 4 independent subwoofers to minimize destructive spatial interference
     and create a flat, uniform combined acoustic bass response.
     
@@ -150,7 +146,14 @@ def optimize_multi_sub_matrix(
     target_n_fft = max(m.n_fft for m in sub_measurements)
     standardized_subs = []
     for sub in sub_measurements:
-        if sub.n_fft != target_n_fft or sub.sample_rate != sr:
+        if sub.sample_rate != sr:
+            from math import gcd
+            g = gcd(sr, sub.sample_rate)
+            up = sr // g
+            down = sub.sample_rate // g
+            resampled_ir = signal.resample_poly(sub.ir, up, down)
+            standardized_subs.append(Measurement(name=sub.name, ir=resampled_ir, sample_rate=sr, n_fft=target_n_fft))
+        elif sub.n_fft != target_n_fft:
             standardized_subs.append(Measurement(name=sub.name, ir=sub.ir, sample_rate=sr, n_fft=target_n_fft))
         else:
             standardized_subs.append(sub)

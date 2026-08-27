@@ -87,13 +87,21 @@ def farina_harmonic_separation(
         harmonic_irs[f"harmonic_{h}"] = h_slice
         total_distortion_energy += float(np.sum(h_slice ** 2))
         
-    # Linear IR: zero-out the pre-arrival region containing the harmonic distortion bursts
+    # Linear IR: zero-out the entire pre-arrival region containing all harmonic distortion bursts
     linear_ir = np.copy(raw_ir)
-    # Window out everything between 100ms before main peak and 5ms before main peak
-    silence_start = max(0, linear_peak_idx - int(0.500 * sample_rate))
-    silence_end = max(0, linear_peak_idx - int(0.005 * sample_rate))
-    if silence_end > silence_start:
-        linear_ir[silence_start:silence_end] = 0.0
+    
+    # 3ms pre-arrival margin allows causal room response direct sound reconstruction
+    pre_margin = int(0.003 * sample_rate)
+    fade_len = int(0.002 * sample_rate)
+    cutoff_idx = max(0, linear_peak_idx - pre_margin)
+    
+    # Zero out all preceding non-linear harmonics and pre-arrival noise
+    linear_ir[:cutoff_idx] = 0.0
+    
+    # Smooth half-Hann fade-in at the cutoff boundary to prevent step discontinuity
+    if fade_len > 0 and cutoff_idx + fade_len <= len(linear_ir):
+        fade_in = 0.5 * (1.0 - np.cos(np.pi * np.arange(fade_len) / fade_len))
+        linear_ir[cutoff_idx : cutoff_idx + fade_len] *= fade_in
         
     linear_energy = float(np.sum(linear_ir ** 2))
     thd_ratio = np.sqrt(total_distortion_energy / max(linear_energy, 1e-12))

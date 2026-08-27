@@ -136,3 +136,68 @@ def test_bug11_preringing_zero_iterations_and_zwicker():
     # Zwicker formula check
     zw = evaluate_zwicker_temporal_masking(ir, sample_rate=48000)
     assert zw["is_masked"] is True
+
+
+def test_new_camilladsp_negative_delay_sub_channel_in_pipeline():
+    """Verify channel: 2 is emitted into pipeline when sub_delay_ms < 0 and polarity is normal."""
+    cfg = export_camilladsp_config(preamp_db=-5.0, sub_delay_ms=-2.5, sub_polarity=1.0)
+    assert "channel: 2" in cfg
+    assert "preamp_gain" in cfg
+    # Pipeline contains channel 2
+    assert "channel: 2\n    names:\n      - preamp_gain" in cfg
+
+
+def test_new_farina_linear_ir_zeroes_all_pre_harmonics():
+    """Verify Farina deconvolution removes all harmonic bursts sitting seconds before the peak."""
+    sr = 48000
+    duration_s = 2.0
+    sweep, _ = generate_log_chirp(f_start=20.0, f_end=10000.0, sample_rate=sr, length_samples=int(duration_s * sr))
+    
+    # Place a synthetic distortion burst 1 second before direct peak
+    recorded = np.pad(sweep, (int(1.5 * sr), 0))
+    # Inject fake 2nd harmonic burst
+    harm_loc = int(0.5 * sr)
+    recorded[harm_loc : harm_loc + 100] += 0.5
+    
+    res = farina_harmonic_separation(recorded, sweep_duration_s=duration_s, sample_rate=sr, f_start=20.0, f_end=10000.0)
+    linear_ir = res["linear_ir"]
+    peak_idx = int(np.argmax(np.abs(linear_ir)))
+    
+    # Check that region 500 ms before peak is strictly clean / zeroed
+    assert np.all(linear_ir[: peak_idx - int(0.010 * sr)] == 0.0)
+
+
+def test_new_optimization_latest_endpoint_and_bounds():
+    """Verify /api/optimization/latest does not crash on bytes serialization, and bounds guard endpoints."""
+    from fastapi.testclient import TestClient
+    from auto_roomeq.server.app import app
+    
+    client = TestClient(app)
+    
+    # 1. Run optimization
+    opt_resp = client.post("/api/optimize", json={"use_demo_measurements": True})
+    assert opt_resp.status_code == 200
+    
+    # 2. Query /api/optimization/latest
+    latest_resp = client.get("/api/optimization/latest")
+    assert latest_resp.status_code == 200
+    data = latest_resp.json()
+    assert data["status"] == "success"
+    assert "plots" in data
+    
+    # 3. Test auto-repeated sweep with repetitions=0 and negative repetitions
+    rep_zero = client.post(
+        "/api/measurements/auto-repeated-sweep",
+        params={"channel": "left", "repetitions": 0, "use_simulation": "true"},
+    )
+    assert rep_zero.status_code == 200
+    assert rep_zero.json()["repetitions"] >= 1
+    assert not np.isinf(rep_zero.json()["snr_improvement_db"])
+    
+    # 4. Test auto-sweep with huge duration_s (bounded, does not OOM)
+    sw_huge = client.get("/api/measurements/auto-sweep?duration_s=100000&sample_rate=48000")
+    assert sw_huge.status_code == 200
+    assert sw_huge.headers["content-type"] == "audio/wav"
+    # Max duration is 60s (+ ~55ms timing ref lead-in/out), so wav data is bounded
+    assert len(sw_huge.content) <= (65 * 48000 * 3)
+
