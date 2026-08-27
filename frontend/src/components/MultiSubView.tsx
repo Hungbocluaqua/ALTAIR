@@ -47,7 +47,7 @@ export const MultiSubView: React.FC<MultiSubViewProps> = ({ multiSubAlignment })
                     className={`px-1.5 py-0.5 rounded border text-[10px] font-bold ${
                       a.polarity < 0
                         ? 'text-amber-700 border-amber-300 bg-amber-100/60 dark:text-amber-400 dark:border-amber-500/40 dark:bg-amber-950/40'
-                        : 'text-emerald-700 border-emerald-300 bg-emerald-100/60 dark:text-emerald-400 dark:border-emerald-500/40 dark:bg-emerald-950/40'
+                        : 'text-stone-800 border-stone-300 bg-stone-100 dark:text-stone-200 dark:border-stone-700 dark:bg-stone-800'
                     }`}
                   >
                     {a.polarity < 0 ? 'INVERTED' : 'NORMAL'}
@@ -60,7 +60,7 @@ export const MultiSubView: React.FC<MultiSubViewProps> = ({ multiSubAlignment })
         <p className="mt-3 text-[11px] text-stone-500 dark:text-stone-400 font-mono">
           Sub #1 is the timing/gain reference (0 ms, 0 dB). Load these values into your DSP's per-sub delay,
           gain and polarity controls; the full export also contains
-          <span className="text-cyan-700 dark:text-cyan-400"> miniDSP/multi_sub_alignment.json</span>.
+          <span className="text-amber-700 dark:text-amber-400 font-semibold"> miniDSP/multi_sub_alignment.json</span>.
         </p>
       </div>
     </section>

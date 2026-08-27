@@ -77,7 +77,7 @@ export const SubAlignmentView: React.FC<SubAlignmentViewProps> = ({
           className="flex items-center space-x-1.5 px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 border border-amber-300 dark:text-amber-300 dark:border-amber-500/40 rounded text-xs font-mono font-semibold transition-all active:scale-[0.98]"
         >
           <Sparkles className="h-3.5 w-3.5" />
-          <span>Apply Optimal (+{subAlignment.optimal_delay_ms.toFixed(2)} ms)</span>
+          <span>Apply Optimal ({subAlignment.optimal_delay_ms > 0 ? `+${subAlignment.optimal_delay_ms.toFixed(2)}` : subAlignment.optimal_delay_ms.toFixed(2)} ms)</span>
         </button>
       </div>
 

@@ -85,7 +85,7 @@ export const StepProgress: React.FC<StepProgressProps> = ({ isRunning, result, p
           <h3 className="font-serif font-bold text-stone-900 dark:text-stone-100 text-sm tracking-tight">Optimization Pipeline Telemetry</h3>
         </div>
         {result ? (
-          <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-500/30">
+          <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded bg-stone-100 text-stone-800 border border-stone-300 dark:bg-stone-800 dark:text-stone-200 dark:border-stone-700">
             All 8 Stages Complete
           </span>
         ) : livePct !== null ? (
@@ -128,7 +128,7 @@ export const StepProgress: React.FC<StepProgressProps> = ({ isRunning, result, p
               }`}
             >
               {isDone || isPast ? (
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                <CheckCircle2 className="h-4 w-4 text-amber-700 dark:text-amber-500 shrink-0 mt-0.5" />
               ) : isActive ? (
                 <div className="h-4 w-4 border-2 border-amber-600 dark:border-amber-400 border-t-transparent rounded-full animate-spin shrink-0 mt-0.5" />
               ) : isRunning ? (

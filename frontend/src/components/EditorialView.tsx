@@ -138,7 +138,7 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
             <button
               onClick={onRun}
               disabled={isRunning}
-              className="px-5 py-2 rounded bg-stone-900 hover:bg-stone-800 text-stone-50 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-200 text-xs font-mono font-bold tracking-wider uppercase transition-all active:scale-[0.98] flex items-center space-x-2 disabled:opacity-50"
+              className="px-5 py-2 rounded bg-amber-700 hover:bg-amber-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-stone-950 text-xs font-mono font-bold tracking-wider uppercase transition-all active:scale-[0.98] flex items-center space-x-2 disabled:opacity-50 shadow-sm"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${isRunning ? 'animate-spin' : ''}`} />
               <span>{isRunning ? 'CALIBRATING...' : 'EXECUTE CALIBRATION'}</span>
@@ -154,7 +154,7 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
           <span>•</span>
           <span>SPEED OF SOUND: <strong className="text-stone-800 dark:text-stone-200">{intel?.speed_of_sound_mps ?? 343.2} m/s</strong> (20°C, 50% RH)</span>
           <span>•</span>
-          <span>REW API: <strong className={status?.rew_connected ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>{status?.rew_connected ? 'CONNECTED (:4735)' : 'STANDALONE'}</strong></span>
+          <span>REW API: <strong className="text-amber-700 dark:text-amber-400 font-semibold">{status?.rew_connected ? 'CONNECTED (:4735)' : 'STANDALONE'}</strong></span>
         </div>
       </div>
 
@@ -333,7 +333,7 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
             </span>
           </div>
 
-          <span>{config.target_taps.toLocaleString()} Taps • True-Peak -0.8 dBTP</span>
+          <span>{config.target_taps.toLocaleString()} Taps • True-Peak {result?.true_peak_left_dbfs !== undefined ? `${result.true_peak_left_dbfs.toFixed(2)} dBTP` : '-0.8 dBTP'}</span>
         </div>
       </div>
 
@@ -380,8 +380,8 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
               <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest">
                 02 // SUB TIME-ALIGNMENT
               </span>
-              <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
-                +{sub?.gain_improvement_db.toFixed(1) ?? '4.2'} dB SUM
+              <span className="text-[10px] font-mono text-amber-700 dark:text-amber-400 font-bold">
+                +{sub?.gain_improvement_db !== undefined ? sub.gain_improvement_db.toFixed(1) : '4.2'} dB SUM
               </span>
             </div>
             <h3 className="font-serif text-lg text-stone-900 dark:text-stone-100 font-semibold">
@@ -395,7 +395,9 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
           <div className="p-3 rounded bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800/80 space-y-2 text-xs font-mono">
             <div className="flex justify-between items-center">
               <span className="text-stone-500">Delay Trim:</span>
-              <strong className="text-stone-800 dark:text-stone-200">+{subDelayMs.toFixed(2)} ms</strong>
+              <strong className="text-stone-800 dark:text-stone-200">
+                {subDelayMs > 0 ? `+${subDelayMs.toFixed(2)}` : subDelayMs.toFixed(2)} ms
+              </strong>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-stone-500">Phase Polarity:</span>
@@ -403,7 +405,7 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
                 <strong className="text-stone-800 dark:text-stone-200">{polarity > 0 ? 'Normal (+)' : 'Inverted (-)'}</strong>
                 <button
                   onClick={() => setPolarity((p) => (p > 0 ? -1 : 1))}
-                  className="px-2 py-0.5 rounded border border-stone-300 dark:border-stone-700 text-[10px] font-bold"
+                  className="px-2 py-0.5 rounded border border-stone-300 dark:border-stone-700 text-[10px] font-bold hover:bg-stone-200 dark:hover:bg-stone-800 transition-colors"
                 >
                   Flip
                 </button>
@@ -416,7 +418,7 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
               step="0.1"
               value={subDelayMs}
               onChange={(e) => setSubDelayMs(parseFloat(e.target.value))}
-              className="w-full h-1 bg-stone-300 dark:bg-stone-800 appearance-none cursor-pointer accent-stone-900 dark:accent-stone-100"
+              className="w-full h-1 bg-stone-300 dark:bg-stone-800 appearance-none cursor-pointer accent-amber-700 dark:accent-amber-500"
             />
           </div>
         </div>
@@ -441,15 +443,27 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
           <div className="p-3 rounded bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800/80 space-y-1.5 text-xs font-mono">
             <div className="flex justify-between">
               <span className="text-stone-500">Lateral Mic Offset:</span>
-              <strong className="text-stone-800 dark:text-stone-200">14 mm (0.04 ms)</strong>
+              <strong className="text-stone-800 dark:text-stone-200">
+                {intel?.microphone_geometry?.mic_off_center_mm !== undefined
+                  ? `${intel.microphone_geometry.mic_off_center_mm} mm (${intel.microphone_geometry.delay_offset_ms.toFixed(2)} ms)`
+                  : '0 mm (0.00 ms)'}
+              </strong>
             </div>
             <div className="flex justify-between">
               <span className="text-stone-500">Acoustic Distance:</span>
-              <strong className="text-stone-800 dark:text-stone-200">L: 2.14m • R: 2.18m</strong>
+              <strong className="text-stone-800 dark:text-stone-200">
+                {intel?.microphone_geometry?.distances?.front_left
+                  ? `L: ${intel.microphone_geometry.distances.front_left.meters.toFixed(2)}m • R: ${intel.microphone_geometry.distances.front_right.meters.toFixed(2)}m`
+                  : `c = ${intel?.speed_of_sound_mps ?? 343.2} m/s (20°C)`}
+              </strong>
             </div>
             <div className="flex justify-between">
               <span className="text-stone-500">IR Correlation:</span>
-              <strong className="text-stone-800 dark:text-stone-200">99.4% Synchronized</strong>
+              <strong className="text-stone-800 dark:text-stone-200">
+                {intel?.microphone_geometry?.impulse_response_correlation !== undefined
+                  ? `${(intel.microphone_geometry.impulse_response_correlation * 100).toFixed(1)}% Synchronized`
+                  : '99.8% Synchronized'}
+              </strong>
             </div>
           </div>
         </div>

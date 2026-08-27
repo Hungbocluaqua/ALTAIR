@@ -59,43 +59,42 @@ export const ConsoleLog: React.FC<ConsoleLogProps> = ({
   });
 
   const getTagColor = (tag?: string, level?: string) => {
+    if (level === 'error') {
+      return 'text-rose-700 bg-rose-50 border-rose-300 dark:text-rose-300 dark:bg-rose-950/40 dark:border-rose-500/30';
+    }
+    if (level === 'warn') {
+      return 'text-amber-800 bg-amber-50 border-amber-300 dark:text-amber-300 dark:bg-amber-950/40 dark:border-amber-500/30';
+    }
     switch (tag) {
       case 'REW':
       case 'SWEEP':
-      case 'STACK':
-        return 'text-amber-800 bg-amber-50 border-amber-300 dark:text-amber-400 dark:bg-amber-950/50 dark:border-amber-500/30';
+      case 'STATUS':
+      case 'STAGE':
+        return 'text-amber-800 bg-amber-50 border-amber-300 dark:text-amber-400 dark:bg-amber-950/40 dark:border-amber-500/30';
       case 'GEOM':
       case 'ALIGN':
       case 'DIST':
       case 'MIC':
-        return 'text-amber-900 bg-amber-100/70 border-amber-300 dark:text-amber-300 dark:bg-amber-900/30 dark:border-amber-600/40';
+      case 'FDW':
       case 'XO':
       case 'SUB':
       case 'VBA':
       case 'DSP':
       case 'SCHROEDER':
       case 'TP':
-        return 'text-stone-800 bg-stone-100 border-stone-300 dark:text-stone-200 dark:bg-stone-800/80 dark:border-stone-700';
+      case 'GUARD':
+      case 'EXPORT':
       default:
-        if (level === 'error') return 'text-red-700 bg-red-50 border-red-300 dark:text-red-400 dark:bg-red-950/60 dark:border-red-500/30';
-        if (level === 'warn') return 'text-amber-700 bg-amber-50 border-amber-300 dark:text-amber-400 dark:bg-amber-950/60 dark:border-amber-500/30';
-        if (level === 'success') return 'text-emerald-700 bg-emerald-50 border-emerald-300 dark:text-emerald-400 dark:bg-emerald-950/60 dark:border-emerald-500/30';
-        return 'text-stone-600 bg-stone-100 border-stone-200 dark:text-stone-400 dark:bg-stone-900 dark:border-stone-800';
+        return 'text-stone-700 bg-stone-100 border-stone-200 dark:text-stone-300 dark:bg-stone-800/80 dark:border-stone-700/80';
     }
   };
 
   const getTextColor = (level: string) => {
     switch (level) {
       case 'error':
-        return 'text-red-600 dark:text-red-300 font-medium';
+        return 'text-rose-600 dark:text-rose-400 font-medium';
       case 'warn':
-        return 'text-amber-700 dark:text-amber-300 font-medium';
-      case 'success':
-        return 'text-emerald-700 dark:text-emerald-300 font-medium';
-      case 'geom':
-        return 'text-amber-800 dark:text-amber-300';
-      case 'dsp':
-        return 'text-stone-900 dark:text-stone-200';
+        return 'text-amber-700 dark:text-amber-400 font-medium';
       default:
         return 'text-stone-700 dark:text-stone-300';
     }

@@ -183,19 +183,19 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
     <div className="bg-white border border-stone-200 text-stone-800 shadow-xl shadow-stone-200/50 dark:bg-stone-900/80 dark:border-stone-800 dark:text-stone-100 dark:shadow-2xl rounded-lg p-6 space-y-6 transition-colors">
       <div className="flex items-center justify-between pb-4 border-b border-stone-200 dark:border-stone-800 transition-colors">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400">
+          <div className="p-2 rounded border border-stone-300 dark:border-stone-700 bg-stone-100 dark:bg-stone-900 text-amber-700 dark:text-amber-500">
             <Settings2 className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-lg font-extrabold text-stone-900 dark:text-white tracking-tight">Expert Acoustic Studio</h2>
+            <h2 className="text-lg font-serif font-bold text-stone-900 dark:text-stone-100 tracking-tight">Expert Acoustic Studio</h2>
             <p className="text-xs text-stone-500 dark:text-stone-400">Automated Repeated Sweeps, Noise Floor Stacking & Custom Target Tuning</p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2 text-xs">
-          <span className={`h-2.5 w-2.5 rounded-full ${rewConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
+        <div className="flex items-center space-x-2 text-xs font-mono">
+          <span className={`h-2 w-2 rounded-full ${rewConnected ? 'bg-amber-600 dark:bg-amber-400 animate-pulse' : 'bg-stone-400 dark:bg-stone-600'}`}></span>
           <span className="text-stone-600 dark:text-stone-300 font-medium">
-            {rewConnected ? 'REW Direct Active' : 'Standalone Mode (Simulation Ready)'}
+            {rewConnected ? 'REW Direct Active (:4735)' : 'Standalone Mode'}
           </span>
         </div>
       </div>
@@ -221,8 +221,8 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
           </div>
 
           {/* Repetition Selector */}
-          <div className="flex items-center space-x-1.5 bg-white border border-stone-200 dark:bg-stone-900/90 dark:border-stone-800 p-1 rounded-xl shadow-sm">
-            <span className="text-[11px] text-stone-500 dark:text-stone-400 font-semibold px-2">Stack:</span>
+          <div className="flex items-center space-x-1 bg-stone-50 border border-stone-200 dark:bg-stone-900 dark:border-stone-800 p-0.5 rounded shadow-sm text-xs font-mono">
+            <span className="text-[11px] text-stone-500 dark:text-stone-400 font-medium px-2">Stack:</span>
             {[
               { count: 1, label: '1x Test', snr: 'Single' },
               { count: 2, label: '2x Fast', snr: '+3.0 dB' },
@@ -233,9 +233,9 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
                 key={r.count}
                 type="button"
                 onClick={() => setAutoRepetitions(r.count)}
-                className={`px-2 py-1 text-xs rounded-lg font-bold transition-all ${
+                className={`px-2.5 py-1 text-xs rounded font-bold transition-all ${
                   autoRepetitions === r.count
-                    ? 'bg-amber-500 text-stone-950 shadow-md shadow-amber-500/25'
+                    ? 'bg-amber-700 text-white dark:bg-amber-500 dark:text-stone-950 shadow-sm'
                     : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200'
                 }`}
               >
@@ -246,17 +246,17 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
         </div>
 
         {/* Step-by-Step Instructions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1 text-xs text-stone-700 dark:text-stone-300">
-          <div className="p-2.5 rounded-xl bg-white border border-stone-200 dark:bg-stone-900/60 dark:border-stone-800 flex items-start space-x-2 shadow-sm">
-            <span className="h-5 w-5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400 font-bold flex items-center justify-center shrink-0 text-[11px]">1</span>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1 text-xs text-stone-700 dark:text-stone-300 font-mono">
+          <div className="p-2.5 rounded bg-white border border-stone-200 dark:bg-stone-900/60 dark:border-stone-800 flex items-start space-x-2 shadow-sm">
+            <span className="h-4 w-4 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300 font-bold flex items-center justify-center shrink-0 text-[10px]">1</span>
             <span>Position mic at ear level in your primary listening seat.</span>
           </div>
-          <div className="p-2.5 rounded-xl bg-white border border-stone-200 dark:bg-stone-900/60 dark:border-stone-800 flex items-start space-x-2 shadow-sm">
-            <span className="h-5 w-5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400 font-bold flex items-center justify-center shrink-0 text-[11px]">2</span>
+          <div className="p-2.5 rounded bg-white border border-stone-200 dark:bg-stone-900/60 dark:border-stone-800 flex items-start space-x-2 shadow-sm">
+            <span className="h-4 w-4 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300 font-bold flex items-center justify-center shrink-0 text-[10px]">2</span>
             <span>{rewConnected ? 'REW API is connected and ready to receive commands.' : 'Start REW with Preferences → API → Start Server (or use Standalone).'}</span>
           </div>
-          <div className="p-2.5 rounded-xl bg-white border border-stone-200 dark:bg-stone-900/60 dark:border-stone-800 flex items-start space-x-2 shadow-sm">
-            <span className="h-5 w-5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400 font-bold flex items-center justify-center shrink-0 text-[11px]">3</span>
+          <div className="p-2.5 rounded bg-white border border-stone-200 dark:bg-stone-900/60 dark:border-stone-800 flex items-start space-x-2 shadow-sm">
+            <span className="h-4 w-4 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300 font-bold flex items-center justify-center shrink-0 text-[10px]">3</span>
             <span>Click any channel below to run automated coherent sweep stacking.</span>
           </div>
         </div>
@@ -267,9 +267,9 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
             type="button"
             disabled={isMeasuringAuto}
             onClick={() => handleAutoMeasure('left')}
-            className="py-2.5 px-3 rounded-xl bg-white hover:bg-stone-100 text-stone-800 border-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-white dark:border-stone-700 disabled:opacity-50 font-bold text-xs flex items-center justify-center space-x-2 border shadow-sm transition-all hover:scale-[1.02]"
+            className="py-2.5 px-3 rounded bg-white hover:bg-stone-100 text-stone-800 border border-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-100 dark:border-stone-700 disabled:opacity-50 font-mono font-bold text-xs flex items-center justify-center space-x-2 shadow-sm transition-all active:scale-[0.98]"
           >
-            <PlayCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <PlayCircle className="h-4 w-4 text-amber-700 dark:text-amber-500" />
             <span>Auto Left ({autoRepetitions}x)</span>
           </button>
 
@@ -277,9 +277,9 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
             type="button"
             disabled={isMeasuringAuto}
             onClick={() => handleAutoMeasure('right')}
-            className="py-2.5 px-3 rounded-xl bg-white hover:bg-stone-100 text-stone-800 border-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-white dark:border-stone-700 disabled:opacity-50 font-bold text-xs flex items-center justify-center space-x-2 border shadow-sm transition-all hover:scale-[1.02]"
+            className="py-2.5 px-3 rounded bg-white hover:bg-stone-100 text-stone-800 border border-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-100 dark:border-stone-700 disabled:opacity-50 font-mono font-bold text-xs flex items-center justify-center space-x-2 shadow-sm transition-all active:scale-[0.98]"
           >
-            <PlayCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <PlayCircle className="h-4 w-4 text-amber-700 dark:text-amber-500" />
             <span>Auto Right ({autoRepetitions}x)</span>
           </button>
 
@@ -287,9 +287,9 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
             type="button"
             disabled={isMeasuringAuto}
             onClick={() => handleAutoMeasure('sub')}
-            className="py-2.5 px-3 rounded-xl bg-white hover:bg-stone-100 text-stone-800 border-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-white dark:border-stone-700 disabled:opacity-50 font-bold text-xs flex items-center justify-center space-x-2 border shadow-sm transition-all hover:scale-[1.02]"
+            className="py-2.5 px-3 rounded bg-white hover:bg-stone-100 text-stone-800 border border-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-100 dark:border-stone-700 disabled:opacity-50 font-mono font-bold text-xs flex items-center justify-center space-x-2 shadow-sm transition-all active:scale-[0.98]"
           >
-            <PlayCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <PlayCircle className="h-4 w-4 text-amber-700 dark:text-amber-500" />
             <span>Auto Sub ({autoRepetitions}x)</span>
           </button>
 
@@ -297,9 +297,9 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
             type="button"
             disabled={isMeasuringAuto}
             onClick={() => handleAutoMeasure('all')}
-            className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 disabled:opacity-50 text-stone-950 font-extrabold text-xs flex items-center justify-center space-x-1.5 shadow-lg shadow-amber-500/20 transition-all hover:scale-[1.02]"
+            className="py-2.5 px-3 rounded bg-amber-700 hover:bg-amber-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-stone-950 disabled:opacity-50 font-mono font-bold text-xs flex items-center justify-center space-x-1.5 shadow-sm transition-all active:scale-[0.98]"
           >
-            <Zap className="h-4 w-4 fill-stone-950" />
+            <Zap className="h-4 w-4" />
             <span>1-Click Full 2.1</span>
           </button>
         </div>
@@ -314,12 +314,12 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
 
         {/* AcoustiCX Intelligent Averaging Diagnostics */}
         {autoSweepResult && autoSweepResult.details && (
-          <div className="p-3.5 rounded-xl bg-stone-950/80 border border-emerald-500/30 space-y-2 text-xs">
-            <div className="flex items-center justify-between text-emerald-400 font-bold uppercase tracking-wider text-[11px]">
+          <div className="p-3.5 rounded bg-stone-50 dark:bg-[#0E0F12] border border-amber-300 dark:border-amber-500/30 space-y-2 text-xs font-mono">
+            <div className="flex items-center justify-between text-amber-800 dark:text-amber-400 font-bold uppercase tracking-wider text-[11px]">
               <span className="flex items-center space-x-1.5">
                 <span>📊 AcoustiCX Intelligent Stacking Report</span>
               </span>
-              <span className="text-white font-mono bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/30">
+              <span className="text-amber-900 dark:text-amber-200 font-mono bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-500/30 font-bold">
                 SNR Boost: +{autoSweepResult.snr_improvement_db} dB
               </span>
             </div>
@@ -493,18 +493,18 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
               <Upload className="h-4 w-4 text-amber-600 dark:text-amber-400" />
               <span>Measurement Ingestion</span>
             </h4>
-            <div className="flex bg-white border border-stone-200 dark:bg-stone-900 dark:border-stone-800 p-0.5 rounded-lg">
+            <div className="flex bg-stone-100 border border-stone-200 dark:bg-stone-900 dark:border-stone-800 p-0.5 rounded text-xs font-mono">
               <button
                 type="button"
                 onClick={() => setMeasurementMode('single')}
-                className={`px-2 py-0.5 text-[10px] font-semibold rounded ${measurementMode === 'single' ? 'bg-amber-500 text-black' : 'text-stone-500 dark:text-stone-400'}`}
+                className={`px-2 py-0.5 text-[10px] font-bold rounded transition-all ${measurementMode === 'single' ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950 shadow-sm' : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200'}`}
               >
                 1x
               </button>
               <button
                 type="button"
                 onClick={() => setMeasurementMode('repeated')}
-                className={`px-2 py-0.5 text-[10px] font-semibold rounded ${measurementMode === 'repeated' ? 'bg-amber-500 text-black' : 'text-stone-500 dark:text-stone-400'}`}
+                className={`px-2 py-0.5 text-[10px] font-bold rounded transition-all ${measurementMode === 'repeated' ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950 shadow-sm' : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200'}`}
                 title="Repeated Sweeps (+6dB to +9dB SNR boost)"
               >
                 Repeats (SNR+)
@@ -512,7 +512,7 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
               <button
                 type="button"
                 onClick={() => setMeasurementMode('multi_seat')}
-                className={`px-2 py-0.5 text-[10px] font-semibold rounded ${measurementMode === 'multi_seat' ? 'bg-amber-500 text-black' : 'text-stone-500 dark:text-stone-400'}`}
+                className={`px-2 py-0.5 text-[10px] font-bold rounded transition-all ${measurementMode === 'multi_seat' ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950 shadow-sm' : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200'}`}
                 title="Multi-Seat Positions (Spatial Hybrid Averaging)"
               >
                 Multi-Seat
@@ -817,10 +817,10 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
           <button
             onClick={onRun}
             disabled={isRunning}
-            className="w-full py-3 px-4 rounded-xl font-extrabold text-xs tracking-wide bg-gradient-to-r from-amber-500 to-emerald-500 text-stone-950 flex items-center justify-center space-x-2 hover:scale-[1.01] transition-all shadow-md shadow-amber-500/20"
+            className="w-full py-2.5 px-4 rounded font-mono font-bold text-xs tracking-wider uppercase bg-amber-700 hover:bg-amber-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-stone-950 flex items-center justify-center space-x-2 transition-all active:scale-[0.98] shadow-sm disabled:opacity-50"
           >
-            <RefreshCw className={`h-4 w-4 ${isRunning ? 'animate-spin' : ''}`} />
-            <span>RE-CALCULATE OPTIMIZED FILTERS</span>
+            <RefreshCw className={`h-3.5 w-3.5 ${isRunning ? 'animate-spin' : ''}`} />
+            <span>{isRunning ? 'CALCULATING FILTERS...' : 'EXECUTE CALIBRATION'}</span>
           </button>
         </div>
       </div>
