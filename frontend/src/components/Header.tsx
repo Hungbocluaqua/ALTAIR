@@ -76,31 +76,63 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
 
-          {/* Mode Switcher */}
-          <div className="flex bg-stone-100 p-0.5 rounded border border-stone-200 dark:bg-[#0E0F12] dark:border-stone-800 transition-colors text-xs font-mono">
+          {/* Smooth In-Page Jump Navigation */}
+          <nav className="hidden lg:flex items-center space-x-1 bg-stone-100 p-0.5 rounded border border-stone-200 dark:bg-[#0E0F12] dark:border-stone-800 transition-colors text-xs font-mono">
             <button
-              onClick={() => onModeChange('wizard')}
-              className={`flex items-center space-x-1.5 px-3 py-1 font-semibold rounded transition-all ${
-                mode === 'wizard'
-                  ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950 shadow-sm'
-                  : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white'
-              }`}
+              onClick={() => {
+                const el = document.getElementById('figure-01');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="px-2.5 py-1 text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200 transition-colors font-medium"
             >
-              <BookOpen className="h-3.5 w-3.5 text-amber-600 dark:text-amber-500" />
-              <span>Editorial Monograph</span>
+              Transfer Fig.
             </button>
             <button
-              onClick={() => onModeChange('expert')}
-              className={`flex items-center space-x-1.5 px-3 py-1 font-semibold rounded transition-all ${
-                mode === 'expert'
-                  ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950 shadow-sm'
-                  : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white'
-              }`}
+              onClick={() => {
+                const el = document.getElementById('chapters');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="px-2.5 py-1 text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200 transition-colors font-medium"
             >
-              <Sliders className="h-3.5 w-3.5" />
-              <span>Expert Studio</span>
+              Analysis
             </button>
-          </div>
+            <button
+              onClick={() => {
+                const el = document.getElementById('sweeps');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="px-2.5 py-1 text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200 transition-colors font-medium"
+            >
+              Sweeps
+            </button>
+            <button
+              onClick={() => {
+                const el = document.getElementById('lab-ingestion');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="px-2.5 py-1 text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200 transition-colors font-medium"
+            >
+              Lab Ingest
+            </button>
+            <button
+              onClick={() => {
+                const el = document.getElementById('tuning');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="px-2.5 py-1 text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200 transition-colors font-medium"
+            >
+              Tuning
+            </button>
+            <button
+              onClick={() => {
+                const el = document.getElementById('export');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="px-2.5 py-1 text-amber-800 dark:text-amber-400 hover:underline transition-colors font-bold"
+            >
+              Export
+            </button>
+          </nav>
 
           {/* Console Log Toggle */}
           {onToggleConsole && (

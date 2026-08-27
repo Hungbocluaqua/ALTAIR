@@ -1,12 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { EditorialView } from './components/EditorialView';
-import { ExpertStudio } from './components/ExpertStudio';
 import { StepProgress } from './components/StepProgress';
-import { AudioPlot } from './components/AudioPlot';
-import { SubAlignmentView } from './components/SubAlignmentView';
-import { MultiSubView } from './components/MultiSubView';
-import { ExportCard } from './components/ExportCard';
 import { ConsoleLog, ConsoleLogEntry } from './components/ConsoleLog';
 import { StatusResponse, OptimizationRequest, OptimizationResponse, ProgressEvent } from './types';
 import { fetchStatus, runOptimizationStreamed } from './api/client';
@@ -258,72 +253,23 @@ export const App: React.FC = () => {
             </div>
           )}
 
-          {/* Primary View Switcher: Editorial Monograph vs Expert Studio */}
-          {mode === 'wizard' ? (
-            <EditorialView
-              config={config}
-              onChangeConfig={setConfig}
-              result={result}
-              isRunning={isRunning}
-              onRun={handleRun}
-              status={status}
-              theme={theme}
-              onLog={addLog}
-            />
-          ) : (
-            <div className="space-y-6">
-              <ExpertStudio
-                config={config}
-                onChange={setConfig}
-                onRun={handleRun}
-                isRunning={isRunning}
-                rewConnected={status?.rew_connected || false}
-                onLog={addLog}
-              />
-
-              {/* Live Step Progress */}
-              <StepProgress isRunning={isRunning} result={result} progress={progress} />
-
-              {/* Interactive Audio Plots */}
-              <AudioPlot
-                plots={result?.plots || null}
-                subAlignment={result?.sub_alignment}
-                theme={theme}
-              />
-
-              {/* Multi-Sub Matrix Optimization (MSO) Results */}
-              {result?.multi_sub_alignment && (
-                <MultiSubView multiSubAlignment={result.multi_sub_alignment} />
-              )}
-
-              {/* Subwoofer Alignment Interactive Tuning */}
-              {result?.sub_alignment && (
-                <SubAlignmentView
-                  subAlignment={result.sub_alignment}
-                  onUpdateSummation={(newSum) => {
-                    if (result && result.sub_alignment) {
-                      setResult({
-                        ...result,
-                        sub_alignment: {
-                          ...result.sub_alignment,
-                          spl_aligned_db: newSum,
-                        },
-                      });
-                    }
-                  }}
-                />
-              )}
-
-              {/* 1-Click Multi-Platform Export Card */}
-              {result && (
-                <ExportCard
-                  preampDb={result.global_preamp_db}
-                  sampleRate={result.sample_rate}
-                  taps={result.target_taps}
-                />
-              )}
-            </div>
+          {/* Live Step Progress (while in-flight or completed) */}
+          {(isRunning || result) && (
+            <StepProgress isRunning={isRunning} result={result} progress={progress} />
           )}
+
+          {/* Unified Master Editorial Monograph & Acoustic Laboratory */}
+          <EditorialView
+            config={config}
+            onChangeConfig={setConfig}
+            result={result}
+            isRunning={isRunning}
+            onRun={handleRun}
+            status={status}
+            theme={theme}
+            onLog={addLog}
+            progress={progress}
+          />
         </div>
 
         {/* Right Side: Live Acoustic Terminal / Console Log */}
