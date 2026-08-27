@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Wifi, WifiOff, Sliders, Sparkles, RefreshCw } from 'lucide-react';
+import { Activity, Wifi, WifiOff, Sliders, Sparkles, RefreshCw, Terminal } from 'lucide-react';
 import { StatusResponse } from '../types';
 
 interface HeaderProps {
@@ -7,6 +7,9 @@ interface HeaderProps {
   mode: 'wizard' | 'expert';
   onModeChange: (mode: 'wizard' | 'expert') => void;
   onRefreshStatus: () => void;
+  showConsole?: boolean;
+  onToggleConsole?: () => void;
+  consoleCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -14,6 +17,9 @@ export const Header: React.FC<HeaderProps> = ({
   mode,
   onModeChange,
   onRefreshStatus,
+  showConsole,
+  onToggleConsole,
+  consoleCount,
 }) => {
   return (
     <header className="border-b border-slate-800/80 bg-[#0b0f19]/90 backdrop-blur sticky top-0 z-50">
@@ -94,6 +100,27 @@ export const Header: React.FC<HeaderProps> = ({
               <span>Expert Studio</span>
             </button>
           </div>
+
+          {/* Console Log Toggle */}
+          {onToggleConsole && (
+            <button
+              onClick={onToggleConsole}
+              title={showConsole ? 'Hide Console' : 'Show Console'}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-mono font-bold rounded-lg border transition-all ${
+                showConsole
+                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-md shadow-cyan-500/10'
+                  : 'bg-slate-900/90 text-slate-400 border-slate-800 hover:text-white'
+              }`}
+            >
+              <Terminal className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Console</span>
+              {consoleCount !== undefined && (
+                <span className="text-[10px] px-1 rounded bg-slate-800 text-slate-300">
+                  {consoleCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </header>

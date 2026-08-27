@@ -7,6 +7,7 @@ import { AudioPlot } from './components/AudioPlot';
 import { SubAlignmentView } from './components/SubAlignmentView';
 import { ExportCard } from './components/ExportCard';
 import { ExpertStudio } from './components/ExpertStudio';
+import { ConsoleLog, ConsoleLogEntry } from './components/ConsoleLog';
 import { StatusResponse, OptimizationRequest, OptimizationResponse } from './types';
 import { fetchStatus, runOptimization } from './api/client';
 
@@ -17,6 +18,42 @@ export const App: React.FC = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [result, setResult] = useState<OptimizationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showConsole, setShowConsole] = useState<boolean>(true);
+
+  // Live Acoustic Terminal Console Logs
+  const [logs, setLogs] = useState<ConsoleLogEntry[]>([
+    {
+      id: 'boot-1',
+      timestamp: new Date().toLocaleTimeString(),
+      level: 'info',
+      tag: 'SYS',
+      message: 'ALTAIR Sonic Precision Engine v2.4 initialized',
+    },
+    {
+      id: 'boot-2',
+      timestamp: new Date().toLocaleTimeString(),
+      level: 'info',
+      tag: 'ENV',
+      message: 'Atmospheric calibration loaded: c = 343.2 m/s (20.0°C, 50% RH)',
+    },
+  ]);
+
+  const addLog = (
+    message: string,
+    level: ConsoleLogEntry['level'] = 'info',
+    tag = 'SYS',
+    detail?: string
+  ) => {
+    const entry: ConsoleLogEntry = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      timestamp: new Date().toLocaleTimeString(),
+      level,
+      tag,
+      message,
+      detail,
+    };
+    setLogs((prev) => [...prev.slice(-400), entry]);
+  };
 
   const [config, setConfig] = useState<OptimizationRequest>({
     target: {
@@ -38,11 +75,14 @@ export const App: React.FC = () => {
       const s = await fetchStatus();
       setStatus(s);
       if (s.rew_connected) {
+        addLog('REW REST API connected at localhost:4735', 'success', 'REW');
         setConfig((prev) => ({ ...prev, use_demo_measurements: false }));
         setInputSource('rew');
+      } else {
+        addLog('REW offline. Running in Standalone Digital Room Correction mode', 'info', 'SYS');
       }
     } catch (e) {
-      console.warn('Backend status check failed, will retry.');
+      addLog('Backend status check probe failed, will retry in background', 'warn', 'SYS');
     }
   };
 
@@ -51,14 +91,56 @@ export const App: React.FC = () => {
   const handleRun = async () => {
     setIsRunning(true);
     setError(null);
+    addLog(`Starting optimization: ${config.target.name.toUpperCase()} target, ${config.target_taps.toLocaleString()} taps...`, 'info', 'PIPE');
+    
     try {
       const res = await runOptimization({
         ...config,
         use_demo_measurements: mode === 'expert' ? config.use_demo_measurements : inputSource === 'demo',
       });
       setResult(res);
+      
+      addLog(`Impulses loaded: ${res.sample_rate.toLocaleString()} Hz, ${res.target_taps.toLocaleString()} taps`, 'success', 'INGEST');
+      
+      if (res.acoustic_intelligence) {
+        const intel = res.acoustic_intelligence;
+        addLog(`Schroeder transition: ${intel.detected_schroeder_hz} Hz | Reflection gap: ${intel.detected_reflection_gap_ms} ms (auto FDW: ${intel.recommended_fdw_cycles} cyc)`, 'dsp', 'SCHROEDER');
+        addLog(`Loudspeaker acoustic roll-off: L=${intel.speaker_low_rolloff_hz} Hz, R=${intel.speaker_high_rolloff_hz} Hz`, 'dsp', 'ROLLOFF');
+        
+        if (intel.microphone_geometry) {
+          const geom = intel.microphone_geometry;
+          addLog(geom.geometry_summary, 'geom', 'GEOM');
+          addLog(`Acoustic distances: L: ${geom.distances.front_left.meters}m (${geom.distances.front_left.feet}ft) | R: ${geom.distances.front_right.meters}m (${geom.distances.front_right.feet}ft)${geom.distances.subwoofer ? ` | SW: ${geom.distances.subwoofer.meters}m (${geom.distances.subwoofer.feet}ft)` : ''}`, 'geom', 'DIST');
+          if (geom.impulse_response_correlation !== undefined) {
+            addLog(`Stereo IR Correlation: ${(geom.impulse_response_correlation * 100).toFixed(1)}%`, 'geom', 'ALIGN');
+          }
+        }
+        
+        if (intel.crossover_hardware_snapping) {
+          addLog(intel.crossover_hardware_snapping.summary, 'dsp', 'XO');
+        }
+        
+        if (intel.split_gain_staging) {
+          addLog(intel.split_gain_staging.summary, 'dsp', 'GAIN');
+        }
+      }
+      
+      if (res.modal_info_left) {
+        addLog(`Virtual Bass Array synthesized: Mode P1=${res.modal_info_left.f_1.toFixed(1)} Hz (reflection canceller active)`, 'dsp', 'VBA');
+      }
+      
+      if (res.sub_alignment) {
+        const sub = res.sub_alignment;
+        addLog(`Subwoofer alignment: ${sub.optimal_delay_ms} ms (${sub.optimal_polarity}), +${sub.gain_improvement_db} dB summation boost`, 'success', 'SUB');
+      }
+      
+      const tpL = res.true_peak_left_dbfs !== undefined ? `${res.true_peak_left_dbfs.toFixed(2)} dBTP` : 'N/A';
+      const tpR = res.true_peak_right_dbfs !== undefined ? `${res.true_peak_right_dbfs.toFixed(2)} dBTP` : 'N/A';
+      addLog(`True-Peak 4x oversampled: Left: ${tpL} | Right: ${tpR}`, 'dsp', 'TP');
+      addLog(`Export package ready: EqAPO, CamillaDSP, miniDSP, rePhase & WAV (${res.global_preamp_db} dB preamp)`, 'success', 'EXPORT');
     } catch (e: any) {
       setError(e.message || 'Optimization failed');
+      addLog(`Optimization error: ${e.message || 'Unknown error'}`, 'error', 'ERR');
     } finally {
       setIsRunning(false);
     }
@@ -79,86 +161,108 @@ export const App: React.FC = () => {
       <Header
         status={status}
         mode={mode}
-        onModeChange={setMode}
+        onModeChange={(m) => {
+          setMode(m);
+          addLog(`Switched view to ${m === 'wizard' ? '1-Click Wizard' : 'Expert Studio'}`, 'info', 'UI');
+        }}
         onRefreshStatus={checkStatus}
+        showConsole={showConsole}
+        onToggleConsole={() => setShowConsole(!showConsole)}
+        consoleCount={logs.length}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Error Banner */}
-        {error && (
-          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-semibold flex items-center justify-between">
-            <span>⚠️ {error}</span>
-            <button onClick={() => setError(null)} className="underline ml-4">
-              Dismiss
-            </button>
-          </div>
-        )}
+      {/* Main Content Area with Console Log on Right Side */}
+      <main className="flex-1 max-w-[1720px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col xl:flex-row gap-6 items-start">
+        {/* Left / Center Work Area */}
+        <div className="flex-1 min-w-0 w-full space-y-6">
+          {/* Error Banner */}
+          {error && (
+            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-semibold flex items-center justify-between">
+              <span>⚠️ {error}</span>
+              <button onClick={() => setError(null)} className="underline ml-4">
+                Dismiss
+              </button>
+            </div>
+          )}
 
-        {/* Wizard or Expert Mode Switch */}
-        {mode === 'wizard' ? (
-          <QuickRunCard
-            target={config.target}
-            onTargetChange={(t) => setConfig({ ...config, target: t })}
-            inputSource={inputSource}
-            onInputSourceChange={setInputSource}
-            isRunning={isRunning}
-            onRun={handleRun}
-            rewConnected={status?.rew_connected || false}
+          {/* Wizard or Expert Mode Switch */}
+          {mode === 'wizard' ? (
+            <QuickRunCard
+              target={config.target}
+              onTargetChange={(t) => setConfig({ ...config, target: t })}
+              inputSource={inputSource}
+              onInputSourceChange={setInputSource}
+              isRunning={isRunning}
+              onRun={handleRun}
+              rewConnected={status?.rew_connected || false}
+            />
+          ) : (
+            <ExpertStudio
+              config={config}
+              onChange={setConfig}
+              onRun={handleRun}
+              isRunning={isRunning}
+              rewConnected={status?.rew_connected || false}
+              onLog={addLog}
+            />
+          )}
+
+          {/* Live Step Progress */}
+          <StepProgress isRunning={isRunning} result={result} />
+
+          {/* Acoustic Intelligence Metrics */}
+          {result?.acoustic_intelligence && (
+            <AcousticIntelligenceBanner
+              intel={result.acoustic_intelligence}
+              truePeakDb={result.true_peak_left_dbfs}
+              isZwickerMasked={result.zwicker_masking_left?.is_masked}
+            />
+          )}
+
+          {/* Interactive Audio Plots */}
+          <AudioPlot
+            plots={result?.plots || null}
+            subAlignment={result?.sub_alignment}
           />
-        ) : (
-          <ExpertStudio
-            config={config}
-            onChange={setConfig}
-            onRun={handleRun}
-            isRunning={isRunning}
-            rewConnected={status?.rew_connected || false}
-          />
-        )}
 
-        {/* Live Step Progress */}
-        <StepProgress isRunning={isRunning} result={result} />
+          {/* Subwoofer Alignment Interactive Tuning */}
+          {result?.sub_alignment && (
+            <SubAlignmentView
+              subAlignment={result.sub_alignment}
+              onUpdateSummation={(newSum) => {
+                if (result && result.sub_alignment) {
+                  setResult({
+                    ...result,
+                    sub_alignment: {
+                      ...result.sub_alignment,
+                      spl_aligned_db: newSum,
+                    },
+                  });
+                }
+              }}
+            />
+          )}
 
-        {/* Acoustic Intelligence Metrics */}
-        {result?.acoustic_intelligence && (
-          <AcousticIntelligenceBanner
-            intel={result.acoustic_intelligence}
-            truePeakDb={result.true_peak_left_dbfs}
-            isZwickerMasked={result.zwicker_masking_left?.is_masked}
-          />
-        )}
+          {/* 1-Click Multi-Platform Export Card */}
+          {result && (
+            <ExportCard
+              preampDb={result.global_preamp_db}
+              sampleRate={result.sample_rate}
+              taps={result.target_taps}
+            />
+          )}
+        </div>
 
-        {/* Interactive Audio Plots */}
-        <AudioPlot
-          plots={result?.plots || null}
-          subAlignment={result?.sub_alignment}
-        />
-
-        {/* Subwoofer Alignment Interactive Tuning */}
-        {result?.sub_alignment && (
-          <SubAlignmentView
-            subAlignment={result.sub_alignment}
-            onUpdateSummation={(newSum) => {
-              if (result && result.sub_alignment) {
-                setResult({
-                  ...result,
-                  sub_alignment: {
-                    ...result.sub_alignment,
-                    spl_aligned_db: newSum,
-                  },
-                });
-              }
-            }}
-          />
-        )}
-
-        {/* 1-Click Multi-Platform Export Card */}
-        {result && (
-          <ExportCard
-            preampDb={result.global_preamp_db}
-            sampleRate={result.sample_rate}
-            taps={result.target_taps}
-          />
+        {/* Right Side: Live Acoustic Terminal / Console Log */}
+        {showConsole && (
+          <aside className="w-full xl:w-[420px] 2xl:w-[460px] xl:shrink-0 xl:sticky xl:top-20 h-[560px] xl:h-[calc(100vh-6.5rem)]">
+            <ConsoleLog
+              logs={logs}
+              onClear={() => setLogs([])}
+              isRunning={isRunning}
+              onToggleCollapse={() => setShowConsole(false)}
+            />
+          </aside>
         )}
       </main>
 

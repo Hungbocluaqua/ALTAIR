@@ -9,6 +9,7 @@ interface ExpertStudioProps {
   onRun: () => void;
   isRunning: boolean;
   rewConnected?: boolean;
+  onLog?: (message: string, level?: 'info' | 'success' | 'warn' | 'error' | 'dsp' | 'geom', tag?: string, detail?: string) => void;
 }
 
 export const ExpertStudio: React.FC<ExpertStudioProps> = ({
@@ -17,6 +18,7 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
   onRun,
   isRunning,
   rewConnected = false,
+  onLog,
 }) => {
   const fileLeftRef = useRef<HTMLInputElement>(null);
   const fileRightRef = useRef<HTMLInputElement>(null);
@@ -34,14 +36,17 @@ export const ExpertStudio: React.FC<ExpertStudioProps> = ({
     setIsMeasuringAuto(true);
     const chLabel = channel === 'all' ? 'FULL 2.1 SYSTEM (L + R + Sub)' : channel.toUpperCase();
     setAutoProgressText(`⏳ Triggering automated ${autoRepetitions}x repeated sweeps for ${chLabel}... Please remain quiet.`);
+    onLog?.(`Triggered automated ${autoRepetitions}x repeated sweeps for ${chLabel}...`, 'info', 'SWEEP');
     
     try {
       const res = await triggerAutoRepeatedSweep(channel, autoRepetitions, 48000, !rewConnected);
       setAutoSweepResult(res);
       setAutoProgressText(`✅ ${res.message || `Captured & coherently stacked ${autoRepetitions}x sweeps (+${res.snr_improvement_db} dB SNR boost)!`}`);
+      onLog?.(`Averaging complete for ${chLabel}: ${res.repetitions} sweeps accepted (+${res.snr_improvement_db} dB SNR boost)`, 'success', 'STACK');
       onChange({ ...config, use_demo_measurements: false });
     } catch (err: any) {
       setAutoProgressText(`❌ Automated sweep failed: ${err.message}`);
+      onLog?.(`Automated sweep failed: ${err.message}`, 'error', 'ERR');
     } finally {
       setIsMeasuringAuto(false);
     }
