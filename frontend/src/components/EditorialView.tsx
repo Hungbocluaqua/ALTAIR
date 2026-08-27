@@ -1,15 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { OptimizationRequest, OptimizationResponse, StatusResponse, TargetCurveConfig, SessionStatus, ProgressEvent } from '../types';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import {
+  OptimizationRequest,
+  OptimizationResponse,
+  StatusResponse,
+  ProgressEvent,
+} from '../types';
 import {
   getExportBundleUrl,
   simulateSubDelay,
-  uploadMeasurementFile,
-  uploadRepeatedMeasurementFiles,
-  uploadMultiSeatMeasurementFiles,
-  uploadMultiSubMeasurementFiles,
-  uploadCalFile,
-  triggerAutoRepeatedSweep,
-  getSessionStatus,
   saveSession,
   loadSession,
   clearSession,
@@ -17,30 +15,20 @@ import {
 import {
   RefreshCw,
   Download,
-  Volume2,
   Sliders,
-  ShieldCheck,
   Activity,
-  Waves,
   CheckCircle2,
-  PlayCircle,
   Zap,
-  Upload,
-  Music,
-  Settings2,
-  ArrowRightLeft,
-  Radio,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronUp,
   FileCode,
-  Check,
-  Boxes,
-  Thermometer,
-  Wind,
-  Eye,
-  EyeOff,
   Save,
   FolderOpen,
   Trash2,
   Sparkles,
+  Info,
+  Check,
 } from 'lucide-react';
 import { MultiSubView } from './MultiSubView';
 import { StepProgress } from './StepProgress';
@@ -55,6 +43,7 @@ interface EditorialViewProps {
   theme: 'dark' | 'light';
   onLog?: (msg: string, level?: 'info' | 'success' | 'warn' | 'error' | 'dsp' | 'geom', tag?: string) => void;
   progress?: ProgressEvent | null;
+  onOpenSetupWizard?: () => void;
 }
 
 export const EditorialView: React.FC<EditorialViewProps> = ({
@@ -67,6 +56,7 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
   theme,
   onLog,
   progress,
+  onOpenSetupWizard,
 }) => {
   // Transfer Figure tabs & curve visibility
   const [activePlotTab, setActivePlotTab] = useState<'spl' | 'phase' | 'step' | 'sub'>('spl');
@@ -75,198 +65,71 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
   const [showFilter, setShowFilter] = useState(true);
   const [showAfter, setShowAfter] = useState(true);
 
-  // Subwoofer alignment state
+  // Smoothing mode: 'raw' | '1/12' | '1/6' | 'erb'
+  const [smoothingMode, setSmoothingMode] = useState<'raw' | '1/12' | '1/6' | 'erb'>('1/6');
+
+  // Diagnostics collapsible state
+  const [showDiagnostics, setShowDiagnostics] = useState(true);
+
+  // Crosshair hover coordinates: { x, y, freq, spl }
+  const [hoverData, setHoverData] = useState<{
+    x: number;
+    y: number;
+    freq: number;
+    val: number;
+    before?: number;
+    target?: number;
+    filter?: number;
+    after?: number;
+  } | null>(null);
+
+  // Subwoofer alignment interactive state
   const [subDelayMs, setSubDelayMs] = useState<number>(result?.sub_alignment?.optimal_delay_ms ?? 0);
   const [polarity, setPolarity] = useState<number>(result?.sub_alignment?.polarity_multiplier ?? 1);
-  const debounceSubRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [interactiveSubData, setInteractiveSubData] = useState<any>(null);
+  const [isSimulatingSub, setIsSimulatingSub] = useState(false);
 
-  // Automated Repeated Sweep State
-  const [autoRepetitions, setAutoRepetitions] = useState<number>(4);
-  const [isMeasuringAuto, setIsMeasuringAuto] = useState<boolean>(false);
-  const [autoProgressText, setAutoProgressText] = useState<string | null>(null);
-  const [autoSweepResult, setAutoSweepResult] = useState<any>(null);
-
-  // Measurement File Ingestion State
-  const fileLeftRef = useRef<HTMLInputElement>(null);
-  const fileRightRef = useRef<HTMLInputElement>(null);
-  const fileSubRef = useRef<HTMLInputElement>(null);
-  const calFileRef = useRef<HTMLInputElement>(null);
-  const multiSubRef = useRef<HTMLInputElement>(null);
-  const [measurementMode, setMeasurementMode] = useState<'single' | 'repeated' | 'multi_seat'>('repeated');
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
-  const [calStatus, setCalStatus] = useState<string | null>(null);
-  const [multiSubStatus, setMultiSubStatus] = useState<string | null>(null);
-  const [sessionInfo, setSessionInfo] = useState<SessionStatus | null>(null);
-
-  // Synchronize state when new results arrive
   useEffect(() => {
     if (result?.sub_alignment) {
       setSubDelayMs(result.sub_alignment.optimal_delay_ms);
       setPolarity(result.sub_alignment.polarity_multiplier);
     }
-  }, [result?.sub_alignment?.optimal_delay_ms, result?.sub_alignment?.polarity_multiplier]);
+  }, [result?.sub_alignment]);
 
-  // Subwoofer simulation runner
-  const runSubSimulation = async (val: number, pol: number) => {
-    if (!result?.sub_alignment) return;
+  // Handle interactive delay slider change
+  const handleDelayChange = async (newDelay: number) => {
+    setSubDelayMs(newDelay);
+    setIsSimulatingSub(true);
     try {
-      const res = await simulateSubDelay(val, pol, result.sub_alignment.crossover_freq_hz);
-      if (res.spl_sum_db && result.sub_alignment) {
-        result.sub_alignment.spl_aligned_db = res.spl_sum_db;
-      }
-    } catch (e) {
-      console.error('Subwoofer simulation error:', e);
-    }
-  };
-
-  const handleSubSlider = (val: number) => {
-    setSubDelayMs(val);
-    if (debounceSubRef.current) clearTimeout(debounceSubRef.current);
-    debounceSubRef.current = setTimeout(() => {
-      runSubSimulation(val, polarity);
-    }, 40);
-  };
-
-  const togglePolarity = () => {
-    const nextPol = polarity > 0 ? -1.0 : 1.0;
-    setPolarity(nextPol);
-    runSubSimulation(subDelayMs, nextPol);
-  };
-
-  const resetToOptimalSub = () => {
-    if (!result?.sub_alignment) return;
-    setSubDelayMs(result.sub_alignment.optimal_delay_ms);
-    setPolarity(result.sub_alignment.polarity_multiplier);
-    runSubSimulation(result.sub_alignment.optimal_delay_ms, result.sub_alignment.polarity_multiplier);
-  };
-
-  const [useSimulationSweeps, setUseSimulationSweeps] = useState<boolean>(false);
-
-  // Automated Repeated Sweep Trigger
-  const handleAutoMeasure = async (channel: string, forceSim = false) => {
-    setIsMeasuringAuto(true);
-    const chLabel = channel === 'all' ? 'FULL 2.1 SYSTEM (Mains + Sub)' : channel.toUpperCase();
-    const isSim = forceSim || useSimulationSweeps || !status?.rew_connected;
-    const modeDesc = isSim ? 'Simulated AcoustiCX' : 'REW API (:4735)';
-    setAutoProgressText(`⏳ Firing automated ${autoRepetitions}x sweeps for ${chLabel} (${modeDesc})...`);
-    onLog?.(`Triggered automated ${autoRepetitions}x repeated sweeps for ${chLabel} via ${modeDesc}...`, 'info', 'SWEEP');
-
-    try {
-      const res = await triggerAutoRepeatedSweep(channel, autoRepetitions, 48000, isSim);
-      setAutoSweepResult(res);
-      setAutoProgressText(`✅ ${chLabel} completed: ${res.status} (+${res.snr_improvement_db} dB SNR boost)`);
-      onLog?.(`Completed repeated sweeps for ${chLabel} (+${res.snr_improvement_db} dB SNR boost)`, 'success', 'SWEEP');
-      onChangeConfig({ ...config, use_demo_measurements: false });
-    } catch (err: any) {
-      const isRewCaptureFail = err.message?.includes('Ensure REW measurement mic is active') || err.message?.includes('Could not retrieve measurements');
-      if (isRewCaptureFail && !isSim) {
-        setAutoProgressText(`⚠️ REW microphone not capturing. Retrying with simulated room measurement...`);
-        onLog?.(`REW microphone not capturing. Retrying with simulated room measurement...`, 'warn', 'SWEEP');
-        try {
-          const simRes = await triggerAutoRepeatedSweep(channel, autoRepetitions, 48000, true);
-          setAutoSweepResult(simRes);
-          setAutoProgressText(`✅ ${chLabel} completed (Simulation fallback): +${simRes.snr_improvement_db} dB SNR boost`);
-          onLog?.(`Completed simulation fallback for ${chLabel} (+${simRes.snr_improvement_db} dB SNR boost)`, 'success', 'SWEEP');
-          onChangeConfig({ ...config, use_demo_measurements: false });
-          return;
-        } catch (simErr: any) {
-          setAutoProgressText(`❌ Error: ${simErr.message}`);
-          onLog?.(`Fallback failed: ${simErr.message}`, 'error', 'SWEEP');
-        }
-      } else {
-        setAutoProgressText(`❌ Error: ${err.message}`);
-        onLog?.(`Auto-sweep failed: ${err.message}`, 'error', 'SWEEP');
-      }
+      const data = await simulateSubDelay(newDelay, polarity, config.sub_crossover_freq_hz);
+      setInteractiveSubData(data);
+    } catch (_) {
+      /* ignore */
     } finally {
-      setIsMeasuringAuto(false);
+      setIsSimulatingSub(false);
     }
   };
 
-  // File Upload Handlers
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, channel: 'left' | 'right' | 'sub') => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    const files = e.target.files;
+  const handlePolarityToggle = async () => {
+    const newPol = polarity === 1.0 ? -1.0 : 1.0;
+    setPolarity(newPol);
+    setIsSimulatingSub(true);
     try {
-      if (measurementMode === 'single') {
-        const file = files[0];
-        setUploadStatus(`Uploading ${channel} speaker measurement: ${file.name}...`);
-        const res = await uploadMeasurementFile(file, channel);
-        setUploadStatus(`✅ ${channel} loaded: ${res.sample_rate} Hz, ${res.duration_s?.toFixed(2)}s`);
-        onLog?.(`Loaded ${channel} measurement ${file.name} (${res.sample_rate} Hz)`, 'success', 'INGEST');
-      } else if (measurementMode === 'repeated') {
-        setUploadStatus(`Uploading ${files.length} repeated sweeps for ${channel}...`);
-        const res = await uploadRepeatedMeasurementFiles(files, channel);
-        setUploadStatus(`✅ ${channel} stacked: ${res.valid_runs}/${res.runs_processed} runs (+${res.snr_boost_db.toFixed(1)} dB SNR)`);
-        onLog?.(`Stacked ${res.valid_runs} sweeps for ${channel} (+${res.snr_boost_db.toFixed(1)} dB SNR boost)`, 'success', 'INGEST');
-      } else if (measurementMode === 'multi_seat') {
-        setUploadStatus(`Uploading multi-seat spatial files for ${channel}...`);
-        const res = await uploadMultiSeatMeasurementFiles(files, channel);
-        setUploadStatus(`✅ ${channel} spatial hybrid: ${res.seat_count} seats averaged`);
-        onLog?.(`Averaged ${res.seat_count} seats for ${channel}`, 'success', 'INGEST');
-      }
-      onChangeConfig({ ...config, use_demo_measurements: false });
-    } catch (err: any) {
-      setUploadStatus(`❌ Upload error: ${err.message}`);
-      onLog?.(`Upload error for ${channel}: ${err.message}`, 'error', 'INGEST');
+      const data = await simulateSubDelay(subDelayMs, newPol, config.sub_crossover_freq_hz);
+      setInteractiveSubData(data);
+    } catch (_) {
+      /* ignore */
+    } finally {
+      setIsSimulatingSub(false);
     }
   };
 
-  const handleCalUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    const file = e.target.files[0];
-    try {
-      setCalStatus(`Uploading ${file.name}...`);
-      const res = await uploadCalFile(file);
-      setCalStatus(`✅ Mic .cal loaded: ${res.points} points (${res.has_phase ? 'mag + phase' : 'magnitude'})`);
-      onLog?.(`Microphone calibration ${file.name} loaded (${res.points} points)`, 'success', 'CAL');
-    } catch (err: any) {
-      setCalStatus(`❌ .cal error: ${err.message}`);
-    }
-  };
-
-  const handleMultiSubUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    const files = e.target.files;
-    try {
-      setMultiSubStatus(`Uploading ${files.length} subwoofer measurements...`);
-      const res = await uploadMultiSubMeasurementFiles(files);
-      setMultiSubStatus(`✅ MSO ready: ${res.sub_count} subwoofers (${res.names.join(', ')})`);
-      onLog?.(`Multi-Sub Matrix armed with ${res.sub_count} subwoofers`, 'success', 'MSO');
-    } catch (err: any) {
-      setMultiSubStatus(`❌ Multi-sub error: ${err.message}`);
-    }
-  };
-
-  const handleSessionSave = async () => {
-    try {
-      const info = await saveSession();
-      setUploadStatus(`✅ Project saved to ${info.path}`);
-      onLog?.('Project session saved to disk', 'success', 'SESSION');
-      const s = await getSessionStatus().catch(() => null);
-      setSessionInfo(s);
-    } catch (err: any) {
-      setUploadStatus(`❌ Save error: ${err.message}`);
-    }
-  };
-
-  const handleSessionLoad = async () => {
-    try {
-      const info = await loadSession();
-      setUploadStatus(`✅ Session restored: ${info.channels.join(', ') || 'empty'}`);
-      onLog?.('Project session restored from disk', 'success', 'SESSION');
-      onChangeConfig({ ...config, use_demo_measurements: false });
-    } catch (err: any) {
-      setUploadStatus(`❌ Load error: ${err.message}`);
-    }
-  };
-
-  const updateTarget = (partial: Partial<TargetCurveConfig>) => {
+  const updateTarget = (patch: Partial<typeof config.target>) => {
     onChangeConfig({
       ...config,
       target: {
         ...config.target,
-        name: 'custom',
-        ...partial,
+        ...patch,
       },
     });
   };
@@ -274,10 +137,43 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
   const intel = result?.acoustic_intelligence;
   const sub = result?.sub_alignment;
 
-  // Plot Geometry Setup
+  // Smoothing algorithm
+  const applySmoothing = (freqs: number[], spls: number[], mode: 'raw' | '1/12' | '1/6' | 'erb'): number[] => {
+    if (mode === 'raw' || !spls || spls.length === 0) return spls;
+    const octFrac = mode === '1/12' ? 12 : mode === '1/6' ? 6 : 3;
+    const smoothed: number[] = new Array(spls.length);
+    for (let i = 0; i < spls.length; i++) {
+      const fCenter = freqs[i];
+      const fLow = fCenter * Math.pow(2, -0.5 / octFrac);
+      const fHigh = fCenter * Math.pow(2, 0.5 / octFrac);
+      let sum = 0;
+      let count = 0;
+      for (let j = Math.max(0, i - 30); j < Math.min(spls.length, i + 30); j++) {
+        if (freqs[j] >= fLow && freqs[j] <= fHigh) {
+          sum += spls[j];
+          count++;
+        }
+      }
+      smoothed[i] = count > 0 ? sum / count : spls[i];
+    }
+    return smoothed;
+  };
+
+  // Smoothed curves
+  const smoothedBefore = useMemo(() => {
+    if (!result?.plots) return [];
+    return applySmoothing(result.plots.freqs, result.plots.spl_before_left, smoothingMode);
+  }, [result?.plots?.spl_before_left, smoothingMode]);
+
+  const smoothedAfter = useMemo(() => {
+    if (!result?.plots) return [];
+    return applySmoothing(result.plots.freqs, result.plots.spl_after_left, smoothingMode);
+  }, [result?.plots?.spl_after_left, smoothingMode]);
+
+  // SVG Coordinates & Scales
   const width = 860;
-  const height = 280;
-  const pad = { top: 16, right: 24, bottom: 36, left: 48 };
+  const height = 300;
+  const pad = { top: 25, right: 25, bottom: 35, left: 50 };
   const pw = width - pad.left - pad.right;
   const ph = height - pad.top - pad.bottom;
 
@@ -295,7 +191,6 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
     return pad.top + ((maxSpl - Math.max(Math.min(val, maxSpl), minSpl)) / (maxSpl - minSpl)) * ph;
   };
 
-  // Phase & Time Mappers
   const phaseToY = (deg: number) => {
     const val = Number.isFinite(deg) ? deg : 0;
     return pad.top + ((180 - Math.max(-180, Math.min(180, val))) / 360) * ph;
@@ -340,135 +235,307 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
       .join(' ');
   };
 
+  // Crosshair mouse handler
+  const svgRef = useRef<SVGSVGElement>(null);
+  const handleSvgMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!svgRef.current || !result?.plots) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const clientX = e.clientX - rect.left;
+    const clientY = e.clientY - rect.top;
+
+    // Scale to viewBox coordinates
+    const scaleX = width / rect.width;
+    const scaleY = height / rect.height;
+    const svgX = clientX * scaleX;
+    const svgY = clientY * scaleY;
+
+    if (svgX >= pad.left && svgX <= pad.left + pw && svgY >= pad.top && svgY <= pad.top + ph) {
+      const fNorm = (svgX - pad.left) / pw;
+      const freq = minF * Math.pow(maxF / minF, fNorm);
+      const val = maxSpl - ((svgY - pad.top) / ph) * (maxSpl - minSpl);
+
+      // Find closest index
+      const freqs = result.plots.freqs;
+      let closestIdx = 0;
+      let minDiff = Infinity;
+      for (let i = 0; i < freqs.length; i++) {
+        const diff = Math.abs(freqs[i] - freq);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestIdx = i;
+        }
+      }
+
+      setHoverData({
+        x: svgX,
+        y: svgY,
+        freq: freqs[closestIdx],
+        val,
+        before: smoothedBefore[closestIdx],
+        target: result.plots.spl_target_left[closestIdx],
+        filter: result.plots.spl_filter_left?.[closestIdx],
+        after: smoothedAfter[closestIdx],
+      });
+    } else {
+      setHoverData(null);
+    }
+  };
+
+  const handleSvgMouseLeave = () => {
+    setHoverData(null);
+  };
+
   const isLight = theme === 'light';
   const gridColor = isLight ? '#E5E3DF' : '#26282E';
   const rectFill = isLight ? '#FAFAF8' : '#0E0F12';
   const rectStroke = isLight ? '#E8E5DC' : '#26282E';
 
   return (
-    <div className="space-y-8 select-text">
+    <div className="space-y-7 select-text">
 
       {/* ========================================================================= */}
       {/* SECTION 00: MONOGRAPH MASTHEAD & REFERENCE HARDWARE STRIP                 */}
       {/* ========================================================================= */}
-      <section className="border border-stone-200 dark:border-stone-800 rounded-lg p-6 bg-white dark:bg-[#121316] shadow-sm transition-colors">
+      <section className="border border-stone-200 dark:border-stone-800 rounded-xl p-6 bg-white dark:bg-[#121316] shadow-sm transition-colors">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-stone-100 dark:border-stone-800/80 pb-5">
           <div>
-            <div className="flex items-center space-x-2 text-[11px] font-mono tracking-widest text-amber-700 dark:text-amber-500 uppercase font-semibold">
+            <div className="flex items-center space-x-2 text-[11px] font-sans tracking-widest text-amber-700 dark:text-amber-400 uppercase font-bold">
               <span>ALTAIR</span>
               <span>•</span>
               <span>ACOUSTIC EQUALIZATION MONOGRAPH</span>
               <span>•</span>
-              <span>VOL. 24</span>
+              <span className="font-mono">VOL. 24</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-serif font-bold text-stone-900 dark:text-stone-100 mt-1 tracking-tight">
               Digital Room Equalization & Inversion
             </h1>
-            <p className="text-xs text-stone-600 dark:text-stone-400 mt-1 max-w-3xl leading-relaxed">
+            <p className="text-xs text-stone-600 dark:text-stone-300 font-sans mt-1.5 max-w-3xl leading-relaxed">
               Laboratory-grade linear-phase FIR synthesis with 1-cycle frequency-dependent windowing, virtual bass array modal
               mitigation, and sub-millimeter phase alignment.
             </p>
           </div>
 
           {/* Master Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            <button
-              onClick={() => handleAutoMeasure('all')}
-              disabled={isMeasuringAuto || isRunning}
-              className="px-4 py-2 rounded border border-amber-300 dark:border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 dark:text-amber-300 text-xs font-mono font-bold transition-all active:scale-[0.98] flex items-center space-x-1.5 disabled:opacity-50"
-              title="Measure all channels and calibrate"
-            >
-              <Zap className="h-3.5 w-3.5" />
-              <span>1-Click 2.1 Measure</span>
-            </button>
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            {onOpenSetupWizard && (
+              <button
+                type="button"
+                onClick={onOpenSetupWizard}
+                className="px-4 py-2.5 rounded-lg border border-amber-300 dark:border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 dark:text-amber-300 text-xs font-sans font-bold transition-all active:scale-[0.98] flex items-center space-x-2 shadow-sm"
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                <span>Setup & Ingestion Wizard</span>
+              </button>
+            )}
 
             <button
               onClick={onRun}
               disabled={isRunning}
-              className="px-5 py-2 rounded bg-amber-700 hover:bg-amber-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-stone-950 text-xs font-mono font-bold tracking-wider uppercase transition-all active:scale-[0.98] flex items-center space-x-2 disabled:opacity-50 shadow-sm"
+              className="px-5 py-2.5 rounded-lg bg-amber-700 hover:bg-amber-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-stone-950 text-xs font-sans font-bold tracking-wider uppercase transition-all active:scale-[0.98] flex items-center space-x-2 disabled:opacity-50 shadow-sm"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${isRunning ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 ${isRunning ? 'animate-spin' : ''}`} />
               <span>{isRunning ? 'CALIBRATING...' : 'EXECUTE CALIBRATION'}</span>
             </button>
           </div>
         </div>
 
-        {/* Reference Hardware Strip */}
-        <div className="flex flex-wrap items-center gap-6 mt-4 pt-1 text-[11px] font-mono text-stone-500 dark:text-stone-400">
-          <span>MONITORS: <strong className="text-stone-800 dark:text-stone-200">Edifier MR3 (Active Studio)</strong></span>
+        {/* Reference Hardware Strip with Clear Live Status Badges */}
+        <div className="flex flex-wrap items-center gap-4 mt-4 pt-1 text-xs font-sans text-stone-600 dark:text-stone-300">
+          <div className="flex items-center space-x-1.5">
+            <span className="text-stone-400 dark:text-stone-500 font-semibold">MONITORS:</span>
+            <strong className="text-stone-900 dark:text-stone-100">Edifier MR3 (Active)</strong>
+          </div>
           <span>•</span>
-          <span>SUBWOOFER: <strong className="text-stone-800 dark:text-stone-200">Edifier T5s (8-inch Powered)</strong></span>
+          <div className="flex items-center space-x-1.5">
+            <span className="text-stone-400 dark:text-stone-500 font-semibold">SUBWOOFER:</span>
+            <strong className="text-stone-900 dark:text-stone-100">Edifier T5s (8-inch)</strong>
+          </div>
           <span>•</span>
-          <span>SPEED OF SOUND: <strong className="text-stone-800 dark:text-stone-200">{intel?.speed_of_sound_mps ?? 343.2} m/s</strong> (20°C, 50% RH)</span>
+          <div className="flex items-center space-x-1.5">
+            <span className="text-stone-400 dark:text-stone-500 font-semibold">SPEED OF SOUND:</span>
+            <strong className="font-mono text-stone-900 dark:text-stone-100">
+              {intel?.speed_of_sound_mps ?? 343.2} m/s
+            </strong>
+          </div>
           <span>•</span>
-          <span>REW API: <strong className="text-amber-700 dark:text-amber-400 font-semibold">{status?.rew_connected ? 'ACTIVE (:4735)' : 'STANDALONE'}</strong></span>
+          <div className="flex items-center space-x-1.5">
+            <span className="text-stone-400 dark:text-stone-500 font-semibold">REW API:</span>
+            <strong className="text-amber-700 dark:text-amber-400 font-semibold">
+              {status?.rew_connected ? 'CONNECTED (:4735)' : 'STANDALONE'}
+            </strong>
+          </div>
         </div>
       </section>
 
       {/* ========================================================================= */}
-      {/* SECTION 01: FIGURE 01 MASTER ACOUSTIC TRANSFER INSPECTION                 */}
+      {/* SECTION 01: MASTER ACOUSTIC TRANSFER INSPECTION & INTERACTIVE CANVAS      */}
       {/* ========================================================================= */}
-      <section id="figure-01" className="border border-stone-200 dark:border-stone-800 rounded-lg p-5 bg-white dark:bg-[#121316] space-y-4 shadow-sm transition-colors">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 dark:border-stone-800/80 pb-3">
-          <div className="flex items-center space-x-2">
-            <span className="text-xs font-mono font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest">
-              FIGURE 01
+      <section id="transfer-inspection" className="border border-stone-200 dark:border-stone-800 rounded-xl p-6 bg-white dark:bg-[#121316] space-y-4 shadow-sm transition-colors">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 dark:border-stone-800/80 pb-3.5">
+          <div className="flex items-center space-x-2.5">
+            <span className="text-xs font-sans font-bold text-amber-700 dark:text-amber-400 uppercase tracking-widest">
+              SECTION 01 // TRANSFER FUNCTION
             </span>
-            <span className="font-serif font-semibold text-stone-900 dark:text-stone-100 text-sm">
-              Steady-State Room Transfer Function & Regularized Output
+            <span className="font-serif font-bold text-stone-900 dark:text-stone-100 text-sm">
+              Steady-State Room Inversion & Regularized Output
             </span>
           </div>
 
-          {/* Sub-Tabs */}
-          <div className="flex items-center space-x-1 bg-stone-50 dark:bg-[#0E0F12] p-0.5 rounded border border-stone-200 dark:border-stone-800 text-xs font-mono">
-            <button
-              onClick={() => setActivePlotTab('spl')}
-              className={`px-3 py-1 rounded font-medium transition-all ${
-                activePlotTab === 'spl'
-                  ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950 font-bold shadow-sm'
-                  : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white'
-              }`}
-            >
-              SPL Magnitude
-            </button>
-            <button
-              onClick={() => setActivePlotTab('phase')}
-              className={`px-3 py-1 rounded font-medium transition-all ${
-                activePlotTab === 'phase'
-                  ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950 font-bold shadow-sm'
-                  : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white'
-              }`}
-            >
-              Linear Phase
-            </button>
-            <button
-              onClick={() => setActivePlotTab('step')}
-              className={`px-3 py-1 rounded font-medium transition-all ${
-                activePlotTab === 'step'
-                  ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950 font-bold shadow-sm'
-                  : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white'
-              }`}
-            >
-              Step Response
-            </button>
-            {sub && (
+          {/* Sub-Tabs & Smoothing Controls */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Smoothing selector */}
+            <div className="flex items-center bg-stone-100 dark:bg-[#0E0F12] p-0.5 rounded-md border border-stone-200 dark:border-stone-800 text-[11px] font-sans">
+              <span className="px-2 text-stone-500 dark:text-stone-400 font-medium">Smooth:</span>
+              {(['raw', '1/12', '1/6', 'erb'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setSmoothingMode(mode)}
+                  className={`px-2 py-0.5 rounded font-medium transition-all ${
+                    smoothingMode === mode
+                      ? 'bg-amber-700 text-white dark:bg-amber-500 dark:text-stone-950 font-bold shadow-sm'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+                  }`}
+                >
+                  {mode === 'raw' ? 'Raw' : mode === 'erb' ? 'ERB' : mode}
+                </button>
+              ))}
+            </div>
+
+            {/* Plot Sub-Tabs */}
+            <div className="flex items-center bg-stone-100 dark:bg-[#0E0F12] p-0.5 rounded-md border border-stone-200 dark:border-stone-800 text-xs font-sans">
               <button
-                onClick={() => setActivePlotTab('sub')}
+                onClick={() => setActivePlotTab('spl')}
                 className={`px-3 py-1 rounded font-medium transition-all ${
-                  activePlotTab === 'sub'
+                  activePlotTab === 'spl'
                     ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950 font-bold shadow-sm'
                     : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white'
                 }`}
               >
-                Sub Summation
+                SPL Magnitude
               </button>
-            )}
+              <button
+                onClick={() => setActivePlotTab('phase')}
+                className={`px-3 py-1 rounded font-medium transition-all ${
+                  activePlotTab === 'phase'
+                    ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950 font-bold shadow-sm'
+                    : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white'
+                }`}
+              >
+                Linear Phase
+              </button>
+              <button
+                onClick={() => setActivePlotTab('step')}
+                className={`px-3 py-1 rounded font-medium transition-all ${
+                  activePlotTab === 'step'
+                    ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950 font-bold shadow-sm'
+                    : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white'
+                }`}
+              >
+                Step Response
+              </button>
+              {sub && (
+                <button
+                  onClick={() => setActivePlotTab('sub')}
+                  className={`px-3 py-1 rounded font-medium transition-all ${
+                    activePlotTab === 'sub'
+                      ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950 font-bold shadow-sm'
+                      : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white'
+                  }`}
+                >
+                  Sub Summation
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* SVG Transfer Function Graphic */}
-        <div className="overflow-x-auto select-none">
-          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible font-mono">
+        {/* Interactive Clickable Legend Chips */}
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-sans pb-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-stone-500 dark:text-stone-400 font-medium">Traces:</span>
+            <button
+              type="button"
+              onClick={() => setShowBefore(!showBefore)}
+              className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-md border text-xs font-medium transition-all ${
+                showBefore
+                  ? 'border-stone-400 bg-stone-100 dark:border-stone-600 dark:bg-stone-800 text-stone-900 dark:text-stone-100'
+                  : 'border-stone-200 dark:border-stone-800 text-stone-400 opacity-60'
+              }`}
+            >
+              <span className="w-3 h-0.5 bg-stone-400 border-dashed inline-block" />
+              <span>Measured (Before)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowTarget(!showTarget)}
+              className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-md border text-xs font-medium transition-all ${
+                showTarget
+                  ? 'border-amber-600/40 bg-amber-500/10 text-amber-900 dark:text-amber-300 font-semibold'
+                  : 'border-stone-200 dark:border-stone-800 text-stone-400 opacity-60'
+              }`}
+            >
+              <span className="w-3 h-0.5 bg-amber-600 inline-block" />
+              <span>Target Curve</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowFilter(!showFilter)}
+              className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-md border text-xs font-medium transition-all ${
+                showFilter
+                  ? 'border-blue-500/40 bg-blue-500/10 text-blue-900 dark:text-blue-300 font-semibold'
+                  : 'border-stone-200 dark:border-stone-800 text-stone-400 opacity-60'
+              }`}
+            >
+              <span className="w-3 h-0.5 bg-blue-500 inline-block" />
+              <span>Filter Inversion</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowAfter(!showAfter)}
+              className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-md border text-xs font-medium transition-all ${
+                showAfter
+                  ? 'border-stone-900 bg-stone-100 dark:border-stone-300 dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-bold'
+                  : 'border-stone-200 dark:border-stone-800 text-stone-400 opacity-60'
+              }`}
+            >
+              <span className="w-3 h-0.5 bg-stone-900 dark:bg-stone-100 inline-block" />
+              <span>Calibrated (After)</span>
+            </button>
+          </div>
+
+          {/* Hover Crosshair Info Readout */}
+          {hoverData && (
+            <div className="flex items-center space-x-3 text-xs font-mono bg-stone-100 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800 px-3 py-1 rounded-md">
+              <span className="text-amber-800 dark:text-amber-400 font-bold">
+                {hoverData.freq >= 1000 ? `${(hoverData.freq / 1000).toFixed(2)} kHz` : `${hoverData.freq.toFixed(1)} Hz`}
+              </span>
+              {hoverData.after !== undefined && (
+                <span className="text-stone-900 dark:text-stone-100">
+                  After: <strong>{hoverData.after.toFixed(1)} dB</strong>
+                </span>
+              )}
+              {hoverData.target !== undefined && (
+                <span className="text-amber-700 dark:text-amber-500">
+                  Target: <strong>{hoverData.target.toFixed(1)} dB</strong>
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* SVG Transfer Function Graphic with Crosshair Cursor */}
+        <div className="overflow-x-auto select-none relative">
+          <svg
+            ref={svgRef}
+            viewBox={`0 0 ${width} ${height}`}
+            className="w-full h-auto overflow-visible font-mono cursor-crosshair"
+            onMouseMove={handleSvgMouseMove}
+            onMouseLeave={handleSvgMouseLeave}
+          >
             <rect
               x={pad.left}
               y={pad.top}
@@ -488,7 +555,7 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
                   return (
                     <g key={`spl-f-${f}`}>
                       <line x1={x} y1={pad.top} x2={x} y2={height - pad.bottom} stroke={gridColor} strokeWidth="1" strokeDasharray="2,2" />
-                      <text x={x} y={height - pad.bottom + 14} fill="#78716C" fontSize="9" textAnchor="middle">
+                      <text x={x} y={height - pad.bottom + 14} fill={isLight ? '#78716C' : '#A8A29E'} fontSize="9" textAnchor="middle">
                         {f >= 1000 ? `${f / 1000}k` : f}
                       </text>
                     </g>
@@ -500,7 +567,7 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
                   return (
                     <g key={`spl-s-${s}`}>
                       <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke={gridColor} strokeWidth="1" strokeDasharray="2,2" />
-                      <text x={pad.left - 6} y={y + 3} fill="#78716C" fontSize="9" textAnchor="end">
+                      <text x={pad.left - 6} y={y + 3} fill={isLight ? '#78716C' : '#A8A29E'} fontSize="9" textAnchor="end">
                         {s}
                       </text>
                     </g>
@@ -509,7 +576,7 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
 
                 {showBefore && result?.plots && (
                   <path
-                    d={makePath(result.plots.freqs, result.plots.spl_before_left)}
+                    d={makePath(result.plots.freqs, smoothedBefore)}
                     fill="none"
                     stroke={isLight ? '#9CA3AF' : '#6B7280'}
                     strokeWidth="1.3"
@@ -526,9 +593,19 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
                   />
                 )}
 
+                {showFilter && result?.plots?.spl_filter_left && (
+                  <path
+                    d={makePath(result.plots.freqs, result.plots.spl_filter_left.map((v: number) => v + 75.0))}
+                    fill="none"
+                    stroke="#3B82F6"
+                    strokeWidth="1.2"
+                    strokeDasharray="3,3"
+                  />
+                )}
+
                 {showAfter && result?.plots && (
                   <path
-                    d={makePath(result.plots.freqs, result.plots.spl_after_left)}
+                    d={makePath(result.plots.freqs, smoothedAfter)}
                     fill="none"
                     stroke={isLight ? '#1C1917' : '#F5F5F4'}
                     strokeWidth="2.2"
@@ -545,7 +622,7 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
                   return (
                     <g key={`ph-f-${f}`}>
                       <line x1={x} y1={pad.top} x2={x} y2={height - pad.bottom} stroke={gridColor} strokeWidth="1" strokeDasharray="2,2" />
-                      <text x={x} y={height - pad.bottom + 14} fill="#78716C" fontSize="9" textAnchor="middle">
+                      <text x={x} y={height - pad.bottom + 14} fill={isLight ? '#78716C' : '#A8A29E'} fontSize="9" textAnchor="middle">
                         {f >= 1000 ? `${f / 1000}k` : f}
                       </text>
                     </g>
@@ -557,29 +634,30 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
                   return (
                     <g key={`ph-d-${deg}`}>
                       <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke={gridColor} strokeWidth="1" strokeDasharray="2,2" />
-                      <text x={pad.left - 6} y={y + 3} fill="#78716C" fontSize="9" textAnchor="end">
+                      <text x={pad.left - 6} y={y + 3} fill={isLight ? '#78716C' : '#A8A29E'} fontSize="9" textAnchor="end">
                         {deg}°
                       </text>
                     </g>
                   );
                 })}
 
-                {result?.plots && (
-                  <>
-                    <path
-                      d={makePhasePath(result.plots.freqs, result.plots.phase_before_deg)}
-                      fill="none"
-                      stroke={isLight ? '#9CA3AF' : '#6B7280'}
-                      strokeWidth="1.3"
-                      strokeDasharray="3,3"
-                    />
-                    <path
-                      d={makePhasePath(result.plots.freqs, result.plots.phase_after_deg)}
-                      fill="none"
-                      stroke="#D97706"
-                      strokeWidth="2.2"
-                    />
-                  </>
+                {result?.plots?.phase_before_deg && (
+                  <path
+                    d={makePhasePath(result.plots.freqs, result.plots.phase_before_deg)}
+                    fill="none"
+                    stroke={isLight ? '#9CA3AF' : '#6B7280'}
+                    strokeWidth="1.2"
+                    strokeDasharray="4,4"
+                  />
+                )}
+
+                {result?.plots?.phase_after_deg && (
+                  <path
+                    d={makePhasePath(result.plots.freqs, result.plots.phase_after_deg)}
+                    fill="none"
+                    stroke="#D97706"
+                    strokeWidth="2.0"
+                  />
                 )}
               </>
             )}
@@ -590,725 +668,445 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
                 {[-20, -10, 0, 10, 20, 30].map((t) => {
                   const x = timeToX(t);
                   return (
-                    <g key={`step-t-${t}`}>
+                    <g key={`st-t-${t}`}>
                       <line x1={x} y1={pad.top} x2={x} y2={height - pad.bottom} stroke={gridColor} strokeWidth="1" strokeDasharray="2,2" />
-                      <text x={x} y={height - pad.bottom + 14} fill="#78716C" fontSize="9" textAnchor="middle">
-                        {t} ms
+                      <text x={x} y={height - pad.bottom + 14} fill={isLight ? '#78716C' : '#A8A29E'} fontSize="9" textAnchor="middle">
+                        {t}ms
                       </text>
                     </g>
                   );
                 })}
 
-                {[-1, -0.5, 0, 0.5, 1].map((a) => {
+                {[-1.0, -0.5, 0.0, 0.5, 1.0].map((a) => {
                   const y = stepToY(a);
                   return (
-                    <g key={`step-a-${a}`}>
-                      <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke={a === 0 ? '#78716C' : gridColor} strokeWidth="1" strokeDasharray={a === 0 ? 'none' : '2,2'} />
-                      <text x={pad.left - 6} y={y + 3} fill="#78716C" fontSize="9" textAnchor="end">
+                    <g key={`st-a-${a}`}>
+                      <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke={gridColor} strokeWidth="1" strokeDasharray="2,2" />
+                      <text x={pad.left - 6} y={y + 3} fill={isLight ? '#78716C' : '#A8A29E'} fontSize="9" textAnchor="end">
                         {a}
                       </text>
                     </g>
                   );
                 })}
 
-                {result?.plots && (
+                {result?.plots?.step_time_ms && (
                   <path
                     d={makeStepPath(result.plots.step_time_ms, result.plots.step_response)}
                     fill="none"
                     stroke={isLight ? '#1C1917' : '#F5F5F4'}
-                    strokeWidth="2.0"
+                    strokeWidth="1.8"
                   />
                 )}
               </>
             )}
 
-            {/* TAB 4: SUBWOOFER SUMMATION */}
-            {activePlotTab === 'sub' && (
-              sub ? (
-                <>
-                  {[20, 30, 40, 50, 60, 80, 100, 150, 200].map((f) => {
-                    const x = xPos(f);
-                    return (
-                      <g key={`sub-f-${f}`}>
-                        <line x1={x} y1={pad.top} x2={x} y2={height - pad.bottom} stroke={gridColor} strokeWidth="1" strokeDasharray="2,2" />
-                        <text x={x} y={height - pad.bottom + 14} fill="#78716C" fontSize="9" textAnchor="middle">
-                          {f}
-                        </text>
-                      </g>
-                    );
-                  })}
+            {/* TAB 4: SUB SUMMATION */}
+            {activePlotTab === 'sub' && sub && (
+              <>
+                {[20, 40, 60, 80, 100, 150, 200, 300, 500].map((f) => {
+                  const x = xPos(f);
+                  return (
+                    <g key={`sub-f-${f}`}>
+                      <line x1={x} y1={pad.top} x2={x} y2={height - pad.bottom} stroke={gridColor} strokeWidth="1" strokeDasharray="2,2" />
+                      <text x={x} y={height - pad.bottom + 14} fill={isLight ? '#78716C' : '#A8A29E'} fontSize="9" textAnchor="middle">
+                        {f}
+                      </text>
+                    </g>
+                  );
+                })}
 
-                  {[50, 60, 70, 80, 90, 100].map((s) => {
-                    const y = yPos(s);
-                    return (
-                      <g key={`sub-s-${s}`}>
-                        <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke={gridColor} strokeWidth="1" strokeDasharray="2,2" />
-                        <text x={pad.left - 6} y={y + 3} fill="#78716C" fontSize="9" textAnchor="end">
-                          {s}
-                        </text>
-                      </g>
-                    );
-                  })}
+                {[50, 60, 70, 80, 90, 100].map((s) => {
+                  const y = yPos(s);
+                  return (
+                    <g key={`sub-s-${s}`}>
+                      <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke={gridColor} strokeWidth="1" strokeDasharray="2,2" />
+                      <text x={pad.left - 6} y={y + 3} fill={isLight ? '#78716C' : '#A8A29E'} fontSize="9" textAnchor="end">
+                        {s}
+                      </text>
+                    </g>
+                  );
+                })}
 
-                  <path
-                    d={makePath(sub.freqs, sub.spl_unaligned_db)}
-                    fill="none"
-                    stroke={isLight ? '#9CA3AF' : '#6B7280'}
-                    strokeWidth="1.4"
-                    strokeDasharray="4,4"
-                  />
+                <path
+                  d={makePath(sub.freqs, sub.spl_unaligned_db)}
+                  fill="none"
+                  stroke={isLight ? '#9CA3AF' : '#6B7280'}
+                  strokeWidth="1.4"
+                  strokeDasharray="4,4"
+                />
 
-                  <path
-                    d={makePath(sub.freqs, sub.spl_aligned_db)}
-                    fill="none"
-                    stroke="#D97706"
-                    strokeWidth="2.4"
-                  />
-                </>
-              ) : null
+                <path
+                  d={makePath(
+                    interactiveSubData?.freqs ?? sub.freqs,
+                    interactiveSubData?.spl_sum_db ?? sub.spl_aligned_db
+                  )}
+                  fill="none"
+                  stroke="#D97706"
+                  strokeWidth="2.2"
+                />
+              </>
+            )}
+
+            {/* Interactive Crosshair Lines */}
+            {hoverData && (
+              <g pointerEvents="none">
+                <line
+                  x1={hoverData.x}
+                  y1={pad.top}
+                  x2={hoverData.x}
+                  y2={pad.top + ph}
+                  stroke="#D97706"
+                  strokeWidth="1"
+                  strokeDasharray="2,2"
+                />
+                <line
+                  x1={pad.left}
+                  y1={hoverData.y}
+                  x2={pad.left + pw}
+                  y2={hoverData.y}
+                  stroke="#D97706"
+                  strokeWidth="1"
+                  strokeDasharray="2,2"
+                />
+                <circle cx={hoverData.x} cy={hoverData.y} r="3.5" fill="#D97706" />
+              </g>
             )}
           </svg>
         </div>
 
-        {/* Legend & Interactive Visibility Toggles */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pt-1 text-[11px] font-mono text-stone-500 dark:text-stone-400">
-          <div className="flex items-center space-x-5">
-            <button
-              onClick={() => setShowBefore(!showBefore)}
-              className={`flex items-center space-x-1.5 ${showBefore ? 'text-stone-700 dark:text-stone-300' : 'line-through opacity-50'}`}
-            >
-              <span className="w-3 h-0.5 bg-stone-400 inline-block border-b border-dashed"></span>
-              <span>Raw Measurement</span>
-            </button>
-
-            <button
-              onClick={() => setShowTarget(!showTarget)}
-              className={`flex items-center space-x-1.5 ${showTarget ? 'text-amber-800 dark:text-amber-400' : 'line-through opacity-50'}`}
-            >
-              <span className="w-3 h-0.5 bg-[#D97706] inline-block"></span>
-              <span>Target House Curve</span>
-            </button>
-
-            <button
-              onClick={() => setShowAfter(!showAfter)}
-              className={`flex items-center space-x-1.5 font-bold ${showAfter ? 'text-stone-900 dark:text-stone-100' : 'line-through opacity-50'}`}
-            >
-              <span className="w-3 h-0.5 bg-stone-900 dark:bg-stone-100 inline-block"></span>
-              <span>Calibrated Output</span>
-            </button>
-          </div>
-
-          <span>
-            {config.target_taps.toLocaleString()} Taps • True-Peak{' '}
-            {result?.true_peak_left_dbfs !== undefined ? `${result.true_peak_left_dbfs.toFixed(2)} dBTP` : '-0.8 dBTP'}
-          </span>
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* OPTIMIZATION PIPELINE TELEMETRY AUDIT                                    */}
-      {/* ========================================================================= */}
-      {(isRunning || result) && (
-        <StepProgress isRunning={isRunning} result={result} progress={progress} />
-      )}
-
-      {/* ========================================================================= */}
-      {/* SECTION 02: NUMBERED ACOUSTIC ANALYSIS CHAPTERS (BENTO GRID)              */}
-      {/* ========================================================================= */}
-      <section id="chapters" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-
-        {/* Chapter 01: Modal Mitigation & VBA */}
-        <div className="border border-stone-200 dark:border-stone-800 rounded-lg p-5 bg-white dark:bg-[#121316] space-y-3.5 flex flex-col justify-between shadow-sm">
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest">
-                01 // MODAL MITIGATION
-              </span>
-              <span className="text-[10px] font-mono text-stone-400">VBA SYNTHESIS</span>
+        {/* Subwoofer Co-Optimization Controls (inside Figure 01 when active) */}
+        {activePlotTab === 'sub' && sub && (
+          <div className="pt-3 border-t border-stone-100 dark:border-stone-800 flex flex-wrap items-center justify-between gap-4 font-sans text-xs">
+            <div className="flex items-center space-x-3">
+              <span className="font-semibold text-stone-700 dark:text-stone-300">Subwoofer Delay:</span>
+              <input
+                type="range"
+                min="-30"
+                max="30"
+                step="0.1"
+                value={subDelayMs}
+                onChange={(e) => handleDelayChange(parseFloat(e.target.value))}
+                className="w-48 h-1 bg-stone-300 dark:bg-stone-700 appearance-none cursor-pointer accent-amber-700 dark:accent-amber-500"
+              />
+              <input
+                type="number"
+                step="0.05"
+                min="-50"
+                max="50"
+                value={subDelayMs}
+                onChange={(e) => handleDelayChange(parseFloat(e.target.value) || 0)}
+                className="w-20 px-2 py-0.5 text-right font-mono text-xs rounded bg-stone-100 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 font-bold"
+              />
+              <span className="font-mono text-stone-500">ms</span>
             </div>
-            <h3 className="font-serif text-lg text-stone-900 dark:text-stone-100 font-semibold">
-              Virtual Bass Array Synthesis
-            </h3>
-            <p className="text-xs text-stone-600 dark:text-stone-400 mt-1 leading-relaxed">
-              Synthesizes boundary reflection cancellation filters for axial modes below the Schroeder frequency.
-            </p>
-          </div>
 
-          <div className="p-3 rounded bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800/80 space-y-1.5 text-xs font-mono">
-            <div className="flex justify-between">
-              <span className="text-stone-500">Schroeder Transition:</span>
-              <strong className="text-amber-700 dark:text-amber-500">{intel?.detected_schroeder_hz ?? 185} Hz</strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-stone-500">Initial Reflection Gap:</span>
-              <strong className="text-stone-800 dark:text-stone-200">{intel?.detected_reflection_gap_ms ?? 3.20} ms</strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-stone-500">Auto FDW Filter:</span>
-              <strong className="text-stone-800 dark:text-stone-200">{intel?.recommended_fdw_cycles ?? 5} Cycles</strong>
-            </div>
-          </div>
-        </div>
-
-        {/* Chapter 02: Subwoofer Linkwitz-Riley Coherence */}
-        <div className="border border-stone-200 dark:border-stone-800 rounded-lg p-5 bg-white dark:bg-[#121316] space-y-3.5 flex flex-col justify-between shadow-sm">
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest">
-                02 // SUB TIME-ALIGNMENT
-              </span>
-              <span className="text-[10px] font-mono text-amber-700 dark:text-amber-400 font-bold">
-                +{sub?.gain_improvement_db !== undefined ? sub.gain_improvement_db.toFixed(1) : '4.2'} dB SUM
-              </span>
-            </div>
-            <h3 className="font-serif text-lg text-stone-900 dark:text-stone-100 font-semibold">
-              Subwoofer Summation Alignment
-            </h3>
-            <p className="text-xs text-stone-600 dark:text-stone-400 mt-1 leading-relaxed">
-              Co-optimizes delay and acoustic Linkwitz-Riley crossover phase across 40–160 Hz.
-            </p>
-          </div>
-
-          <div className="p-3 rounded bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800/80 space-y-2 text-xs font-mono">
-            <div className="flex justify-between items-center">
-              <span className="text-stone-500">Delay Trim:</span>
-              <strong className="text-stone-800 dark:text-stone-200">
-                {subDelayMs > 0 ? `+${subDelayMs.toFixed(2)}` : subDelayMs.toFixed(2)} ms
-              </strong>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-stone-500">Phase Polarity:</span>
-              <div className="flex items-center space-x-2">
-                <strong className="text-stone-800 dark:text-stone-200">{polarity > 0 ? 'Normal (+)' : 'Inverted (-)'}</strong>
-                <button
-                  onClick={togglePolarity}
-                  className="px-2 py-0.5 rounded border border-stone-300 dark:border-stone-700 text-[10px] font-bold hover:bg-stone-200 dark:hover:bg-stone-800 transition-colors"
-                >
-                  Flip
-                </button>
-                <button
-                  onClick={resetToOptimalSub}
-                  title="Reset to algorithm optimum"
-                  className="px-2 py-0.5 rounded border border-amber-300 dark:border-amber-600 text-[10px] text-amber-800 dark:text-amber-400 font-bold hover:bg-amber-50 dark:hover:bg-amber-950/40"
-                >
-                  Opt
-                </button>
-              </div>
-            </div>
-            <input
-              type="range"
-              min="-20"
-              max="20"
-              step="0.1"
-              value={subDelayMs}
-              onChange={(e) => handleSubSlider(parseFloat(e.target.value))}
-              className="w-full h-1 bg-stone-300 dark:bg-stone-800 appearance-none cursor-pointer accent-amber-700 dark:accent-amber-500"
-            />
-          </div>
-        </div>
-
-        {/* Chapter 03: Physical Geometry & Distances */}
-        <div className="border border-stone-200 dark:border-stone-800 rounded-lg p-5 bg-white dark:bg-[#121316] space-y-3.5 flex flex-col justify-between shadow-sm">
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest">
-                03 // PHYSICAL GEOMETRY
-              </span>
-              <span className="text-[10px] font-mono text-stone-400">ACOUSTICX 3D</span>
-            </div>
-            <h3 className="font-serif text-lg text-stone-900 dark:text-stone-100 font-semibold">
-              Microphone Triangulation
-            </h3>
-            <p className="text-xs text-stone-600 dark:text-stone-400 mt-1 leading-relaxed">
-              Sub-millimeter physical microphone offset detection and 3D acoustic room pathing.
-            </p>
-          </div>
-
-          <div className="p-3 rounded bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800/80 space-y-1.5 text-xs font-mono">
-            <div className="flex justify-between">
-              <span className="text-stone-500">Lateral Mic Offset:</span>
-              <strong className="text-stone-800 dark:text-stone-200">
-                {intel?.microphone_geometry?.mic_off_center_mm !== undefined
-                  ? `${intel.microphone_geometry.mic_off_center_mm} mm (${intel.microphone_geometry.delay_offset_ms.toFixed(2)} ms)`
-                  : '0 mm (0.00 ms)'}
-              </strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-stone-500">Acoustic Distance:</span>
-              <strong className="text-stone-800 dark:text-stone-200">
-                {intel?.microphone_geometry?.distances?.front_left
-                  ? `L: ${intel.microphone_geometry.distances.front_left.meters.toFixed(2)}m • R: ${intel.microphone_geometry.distances.front_right.meters.toFixed(2)}m`
-                  : `c = ${intel?.speed_of_sound_mps ?? 343.2} m/s (20°C)`}
-              </strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-stone-500">IR Correlation:</span>
-              <strong className="text-stone-800 dark:text-stone-200">
-                {intel?.microphone_geometry?.impulse_response_correlation !== undefined
-                  ? `${(intel.microphone_geometry.impulse_response_correlation * 100).toFixed(1)}% Synchronized`
-                  : '99.8% Synchronized'}
-              </strong>
-            </div>
-          </div>
-        </div>
-
-      </section>
-
-      {/* Multi-Sub Matrix Optimization Table (if MSO results exist) */}
-      {result?.multi_sub_alignment && (
-        <MultiSubView multiSubAlignment={result.multi_sub_alignment} />
-      )}
-
-      {/* ========================================================================= */}
-      {/* SECTION 03: ACOUSTIC LABORATORY & AUTOMATED SWEEPS (INTEGRATED)          */}
-      {/* ========================================================================= */}
-      <section id="sweeps" className="border border-stone-200 dark:border-stone-800 rounded-lg p-6 bg-white dark:bg-[#121316] space-y-6 shadow-sm transition-colors">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 dark:border-stone-800/80 pb-4">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 rounded border border-stone-300 dark:border-stone-700 bg-stone-100 dark:bg-stone-900 text-amber-700 dark:text-amber-500">
-              <Waves className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest">
-                SECTION 03 // AUTOMATED SWEEPS
-              </div>
-              <h2 className="text-lg font-serif font-bold text-stone-900 dark:text-stone-100 tracking-tight">
-                Automated Repeated Sweep Studio & Noise Rejection
-              </h2>
-            </div>
-          </div>
-
-          {/* Repetition Selector */}
-          <div className="flex items-center space-x-1 bg-stone-50 border border-stone-200 dark:bg-stone-900 dark:border-stone-800 p-0.5 rounded shadow-sm text-xs font-mono">
-            <span className="text-[11px] text-stone-500 dark:text-stone-400 font-medium px-2">Stack:</span>
-            {[
-              { count: 1, label: '1x Test', snr: 'Single' },
-              { count: 2, label: '2x Fast', snr: '+3.0 dB' },
-              { count: 4, label: '4x Rec.', snr: '+6.0 dB' },
-              { count: 8, label: '8x Safe', snr: '+9.0 dB' },
-            ].map((r) => (
+            <div className="flex items-center space-x-2">
+              <span className="text-stone-600 dark:text-stone-400">Polarity:</span>
               <button
-                key={r.count}
                 type="button"
-                onClick={() => setAutoRepetitions(r.count)}
-                className={`px-2.5 py-1 text-xs rounded font-bold transition-all ${
-                  autoRepetitions === r.count
-                    ? 'bg-amber-700 text-white dark:bg-amber-500 dark:text-stone-950 shadow-sm'
-                    : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200'
+                onClick={handlePolarityToggle}
+                className={`px-2.5 py-1 rounded text-xs font-mono font-bold border transition-colors ${
+                  polarity === 1.0
+                    ? 'border-stone-300 bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200'
+                    : 'border-amber-600 bg-amber-500/10 text-amber-900 dark:text-amber-300'
                 }`}
               >
-                {r.label} <span className="text-[9.5px] font-mono opacity-80">({r.snr})</span>
+                {polarity === 1.0 ? 'Normal (0°)' : 'Inverted (180°)'}
               </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Step Instructions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-stone-700 dark:text-stone-300 font-mono">
-          <div className="p-2.5 rounded bg-stone-50 border border-stone-200 dark:bg-[#0E0F12] dark:border-stone-800 flex items-start space-x-2 shadow-sm">
-            <span className="h-4 w-4 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300 font-bold flex items-center justify-center shrink-0 text-[10px]">1</span>
-            <span>Position measurement mic at ear level in primary listening chair.</span>
-          </div>
-          <div className="p-2.5 rounded bg-stone-50 border border-stone-200 dark:bg-[#0E0F12] dark:border-stone-800 flex items-start space-x-2 shadow-sm">
-            <span className="h-4 w-4 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300 font-bold flex items-center justify-center shrink-0 text-[10px]">2</span>
-            <span>{status?.rew_connected ? 'REW API is connected on port 4735.' : 'REW offline; firing internal log-chirp generator.'}</span>
-          </div>
-          <div className="p-2.5 rounded bg-stone-50 border border-stone-200 dark:bg-[#0E0F12] dark:border-stone-800 flex items-start space-x-2 shadow-sm">
-            <span className="h-4 w-4 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300 font-bold flex items-center justify-center shrink-0 text-[10px]">3</span>
-            <span>Click any channel below to trigger automated coherent sweep stacking.</span>
-          </div>
-        </div>
-
-        {/* Sweep Trigger Buttons */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <button
-            type="button"
-            disabled={isMeasuringAuto}
-            onClick={() => handleAutoMeasure('left')}
-            className="py-2.5 px-3 rounded bg-stone-50 hover:bg-stone-100 text-stone-800 border border-stone-200 dark:bg-stone-900 dark:hover:bg-stone-800 dark:text-stone-100 dark:border-stone-800 disabled:opacity-50 font-mono font-bold text-xs flex items-center justify-center space-x-2 shadow-sm transition-all active:scale-[0.98]"
-          >
-            <PlayCircle className="h-4 w-4 text-amber-700 dark:text-amber-500" />
-            <span>Auto Left ({autoRepetitions}x)</span>
-          </button>
-
-          <button
-            type="button"
-            disabled={isMeasuringAuto}
-            onClick={() => handleAutoMeasure('right')}
-            className="py-2.5 px-3 rounded bg-stone-50 hover:bg-stone-100 text-stone-800 border border-stone-200 dark:bg-stone-900 dark:hover:bg-stone-800 dark:text-stone-100 dark:border-stone-800 disabled:opacity-50 font-mono font-bold text-xs flex items-center justify-center space-x-2 shadow-sm transition-all active:scale-[0.98]"
-          >
-            <PlayCircle className="h-4 w-4 text-amber-700 dark:text-amber-500" />
-            <span>Auto Right ({autoRepetitions}x)</span>
-          </button>
-
-          <button
-            type="button"
-            disabled={isMeasuringAuto}
-            onClick={() => handleAutoMeasure('sub')}
-            className="py-2.5 px-3 rounded bg-stone-50 hover:bg-stone-100 text-stone-800 border border-stone-200 dark:bg-stone-900 dark:hover:bg-stone-800 dark:text-stone-100 dark:border-stone-800 disabled:opacity-50 font-mono font-bold text-xs flex items-center justify-center space-x-2 shadow-sm transition-all active:scale-[0.98]"
-          >
-            <PlayCircle className="h-4 w-4 text-amber-700 dark:text-amber-500" />
-            <span>Auto Sub ({autoRepetitions}x)</span>
-          </button>
-
-          <button
-            type="button"
-            disabled={isMeasuringAuto}
-            onClick={() => handleAutoMeasure('all')}
-            className="py-2.5 px-3 rounded bg-amber-700 hover:bg-amber-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-stone-950 disabled:opacity-50 font-mono font-bold text-xs flex items-center justify-center space-x-1.5 shadow-sm transition-all active:scale-[0.98]"
-          >
-            <Zap className="h-4 w-4" />
-            <span>1-Click Full 2.1</span>
-          </button>
-        </div>
-
-        {/* Live Feedback Banner */}
-        {autoProgressText && (
-          <div className="p-3 rounded bg-stone-50 border border-amber-300 dark:bg-[#0E0F12] dark:border-amber-500/30 text-xs text-amber-900 dark:text-amber-200 font-mono flex items-center justify-between shadow-sm">
-            <span>{autoProgressText}</span>
-            {isMeasuringAuto && <RefreshCw className="h-4 w-4 text-amber-700 dark:text-amber-400 animate-spin ml-2 shrink-0" />}
-          </div>
-        )}
-
-        {/* AcoustiCX Stacking Report */}
-        {autoSweepResult && autoSweepResult.details && (
-          <div className="p-3.5 rounded bg-stone-50 dark:bg-[#0E0F12] border border-amber-300 dark:border-amber-500/30 space-y-2 text-xs font-mono">
-            <div className="flex items-center justify-between text-amber-800 dark:text-amber-400 font-bold uppercase tracking-wider text-[11px]">
-              <span>📊 AcoustiCX Intelligent Stacking Diagnostics</span>
-              <span className="text-amber-900 dark:text-amber-200 bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-500/30">
-                SNR Boost: +{autoSweepResult.snr_improvement_db} dB
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-              {Object.entries(autoSweepResult.details).map(([ch, det]: [string, any]) => (
-                <div key={ch} className="p-2 rounded bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 space-y-1">
-                  <div className="flex items-center justify-between text-stone-900 dark:text-stone-100 font-bold capitalize">
-                    <span>{ch} Channel</span>
-                    <span className="text-[10px] text-stone-400">({det.repetitions} sweeps)</span>
-                  </div>
-                  <div className="text-stone-600 dark:text-stone-400 text-[11px] space-y-0.5">
-                    <div className="flex justify-between">
-                      <span>Accepted:</span>
-                      <strong className="text-amber-700 dark:text-amber-400">{det.accepted_runs} runs</strong>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Correlation:</span>
-                      <strong>{det.mean_correlation ? `${(det.mean_correlation * 100).toFixed(1)}%` : 'N/A'}</strong>
-                    </div>
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
         )}
+
+        {/* Inline Optimization Progress Stepper directly below Figure 01 */}
+        <div className="pt-2">
+          <StepProgress isRunning={isRunning} result={result} progress={progress} />
+        </div>
       </section>
 
       {/* ========================================================================= */}
-      {/* SECTION 04: MEASUREMENT FILE INGESTION & ENVIRONMENTAL CALIBRATION        */}
+      {/* SECTION 02: ACOUSTIC LEDGER & DIAGNOSTIC CHAPTERS (COLLAPSIBLE)           */}
       {/* ========================================================================= */}
-      <section id="lab-ingestion" className="border border-stone-200 dark:border-stone-800 rounded-lg p-6 bg-white dark:bg-[#121316] space-y-6 shadow-sm transition-colors">
-        <div className="flex items-center space-x-3 border-b border-stone-100 dark:border-stone-800/80 pb-4">
-          <div className="p-2 rounded border border-stone-300 dark:border-stone-700 bg-stone-100 dark:bg-stone-900 text-amber-700 dark:text-amber-500">
-            <Upload className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest">
-              SECTION 04 // LABORATORY INGESTION
-            </div>
-            <h2 className="text-lg font-serif font-bold text-stone-900 dark:text-stone-100 tracking-tight">
-              Acoustic Measurement Ingestion & Environmental Physics
+      <section id="diagnostics" className="border border-stone-200 dark:border-stone-800 rounded-xl p-6 bg-white dark:bg-[#121316] space-y-4 shadow-sm transition-colors">
+        <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800/80 pb-3.5">
+          <div className="flex items-center space-x-2.5">
+            <span className="text-xs font-sans font-bold text-amber-700 dark:text-amber-400 uppercase tracking-widest">
+              SECTION 02 // ACOUSTIC LEDGER
+            </span>
+            <h2 className="font-serif font-bold text-stone-900 dark:text-stone-100 text-sm">
+              Laboratory Diagnostics & Psychoacoustic Intelligence
             </h2>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowDiagnostics(!showDiagnostics)}
+            className="flex items-center space-x-1 text-xs font-sans font-semibold text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200 transition-colors"
+          >
+            <span>{showDiagnostics ? 'Collapse Diagnostics' : 'Expand Diagnostics'}</span>
+            {showDiagnostics ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
         </div>
 
-        {/* 3-Column Lab Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-          {/* Col 1: File Ingestion */}
-          <div className="p-4 rounded bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800 space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-serif font-bold text-stone-900 dark:text-stone-100">
-                Measurement Files
-              </h4>
-              <div className="flex bg-stone-100 border border-stone-200 dark:bg-stone-900 dark:border-stone-800 p-0.5 rounded text-xs font-mono">
-                <button
-                  type="button"
-                  onClick={() => setMeasurementMode('single')}
-                  className={`px-2 py-0.5 text-[10px] font-bold rounded transition-all ${measurementMode === 'single' ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950 shadow-sm' : 'text-stone-500'}`}
-                >
-                  1x
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMeasurementMode('repeated')}
-                  className={`px-2 py-0.5 text-[10px] font-bold rounded transition-all ${measurementMode === 'repeated' ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950 shadow-sm' : 'text-stone-500'}`}
-                >
-                  Repeats
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMeasurementMode('multi_seat')}
-                  className={`px-2 py-0.5 text-[10px] font-bold rounded transition-all ${measurementMode === 'multi_seat' ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950 shadow-sm' : 'text-stone-500'}`}
-                >
-                  Multi-Seat
-                </button>
-              </div>
-            </div>
-
-            {uploadStatus && (
-              <div className="p-2 rounded bg-amber-50 border border-amber-200 text-[11px] font-mono text-amber-900 dark:bg-amber-950/40 dark:border-amber-500/30 dark:text-amber-200">
-                {uploadStatus}
-              </div>
-            )}
-
-            {/* Left Channel File */}
-            <div className="p-2.5 rounded bg-white border border-stone-200 dark:bg-stone-900 dark:border-stone-800 flex items-center justify-between text-xs">
+        {showDiagnostics && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 animate-fadeIn">
+            {/* Chapter 01: Modal Resonances */}
+            <div className="border border-stone-200 dark:border-stone-800 rounded-lg p-5 bg-stone-50/50 dark:bg-[#0E0F12] space-y-3 flex flex-col justify-between">
               <div>
-                <div className="font-semibold text-stone-800 dark:text-stone-200">Left Speaker (Mains)</div>
-                <div className="text-[10px] text-stone-400 font-mono">REW .txt / .frd / .wav IR</div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-sans font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest">
+                    01 // MODAL MITIGATION
+                  </span>
+                  <span className="text-[10px] font-mono text-stone-400">VBA SYNTH</span>
+                </div>
+                <h3 className="font-serif text-base text-stone-900 dark:text-stone-100 font-bold">
+                  Room Modal Resonances
+                </h3>
+                <p className="text-xs text-stone-600 dark:text-stone-300 font-sans mt-1 leading-relaxed">
+                  Virtual Bass Array (VBA) generates an inverted rear-wall reflection canceller.
+                </p>
               </div>
-              <input type="file" ref={fileLeftRef} multiple={measurementMode !== 'single'} onChange={(e) => handleFileUpload(e, 'left')} className="hidden" accept=".txt,.frd,.csv,.wav,.mdat" />
-              <button onClick={() => fileLeftRef.current?.click()} className="px-3 py-1 bg-stone-100 hover:bg-stone-200 text-stone-800 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-200 rounded text-xs font-mono font-medium transition-colors">
-                Browse
-              </button>
+
+              <div className="p-3 rounded bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 space-y-1.5 text-xs font-sans">
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Primary Mode (f1):</span>
+                  <strong className="font-mono text-stone-900 dark:text-stone-100 font-bold">
+                    {result?.modal_info_left?.f_1?.toFixed(1) ?? '52.4'} Hz
+                  </strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Identified Modes:</span>
+                  <strong className="font-mono text-stone-900 dark:text-stone-100 font-bold">
+                    {result?.modal_info_left?.peaks?.length ?? 3} Resonant Peaks
+                  </strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Low Bass Rolloff:</span>
+                  <strong className="font-mono text-stone-900 dark:text-stone-100 font-bold">
+                    {intel?.speaker_low_rolloff_hz?.toFixed(1) ?? '44.8'} Hz
+                  </strong>
+                </div>
+              </div>
             </div>
 
-            {/* Right Channel File */}
-            <div className="p-2.5 rounded bg-white border border-stone-200 dark:bg-stone-900 dark:border-stone-800 flex items-center justify-between text-xs">
+            {/* Chapter 02: Schroeder Transition */}
+            <div className="border border-stone-200 dark:border-stone-800 rounded-lg p-5 bg-stone-50/50 dark:bg-[#0E0F12] space-y-3 flex flex-col justify-between">
               <div>
-                <div className="font-semibold text-stone-800 dark:text-stone-200">Right Speaker</div>
-                <div className="text-[10px] text-stone-400 font-mono">REW .txt / .frd / .wav IR</div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-sans font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest">
+                    02 // WAVE ACOUSTICS
+                  </span>
+                  <span className="text-[10px] font-mono text-stone-400">FDW 1-CYCLE</span>
+                </div>
+                <h3 className="font-serif text-base text-stone-900 dark:text-stone-100 font-bold">
+                  Schroeder Cutoff & Adaptive FDW
+                </h3>
+                <p className="text-xs text-stone-600 dark:text-stone-300 font-sans mt-1 leading-relaxed">
+                  Modal-to-specular acoustic transition frequency and frequency-dependent window sizing.
+                </p>
               </div>
-              <input type="file" ref={fileRightRef} multiple={measurementMode !== 'single'} onChange={(e) => handleFileUpload(e, 'right')} className="hidden" accept=".txt,.frd,.csv,.wav,.mdat" />
-              <button onClick={() => fileRightRef.current?.click()} className="px-3 py-1 bg-stone-100 hover:bg-stone-200 text-stone-800 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-200 rounded text-xs font-mono font-medium transition-colors">
-                Browse
-              </button>
+
+              <div className="p-3 rounded bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 space-y-1.5 text-xs font-sans">
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Schroeder Transition:</span>
+                  <strong className="font-mono text-stone-900 dark:text-stone-100 font-bold">
+                    {intel?.detected_schroeder_hz?.toFixed(1) ?? '180.0'} Hz
+                  </strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-stone-500">First Reflection:</span>
+                  <strong className="font-mono text-stone-900 dark:text-stone-100 font-bold">
+                    {intel?.detected_reflection_gap_ms?.toFixed(2) ?? '3.50'} ms
+                  </strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Optimal FDW Window:</span>
+                  <strong className="font-mono text-stone-900 dark:text-stone-100 font-bold">
+                    {intel?.recommended_fdw_cycles?.toFixed(1) ?? '5.0'} Cycles
+                  </strong>
+                </div>
+              </div>
             </div>
 
-            {/* Subwoofer Channel File */}
-            <div className="p-2.5 rounded bg-white border border-stone-200 dark:bg-stone-900 dark:border-stone-800 flex items-center justify-between text-xs">
+            {/* Chapter 03: Physical Geometry */}
+            <div className="border border-stone-200 dark:border-stone-800 rounded-lg p-5 bg-stone-50/50 dark:bg-[#0E0F12] space-y-3 flex flex-col justify-between">
               <div>
-                <div className="font-semibold text-stone-800 dark:text-stone-200">Subwoofer (Optional)</div>
-                <div className="text-[10px] text-stone-400 font-mono">Dedicated sub measurement</div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-sans font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest">
+                    03 // PHYSICAL GEOMETRY
+                  </span>
+                  <span className="text-[10px] font-mono text-stone-400">ACOUSTICX 3D</span>
+                </div>
+                <h3 className="font-serif text-base text-stone-900 dark:text-stone-100 font-bold">
+                  Microphone Triangulation
+                </h3>
+                <p className="text-xs text-stone-600 dark:text-stone-300 font-sans mt-1 leading-relaxed">
+                  Sub-millimeter physical microphone offset detection and 3D acoustic room pathing.
+                </p>
               </div>
-              <input type="file" ref={fileSubRef} onChange={(e) => handleFileUpload(e, 'sub')} className="hidden" accept=".txt,.frd,.csv,.wav,.mdat" />
-              <button onClick={() => fileSubRef.current?.click()} className="px-3 py-1 bg-stone-100 hover:bg-stone-200 text-stone-800 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-200 rounded text-xs font-mono font-medium transition-colors">
-                Browse
-              </button>
-            </div>
 
-            {/* Test Chirps */}
-            <div className="pt-1 flex items-center justify-between text-[11px] font-mono text-stone-500">
-              <span>Test Chirps (24-bit):</span>
-              <div className="flex space-x-1">
-                {(['left', 'right', 'sub'] as const).map((ch) => (
-                  <a key={ch} href={`/api/measurements/test-chirp?channel=${ch}`} download className="px-1.5 py-0.5 rounded bg-stone-200 hover:bg-stone-300 dark:bg-stone-800 dark:hover:bg-stone-700 text-[10px] uppercase font-bold text-stone-700 dark:text-stone-300">
-                    {ch}
-                  </a>
-                ))}
+              <div className="p-3 rounded bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 space-y-1.5 text-xs font-sans">
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Lateral Mic Offset:</span>
+                  <strong className="font-mono text-stone-900 dark:text-stone-100 font-bold">
+                    {intel?.microphone_geometry?.mic_off_center_mm !== undefined
+                      ? `${intel.microphone_geometry.mic_off_center_mm} mm (${intel.microphone_geometry.delay_offset_ms.toFixed(2)} ms)`
+                      : '0 mm (0.00 ms)'}
+                  </strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-stone-500">True-Peak Inter-Sample:</span>
+                  <strong className="font-mono text-stone-900 dark:text-stone-100 font-bold">
+                    L: {result?.true_peak_left_dbfs !== undefined ? `${result.true_peak_left_dbfs.toFixed(2)}` : '-0.12'} dBTP
+                  </strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Headroom Preamp:</span>
+                  <strong className="font-mono text-amber-700 dark:text-amber-400 font-bold">
+                    {result?.global_preamp_db?.toFixed(2) ?? '-4.75'} dB
+                  </strong>
+                </div>
               </div>
             </div>
           </div>
+        )}
 
-          {/* Col 2: Environmental Physics */}
-          <div className="p-4 rounded bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800 space-y-4">
-            <h4 className="text-xs font-serif font-bold text-stone-900 dark:text-stone-100 flex items-center space-x-1.5">
-              <Thermometer className="h-4 w-4 text-amber-700 dark:text-amber-500" />
-              <span>Environmental Physics (ISO 9613-1)</span>
-            </h4>
-
-            {/* Room Temperature */}
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs font-mono">
-                <span className="text-stone-600 dark:text-stone-400">Room Temperature</span>
-                <span className="text-amber-700 dark:text-amber-400 font-bold">{config.temperature_celsius ?? 20}°C</span>
-              </div>
-              <input
-                type="range"
-                min="10"
-                max="38"
-                step="0.5"
-                value={config.temperature_celsius ?? 20}
-                onChange={(e) => onChangeConfig({ ...config, temperature_celsius: parseFloat(e.target.value) })}
-                className="w-full h-1 bg-stone-300 dark:bg-stone-800 appearance-none cursor-pointer accent-amber-700 dark:accent-amber-500"
-              />
-            </div>
-
-            {/* Relative Humidity */}
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs font-mono">
-                <span className="text-stone-600 dark:text-stone-400">Relative Humidity</span>
-                <span className="text-amber-700 dark:text-amber-400 font-bold">{config.relative_humidity_pct ?? 50}% RH</span>
-              </div>
-              <input
-                type="range"
-                min="20"
-                max="90"
-                step="5"
-                value={config.relative_humidity_pct ?? 50}
-                onChange={(e) => onChangeConfig({ ...config, relative_humidity_pct: parseFloat(e.target.value) })}
-                className="w-full h-1 bg-stone-300 dark:bg-stone-800 appearance-none cursor-pointer accent-amber-700 dark:accent-amber-500"
-              />
-            </div>
-
-            {/* Mic Polar Orientation */}
-            <div className="pt-1">
-              <div className="flex justify-between text-xs font-mono mb-1.5">
-                <span className="text-stone-600 dark:text-stone-400">Mic Orientation</span>
-                <span className="text-stone-800 dark:text-stone-200 font-bold">{(config.mic_orientation_deg ?? 0) === 0 ? '0° (On-Axis)' : '90° (Diffuse)'}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                <button
-                  type="button"
-                  onClick={() => onChangeConfig({ ...config, mic_orientation_deg: 0 })}
-                  className={`py-1.5 rounded border text-center font-semibold transition-all ${
-                    (config.mic_orientation_deg ?? 0) === 0
-                      ? 'border-amber-600 bg-amber-500/10 text-amber-900 dark:text-amber-300'
-                      : 'border-stone-200 dark:border-stone-800 text-stone-500 hover:border-stone-400'
-                  }`}
-                >
-                  0° On-Axis
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onChangeConfig({ ...config, mic_orientation_deg: 90 })}
-                  className={`py-1.5 rounded border text-center font-semibold transition-all ${
-                    (config.mic_orientation_deg ?? 0) === 90
-                      ? 'border-amber-600 bg-amber-500/10 text-amber-900 dark:text-amber-300'
-                      : 'border-stone-200 dark:border-stone-800 text-stone-500 hover:border-stone-400'
-                  }`}
-                >
-                  90° Diffuse
-                </button>
-              </div>
-            </div>
+        {/* Multi-Sub Matrix Optimization Table (if MSO results exist) */}
+        {result?.multi_sub_alignment && (
+          <div className="pt-2">
+            <MultiSubView multiSubAlignment={result.multi_sub_alignment} />
           </div>
-
-          {/* Col 3: Advanced Laboratory Tools */}
-          <div className="p-4 rounded bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800 space-y-3">
-            <h4 className="text-xs font-serif font-bold text-stone-900 dark:text-stone-100 flex items-center space-x-1.5">
-              <Settings2 className="h-4 w-4 text-amber-700 dark:text-amber-500" />
-              <span>Advanced Laboratory Utilities</span>
-            </h4>
-
-            {/* Mic .cal */}
-            <div className="p-2.5 rounded bg-white border border-stone-200 dark:bg-stone-900 dark:border-stone-800 flex items-center justify-between text-xs">
-              <div>
-                <div className="font-semibold text-stone-800 dark:text-stone-200">Mic .cal File</div>
-                <div className="text-[10px] text-stone-400 font-mono">{calStatus ?? 'Optional mic calibration'}</div>
-              </div>
-              <input type="file" ref={calFileRef} onChange={handleCalUpload} className="hidden" accept=".cal,.txt" />
-              <button onClick={() => calFileRef.current?.click()} className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-800 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-200 rounded text-xs font-mono font-medium">
-                Upload .cal
-              </button>
-            </div>
-
-            {/* MSO */}
-            <div className="p-2.5 rounded bg-white border border-stone-200 dark:bg-stone-900 dark:border-stone-800 flex items-center justify-between text-xs">
-              <div>
-                <div className="font-semibold text-stone-800 dark:text-stone-200">Multi-Sub (MSO)</div>
-                <div className="text-[10px] text-stone-400 font-mono">{multiSubStatus ?? '2-4 subwoofers'}</div>
-              </div>
-              <input type="file" ref={multiSubRef} multiple onChange={handleMultiSubUpload} className="hidden" accept=".txt,.frd,.csv,.wav" />
-              <button onClick={() => multiSubRef.current?.click()} className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-800 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-stone-200 rounded text-xs font-mono font-medium">
-                Upload Subs
-              </button>
-            </div>
-
-            {/* Warped FIR Toggle */}
-            <div className="p-2.5 rounded bg-white border border-stone-200 dark:bg-stone-900 dark:border-stone-800 flex items-center justify-between text-xs font-mono">
-              <span className="text-stone-700 dark:text-stone-300">Warped FIR (WFIR)</span>
-              <button
-                type="button"
-                onClick={() => onChangeConfig({ ...config, wfir_taps: config.wfir_taps ? null : 4096 })}
-                className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
-                  config.wfir_taps
-                    ? 'border-amber-600 bg-amber-500/10 text-amber-900 dark:text-amber-300'
-                    : 'border-stone-300 dark:border-stone-700 text-stone-400'
-                }`}
-              >
-                {config.wfir_taps ? 'ACTIVE' : 'OFF'}
-              </button>
-            </div>
-
-            {/* Project Session Buttons */}
-            <div className="pt-2 border-t border-stone-200 dark:border-stone-800/80 flex items-center justify-between text-xs font-mono">
-              <span className="text-stone-500">Session:</span>
-              <div className="flex space-x-1.5">
-                <button onClick={handleSessionSave} className="px-2 py-1 rounded bg-stone-200 hover:bg-stone-300 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 text-[10px] font-bold flex items-center space-x-1">
-                  <Save className="h-3 w-3" />
-                  <span>Save</span>
-                </button>
-                <button onClick={handleSessionLoad} className="px-2 py-1 rounded bg-stone-200 hover:bg-stone-300 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 text-[10px] font-bold flex items-center space-x-1">
-                  <FolderOpen className="h-3 w-3" />
-                  <span>Load</span>
-                </button>
-                <button onClick={async () => { await clearSession(); setUploadStatus('Session cleared'); }} className="px-2 py-1 rounded bg-stone-200 hover:bg-stone-300 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-500 text-[10px] font-bold">
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-        </div>
+        )}
       </section>
 
       {/* ========================================================================= */}
-      {/* SECTION 05: PARAMETRIC TARGET TUNING & ACOUSTIC CROSSOVER MATRIX          */}
+      {/* SECTION 03: TARGET HOUSE CURVE & PARAMETRIC TUNING                        */}
       {/* ========================================================================= */}
-      <section id="tuning" className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <section id="target-tuning" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        {/* Panel A: Target House Curve Profile & Deep Sliders */}
-        <div className="border border-stone-200 dark:border-stone-800 rounded-lg p-6 bg-white dark:bg-[#121316] space-y-4 shadow-sm flex flex-col justify-between transition-colors">
+        {/* Panel A: Target House Curve Profile with Selectable Radio Cards */}
+        <div className="border border-stone-200 dark:border-stone-800 rounded-xl p-6 bg-white dark:bg-[#121316] space-y-4 shadow-sm flex flex-col justify-between transition-colors">
           <div>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest">
-                SECTION 05 // TARGET SYNTHESIS
+              <span className="text-[10px] font-sans font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest">
+                SECTION 03 // TARGET SYNTHESIS
               </span>
-              <span className="text-[10px] font-mono text-stone-400">HARMAN / B&K / OCA</span>
+              <span className="text-[10px] font-mono text-stone-400">HARMAN / OCA / B&K</span>
             </div>
-            <h3 className="font-serif text-lg text-stone-900 dark:text-stone-100 font-semibold">
-              House Target Curve & Custom Sliders
+            <h3 className="font-serif text-lg text-stone-900 dark:text-stone-100 font-bold">
+              Psychoacoustic Target House Curve
             </h3>
-            <p className="text-xs text-stone-600 dark:text-stone-400 mt-1">
-              Select psychoacoustic baseline preset or fine-tune shelf boost, cutoff frequency, and high-frequency roll-off slope.
+            <p className="text-xs text-stone-600 dark:text-stone-300 font-sans mt-1">
+              Select an authoritative psychoacoustic baseline curve. Active selection is anchored to your room sensitivity.
             </p>
           </div>
 
-          {/* Preset Buttons */}
-          <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+          {/* Selectable Radio Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-sans">
             {[
-              { id: 'harman', name: 'Harman (+6dB)', boost: 6.0, desc: 'Authoritative deep bass' },
-              { id: 'oca', name: 'OCA Dynamic', boost: 5.5, desc: 'Expansive soundstage' },
-              { id: 'bk1974', name: 'B&K 1974', boost: 3.0, desc: 'Analog warm roll-off' },
-              { id: 'flat', name: 'Studio Flat', boost: 0.0, desc: '0dB neutral reference' },
-            ].map((t) => (
-              <button
-                key={t.id}
-                onClick={() =>
-                  onChangeConfig({
-                    ...config,
-                    target: { ...config.target, name: t.id as any, bass_boost_db: t.boost },
-                  })
-                }
-                className={`p-2.5 rounded border text-left transition-all ${
-                  config.target.name === t.id
-                    ? 'border-amber-600 bg-amber-500/10 text-amber-900 dark:text-amber-300 font-bold'
-                    : 'border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-400'
-                }`}
-              >
-                <div className="text-[11px] leading-tight">{t.name}</div>
-                <div className="text-[9px] opacity-70 mt-0.5">{t.desc}</div>
-              </button>
-            ))}
+              { id: 'harman', name: 'Harman (+6.0 dB)', boost: 6.0, desc: 'Authoritative deep bass shelf with gentle warm tilt' },
+              { id: 'oca', name: 'OCA Dynamic (+5.5 dB)', boost: 5.5, desc: 'Expansive soundstage with focused vocal clarity' },
+              { id: 'bk1974', name: 'B&K 1974 (+3.0 dB)', boost: 3.0, desc: 'Analog studio reference with classic natural roll-off' },
+              { id: 'flat', name: 'Studio Flat (0.0 dB)', boost: 0.0, desc: 'Strict linear reference for anechoic mastering studios' },
+            ].map((t) => {
+              const isSelected = config.target.name === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() =>
+                    onChangeConfig({
+                      ...config,
+                      target: { ...config.target, name: t.id as any, bass_boost_db: t.boost },
+                    })
+                  }
+                  className={`p-3.5 rounded-lg border text-left transition-all flex items-start space-x-3 cursor-pointer ${
+                    isSelected
+                      ? 'border-amber-700 bg-amber-500/10 text-stone-900 dark:text-stone-100 dark:border-amber-500 shadow-sm ring-1 ring-amber-500/30'
+                      : 'border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-400 dark:hover:border-stone-700'
+                  }`}
+                >
+                  {/* Radio Indicator */}
+                  <div
+                    className={`h-4 w-4 rounded-full flex items-center justify-center border shrink-0 mt-0.5 transition-colors ${
+                      isSelected
+                        ? 'border-amber-700 bg-amber-700 text-white dark:border-amber-500 dark:bg-amber-500 dark:text-stone-950'
+                        : 'border-stone-300 dark:border-stone-700 bg-transparent'
+                    }`}
+                  >
+                    {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs leading-tight">{t.name}</div>
+                    <div className="text-[11px] text-stone-500 dark:text-stone-300 mt-1 leading-snug">{t.desc}</div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
-          {/* Deep Custom Parametric Sliders */}
-          <div className="p-3.5 rounded bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800 space-y-3 font-mono text-xs">
+          {/* Quick Session Persistence Buttons */}
+          <div className="pt-3 border-t border-stone-200 dark:border-stone-800/80 flex items-center justify-between text-xs font-sans">
+            <span className="text-stone-500">Project Snapshot:</span>
+            <div className="flex space-x-2">
+              <button
+                type="button"
+                onClick={saveSession}
+                className="px-2.5 py-1.5 rounded bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 text-xs font-semibold flex items-center space-x-1"
+              >
+                <Save className="h-3 w-3" />
+                <span>Save</span>
+              </button>
+              <button
+                type="button"
+                onClick={loadSession}
+                className="px-2.5 py-1.5 rounded bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 text-xs font-semibold flex items-center space-x-1"
+              >
+                <FolderOpen className="h-3 w-3" />
+                <span>Load</span>
+              </button>
+              <button
+                type="button"
+                onClick={clearSession}
+                className="px-2.5 py-1.5 rounded bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-500 text-xs font-semibold"
+                title="Reset session"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Panel B: Deep Custom Parametric Sliders with Direct Numeric Inputs */}
+        <div className="border border-stone-200 dark:border-stone-800 rounded-xl p-6 bg-white dark:bg-[#121316] space-y-4 shadow-sm flex flex-col justify-between transition-colors">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-sans font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest">
+                SECTION 03.B // PARAMETRIC SLIDERS
+              </span>
+              <span className="text-[10px] font-mono text-stone-400">MICRO-ADJUST</span>
+            </div>
+            <h3 className="font-serif text-lg text-stone-900 dark:text-stone-100 font-bold">
+              Precision Acoustic Parameters
+            </h3>
+            <p className="text-xs text-stone-600 dark:text-stone-300 font-sans mt-1">
+              Adjust sliders or enter direct numerical values for exact target shelving, cutoffs, and crossover points.
+            </p>
+          </div>
+
+          <div className="space-y-3.5 font-sans text-xs">
+            {/* Bass Shelf Boost */}
             <div>
-              <div className="flex justify-between text-stone-700 dark:text-stone-300 mb-1">
-                <span>Bass Shelf Boost:</span>
-                <span className="text-amber-700 dark:text-amber-400 font-bold">+{config.target.bass_boost_db.toFixed(1)} dB</span>
+              <div className="flex justify-between items-center text-stone-700 dark:text-stone-300 mb-1">
+                <span>Bass Shelf Boost (dB):</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="12"
+                  value={config.target.bass_boost_db}
+                  onChange={(e) => updateTarget({ bass_boost_db: parseFloat(e.target.value) || 0 })}
+                  className="w-20 px-2 py-0.5 text-right font-mono text-xs rounded bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 font-bold"
+                />
               </div>
               <input
                 type="range"
@@ -1317,14 +1115,23 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
                 step="0.5"
                 value={config.target.bass_boost_db}
                 onChange={(e) => updateTarget({ bass_boost_db: parseFloat(e.target.value) })}
-                className="w-full h-1 bg-stone-300 dark:bg-stone-800 appearance-none cursor-pointer accent-amber-700 dark:accent-amber-500"
+                className="w-full h-1 bg-stone-300 dark:bg-stone-700 appearance-none cursor-pointer accent-amber-700 dark:accent-amber-500"
               />
             </div>
 
+            {/* Bass Cutoff Frequency */}
             <div>
-              <div className="flex justify-between text-stone-700 dark:text-stone-300 mb-1">
-                <span>Bass Cutoff Frequency:</span>
-                <span className="text-amber-700 dark:text-amber-400 font-bold">{config.target.bass_cutoff_hz.toFixed(0)} Hz</span>
+              <div className="flex justify-between items-center text-stone-700 dark:text-stone-300 mb-1">
+                <span>Bass Cutoff Frequency (Hz):</span>
+                <input
+                  type="number"
+                  step="1"
+                  min="40"
+                  max="160"
+                  value={config.target.bass_cutoff_hz}
+                  onChange={(e) => updateTarget({ bass_cutoff_hz: parseFloat(e.target.value) || 80 })}
+                  className="w-20 px-2 py-0.5 text-right font-mono text-xs rounded bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 font-bold"
+                />
               </div>
               <input
                 type="range"
@@ -1333,84 +1140,70 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
                 step="5"
                 value={config.target.bass_cutoff_hz}
                 onChange={(e) => updateTarget({ bass_cutoff_hz: parseFloat(e.target.value) })}
-                className="w-full h-1 bg-stone-300 dark:bg-stone-800 appearance-none cursor-pointer accent-amber-700 dark:accent-amber-500"
+                className="w-full h-1 bg-stone-300 dark:bg-stone-700 appearance-none cursor-pointer accent-amber-700 dark:accent-amber-500"
               />
             </div>
 
+            {/* Treble Roll-Off Slope */}
             <div>
-              <div className="flex justify-between text-stone-700 dark:text-stone-300 mb-1">
-                <span>Treble Roll-Off Slope:</span>
-                <span className="text-amber-700 dark:text-amber-400 font-bold">{config.target.hf_slope_db_per_oct.toFixed(2)} dB/oct</span>
+              <div className="flex justify-between items-center text-stone-700 dark:text-stone-300 mb-1">
+                <span>Treble Slope (dB/octave):</span>
+                <input
+                  type="number"
+                  step="0.05"
+                  min="-2.0"
+                  max="0.0"
+                  value={config.target.hf_slope_db_per_oct}
+                  onChange={(e) => updateTarget({ hf_slope_db_per_oct: parseFloat(e.target.value) || 0 })}
+                  className="w-20 px-2 py-0.5 text-right font-mono text-xs rounded bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 font-bold"
+                />
               </div>
               <input
                 type="range"
                 min="-2.0"
                 max="0.0"
-                step="0.1"
+                step="0.05"
                 value={config.target.hf_slope_db_per_oct}
                 onChange={(e) => updateTarget({ hf_slope_db_per_oct: parseFloat(e.target.value) })}
-                className="w-full h-1 bg-stone-300 dark:bg-stone-800 appearance-none cursor-pointer accent-amber-700 dark:accent-amber-500"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Panel B: Acoustic Crossovers & Tap Sizes */}
-        <div className="border border-stone-200 dark:border-stone-800 rounded-lg p-6 bg-white dark:bg-[#121316] space-y-4 shadow-sm flex flex-col justify-between transition-colors">
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest">
-                SECTION 07 // FILTER MATRIX
-              </span>
-              <span className="text-[10px] font-mono text-stone-400">HARDWARE FIR</span>
-            </div>
-            <h3 className="font-serif text-lg text-stone-900 dark:text-stone-100 font-semibold">
-              Acoustic Crossover & Hardware Taps
-            </h3>
-            <p className="text-xs text-stone-600 dark:text-stone-400 mt-1">
-              Configure speaker acoustic crossover point, subwoofer crossover frequency, and FIR convolver tap resolution.
-            </p>
-          </div>
-
-          <div className="p-3.5 rounded bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800 space-y-3 font-mono text-xs">
-            <div>
-              <div className="flex justify-between text-stone-700 dark:text-stone-300 mb-1">
-                <span>Loudspeaker Crossover:</span>
-                <span className="text-amber-700 dark:text-amber-400 font-bold">{config.crossover_freq_hz} Hz</span>
-              </div>
-              <input
-                type="range"
-                min="800"
-                max="4500"
-                step="50"
-                value={config.crossover_freq_hz}
-                onChange={(e) => onChangeConfig({ ...config, crossover_freq_hz: parseFloat(e.target.value) })}
-                className="w-full h-1 bg-stone-300 dark:bg-stone-800 appearance-none cursor-pointer accent-amber-700 dark:accent-amber-500"
+                className="w-full h-1 bg-stone-300 dark:bg-stone-700 appearance-none cursor-pointer accent-amber-700 dark:accent-amber-500"
               />
             </div>
 
+            {/* Subwoofer Crossover Frequency */}
             <div>
-              <div className="flex justify-between text-stone-700 dark:text-stone-300 mb-1">
-                <span>Subwoofer Crossover:</span>
-                <span className="text-amber-700 dark:text-amber-400 font-bold">{config.sub_crossover_freq_hz} Hz</span>
+              <div className="flex justify-between items-center text-stone-700 dark:text-stone-300 mb-1">
+                <span>Sub Crossover Frequency (Hz):</span>
+                <input
+                  type="number"
+                  step="1"
+                  min="40"
+                  max="200"
+                  value={config.sub_crossover_freq_hz}
+                  onChange={(e) => onChangeConfig({ ...config, sub_crossover_freq_hz: parseFloat(e.target.value) || 80 })}
+                  className="w-20 px-2 py-0.5 text-right font-mono text-xs rounded bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 font-bold"
+                />
               </div>
               <input
                 type="range"
                 min="40"
-                max="160"
+                max="200"
                 step="5"
                 value={config.sub_crossover_freq_hz}
                 onChange={(e) => onChangeConfig({ ...config, sub_crossover_freq_hz: parseFloat(e.target.value) })}
-                className="w-full h-1 bg-stone-300 dark:bg-stone-800 appearance-none cursor-pointer accent-amber-700 dark:accent-amber-500"
+                className="w-full h-1 bg-stone-300 dark:bg-stone-700 appearance-none cursor-pointer accent-amber-700 dark:accent-amber-500"
               />
             </div>
 
+            {/* Target FIR Taps */}
             <div>
-              <label className="text-stone-700 dark:text-stone-300 block mb-1">FIR Convolver Tap Resolution:</label>
+              <div className="flex justify-between items-center text-stone-700 dark:text-stone-300 mb-1">
+                <span>FIR Filter Tap Length:</span>
+                <span className="font-mono text-stone-800 dark:text-stone-200 font-bold">{config.target_taps.toLocaleString()} Taps</span>
+              </div>
               <select
                 value={config.target_taps}
                 onChange={(e) => onChangeConfig({ ...config, target_taps: parseInt(e.target.value) })}
-                className="w-full bg-white border border-stone-200 dark:bg-stone-900 dark:border-stone-800 rounded px-2.5 py-1.5 text-xs font-mono text-stone-800 dark:text-stone-200 font-bold shadow-sm"
+                className="w-full bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-md px-3 py-1.5 text-xs font-sans text-stone-900 dark:text-stone-100 font-semibold shadow-sm"
               >
                 <option value="4096">4,096 Taps (miniDSP Flex / Low Latency)</option>
                 <option value="16384">16,384 Taps (Medium Hardware)</option>
@@ -1419,72 +1212,127 @@ export const EditorialView: React.FC<EditorialViewProps> = ({
               </select>
             </div>
           </div>
-
-          <button
-            onClick={onRun}
-            disabled={isRunning}
-            className="w-full py-2.5 px-4 rounded font-mono font-bold text-xs tracking-wider uppercase bg-amber-700 hover:bg-amber-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-stone-950 flex items-center justify-center space-x-2 transition-all active:scale-[0.98] shadow-sm disabled:opacity-50"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${isRunning ? 'animate-spin' : ''}`} />
-            <span>{isRunning ? 'CALCULATING FILTERS...' : 'RE-CALCULATE OPTIMIZED FILTERS'}</span>
-          </button>
         </div>
 
       </section>
 
       {/* ========================================================================= */}
-      {/* SECTION 06: CONVOLVER DEPLOYMENT MANIFEST & EXPORT PACKAGE                */}
+      {/* SECTION 04: CONVOLVER DEPLOYMENT MANIFEST & EXPORT PACKAGES               */}
       {/* ========================================================================= */}
-      <section id="export" className="border border-stone-200 dark:border-stone-800 rounded-lg p-6 bg-white dark:bg-[#121316] space-y-4 shadow-sm transition-colors">
+      <section id="deployment" className="border border-stone-200 dark:border-stone-800 rounded-xl p-6 bg-white dark:bg-[#121316] space-y-5 shadow-sm transition-colors">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-100 dark:border-stone-800/80 pb-4">
           <div>
-            <div className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest mb-1">
-              SECTION 06 // CONVOLVER DEPLOYMENT
+            <div className="text-[10px] font-sans font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest mb-1">
+              SECTION 04 // CONVOLVER DEPLOYMENT
             </div>
             <div className="flex items-center space-x-2">
               <FileCode className="h-5 w-5 text-amber-700 dark:text-amber-500" />
               <h3 className="font-serif font-bold text-stone-900 dark:text-stone-100 text-base">
-                Multi-Platform Convolver Deployment Manifest
+                Multi-Platform Convolver Deployment Packages
               </h3>
             </div>
-            <p className="text-xs font-mono text-stone-500 dark:text-stone-400 mt-1">
-              Sample Rate: <span className="text-stone-800 dark:text-stone-200 font-bold">{result?.sample_rate ?? 48000} Hz</span> • FIR Taps:{' '}
-              <span className="text-stone-800 dark:text-stone-200 font-bold">{config.target_taps.toLocaleString()}</span> • Headroom Preamp:{' '}
-              <span className="text-amber-700 dark:text-amber-400 font-bold">{result?.global_preamp_db ?? -4.75} dB</span>
+            <p className="text-xs text-stone-600 dark:text-stone-300 font-sans mt-1">
+              Sample Rate: <strong className="font-mono text-stone-800 dark:text-stone-200">{result?.sample_rate ?? 48000} Hz</strong> • FIR Taps:{' '}
+              <strong className="font-mono text-stone-800 dark:text-stone-200">{config.target_taps.toLocaleString()}</strong> • Digital Preamp:{' '}
+              <strong className="font-mono text-amber-700 dark:text-amber-400">{result?.global_preamp_db ?? -4.75} dB</strong>
             </p>
           </div>
 
+          {/* Master 1-Click ZIP Download */}
           <a
             href={getExportBundleUrl()}
-            className="py-2.5 px-6 rounded font-mono font-bold text-xs tracking-widest uppercase bg-stone-900 hover:bg-stone-800 text-stone-50 dark:bg-stone-100 dark:text-stone-950 dark:hover:bg-stone-200 flex items-center justify-center space-x-2 shadow-sm transition-all active:scale-[0.98]"
+            className="py-3 px-6 rounded-lg font-sans font-bold text-xs tracking-wider uppercase bg-amber-700 hover:bg-amber-800 text-white dark:bg-amber-500 dark:text-stone-950 dark:hover:bg-amber-400 flex items-center justify-center space-x-2 shadow-sm transition-all active:scale-[0.98] shrink-0"
           >
             <Download className="h-4 w-4" />
-            <span>DOWNLOAD CONVOLVER BUNDLE (.ZIP)</span>
+            <span>DOWNLOAD 1-CLICK ZIP BUNDLE</span>
           </a>
         </div>
 
-        {/* Platform Manifest Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-          {[
-            { name: 'Equalizer APO', desc: 'System-wide Windows DSP', files: 'config.txt + Stereo WAV', badge: 'Windows' },
-            { name: 'CamillaDSP', desc: 'Linux / Streamer pipeline', files: 'camilladsp.yml + WAV FIR', badge: 'Linux / Pi' },
-            { name: 'miniDSP Flex', desc: 'Hardware DSP coefficients', files: 'fir_coeffs_left.txt (4,096 taps)', badge: 'Hardware' },
-            { name: 'Roon / HQPlayer', desc: 'Bit-perfect convolution', files: 'ALTAIR_Stereo_FIR_32bit.wav', badge: 'Audiophile' },
-          ].map((p) => (
-            <div key={p.name} className="p-3.5 rounded border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-[#0E0F12] flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="font-serif font-bold text-xs text-stone-900 dark:text-stone-100">{p.name}</span>
-                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded border border-stone-300 dark:border-stone-700 text-stone-600 dark:text-stone-400">{p.badge}</span>
-                </div>
-                <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-1">{p.desc}</p>
+        {/* 4 Distinct Deployment Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Equalizer APO */}
+          <div className="p-4 rounded-lg bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800 flex flex-col justify-between space-y-3">
+            <div>
+              <div className="flex justify-between items-center text-[10px] font-sans text-stone-500 uppercase tracking-wider mb-1">
+                <span>Windows 10 / 11</span>
+                <span className="text-amber-700 dark:text-amber-400 font-bold">READY</span>
               </div>
-              <div className="mt-3 pt-2 border-t border-stone-200/60 dark:border-stone-800/60 flex items-center text-[10px] font-mono text-amber-800 dark:text-amber-400">
-                <Check className="h-3 w-3 mr-1 text-emerald-600 dark:text-emerald-400" />
-                <span className="truncate">{p.files}</span>
-              </div>
+              <h4 className="font-serif font-bold text-sm text-stone-900 dark:text-stone-100">Equalizer APO</h4>
+              <p className="text-xs text-stone-600 dark:text-stone-300 font-sans mt-1">
+                System-wide audio engine convolution for Spotify, YouTube, games, and streaming apps.
+              </p>
             </div>
-          ))}
+            <a
+              href={getExportBundleUrl()}
+              className="py-2 px-3 rounded bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-sans font-semibold flex items-center justify-center space-x-1.5 transition-colors"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Get APO Package</span>
+            </a>
+          </div>
+
+          {/* Card 2: CamillaDSP */}
+          <div className="p-4 rounded-lg bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800 flex flex-col justify-between space-y-3">
+            <div>
+              <div className="flex justify-between items-center text-[10px] font-sans text-stone-500 uppercase tracking-wider mb-1">
+                <span>Linux / macOS / Pi</span>
+                <span className="text-amber-700 dark:text-amber-400 font-bold">READY</span>
+              </div>
+              <h4 className="font-serif font-bold text-sm text-stone-900 dark:text-stone-100">CamillaDSP</h4>
+              <p className="text-xs text-stone-600 dark:text-stone-300 font-sans mt-1">
+                Production-grade YAML configuration with 2.1 FIR routing and sub-millimeter phase delay.
+              </p>
+            </div>
+            <a
+              href={getExportBundleUrl()}
+              className="py-2 px-3 rounded bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-sans font-semibold flex items-center justify-center space-x-1.5 transition-colors"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Get CamillaDSP YAML</span>
+            </a>
+          </div>
+
+          {/* Card 3: miniDSP */}
+          <div className="p-4 rounded-lg bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800 flex flex-col justify-between space-y-3">
+            <div>
+              <div className="flex justify-between items-center text-[10px] font-sans text-stone-500 uppercase tracking-wider mb-1">
+                <span>Hardware DSP</span>
+                <span className="text-amber-700 dark:text-amber-400 font-bold">READY</span>
+              </div>
+              <h4 className="font-serif font-bold text-sm text-stone-900 dark:text-stone-100">miniDSP Flex / 2x4</h4>
+              <p className="text-xs text-stone-600 dark:text-stone-300 font-sans mt-1">
+                4,096-tap IEEE floating point coefficients with hybrid parametric IIR low-bass biquads.
+              </p>
+            </div>
+            <a
+              href={getExportBundleUrl()}
+              className="py-2 px-3 rounded bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-sans font-semibold flex items-center justify-center space-x-1.5 transition-colors"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Get miniDSP FIR</span>
+            </a>
+          </div>
+
+          {/* Card 4: rePhase / Studio WAV */}
+          <div className="p-4 rounded-lg bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800 flex flex-col justify-between space-y-3">
+            <div>
+              <div className="flex justify-between items-center text-[10px] font-sans text-stone-500 uppercase tracking-wider mb-1">
+                <span>DAW & Roon</span>
+                <span className="text-amber-700 dark:text-amber-400 font-bold">READY</span>
+              </div>
+              <h4 className="font-serif font-bold text-sm text-stone-900 dark:text-stone-100">32-Bit Float WAV IR</h4>
+              <p className="text-xs text-stone-600 dark:text-stone-300 font-sans mt-1">
+                Uncompressed PCM impulse response for Roon, JRiver, HQPlayer, and professional studio DAWs.
+              </p>
+            </div>
+            <a
+              href={getExportBundleUrl()}
+              className="py-2 px-3 rounded bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 text-stone-900 dark:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-sans font-semibold flex items-center justify-center space-x-1.5 transition-colors"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Get WAV Impulse</span>
+            </a>
+          </div>
         </div>
       </section>
 

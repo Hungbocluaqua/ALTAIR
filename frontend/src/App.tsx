@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { EditorialView } from './components/EditorialView';
 import { ConsoleLog, ConsoleLogEntry } from './components/ConsoleLog';
+import { SetupWizardModal } from './components/SetupWizardModal';
 import { StatusResponse, OptimizationRequest, OptimizationResponse, ProgressEvent } from './types';
 import { fetchStatus, runOptimizationStreamed } from './api/client';
+import { Terminal, X } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [status, setStatus] = useState<StatusResponse | null>(null);
@@ -12,7 +14,8 @@ export const App: React.FC = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [result, setResult] = useState<OptimizationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showConsole, setShowConsole] = useState<boolean>(true);
+  const [showConsole, setShowConsole] = useState<boolean>(false);
+  const [showSetupWizard, setShowSetupWizard] = useState<boolean>(false);
   const [progress, setProgress] = useState<ProgressEvent | null>(null);
   const lastLoggedStageRef = useRef<string | null>(null);
   
@@ -123,7 +126,7 @@ export const App: React.FC = () => {
       addLog(`First reflection arrival: ${intel.detected_reflection_gap_ms} ms (Auto-FDW: ${intel.recommended_fdw_cycles} cycles)`, 'geom', 'FDW');
       const micGeom = intel.microphone_geometry;
       if (micGeom) {
-        addLog(`Lateral microphone offset: ${micGeom.mic_off_center_mm} mm (${micGeom.delay_offset_ms} ms)`, 'geom', 'MIC');
+        addLog(`Lateral microphone offset: ${micGeom.mic_off_center_mm} mm (${micGeom.delay_offset_ms.toFixed(2)} ms)`, 'geom', 'MIC');
       }
       addLog(`Speed of sound calibrated: ${intel.speed_of_sound_mps} m/s`, 'info', 'TEMP');
       if (intel.mic_calibration) {
@@ -221,8 +224,8 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#F9F8F6] text-stone-900 dark:bg-[#121316] dark:text-stone-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] transition-colors duration-200">
-      {/* Top Navigation */}
+    <div className="min-h-screen bg-[#F9F8F6] text-stone-900 dark:bg-[#121316] dark:text-stone-100 flex flex-col font-sans transition-colors duration-200">
+      {/* Top Sticky Header */}
       <Header
         status={status}
         mode={mode}
@@ -236,53 +239,105 @@ export const App: React.FC = () => {
         consoleCount={logs.length}
         theme={theme}
         onToggleTheme={toggleTheme}
+        onOpenSetupWizard={() => setShowSetupWizard(true)}
       />
 
-      {/* Main Content Area with Console Log on Right Side */}
-      <main className="flex-1 max-w-[1720px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col xl:flex-row gap-8 items-start">
-        {/* Left / Center Work Area */}
-        <div className="flex-1 min-w-0 w-full space-y-6">
-          {/* Error Banner */}
-          {error && (
-            <div className="p-4 rounded border border-red-300 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-400 text-xs font-semibold flex items-center justify-between">
-              <span>⚠️ {error}</span>
-              <button onClick={() => setError(null)} className="underline ml-4">
-                Dismiss
-              </button>
-            </div>
-          )}
-
-          {/* Unified Master Editorial Monograph & Acoustic Laboratory */}
-          <EditorialView
-            config={config}
-            onChangeConfig={setConfig}
-            result={result}
-            isRunning={isRunning}
-            onRun={handleRun}
-            status={status}
-            theme={theme}
-            onLog={addLog}
-            progress={progress}
-          />
-        </div>
-
-        {/* Right Side: Live Acoustic Terminal / Console Log */}
-        {showConsole && (
-          <aside className="w-full xl:w-[420px] 2xl:w-[460px] xl:shrink-0 xl:sticky xl:top-20 h-[560px] xl:h-[calc(100vh-6.5rem)]">
-            <ConsoleLog
-              logs={logs}
-              onClear={() => setLogs([])}
-              isRunning={isRunning}
-              onToggleCollapse={() => setShowConsole(false)}
-            />
-          </aside>
+      {/* Main Full-Width Content Canvas */}
+      <main className="flex-1 max-w-[1720px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Error Banner */}
+        {error && (
+          <div className="mb-6 p-4 rounded-lg border border-red-300 bg-red-50 text-red-800 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300 text-xs font-sans font-semibold flex items-center justify-between">
+            <span>⚠️ {error}</span>
+            <button onClick={() => setError(null)} className="underline ml-4 hover:opacity-80">
+              Dismiss
+            </button>
+          </div>
         )}
+
+        {/* Unified Master Editorial Monograph */}
+        <EditorialView
+          config={config}
+          onChangeConfig={setConfig}
+          result={result}
+          isRunning={isRunning}
+          onRun={handleRun}
+          status={status}
+          theme={theme}
+          onLog={addLog}
+          progress={progress}
+          onOpenSetupWizard={() => setShowSetupWizard(true)}
+        />
       </main>
 
+      {/* Setup Wizard Modal */}
+      <SetupWizardModal
+        isOpen={showSetupWizard}
+        onClose={() => setShowSetupWizard(false)}
+        config={config}
+        onChangeConfig={setConfig}
+        status={status}
+        onLog={addLog}
+      />
+
+      {/* Slide-Over Drawer for Acoustic Terminal Console */}
+      {showConsole && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
+            onClick={() => setShowConsole(false)}
+          />
+          <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+            <div className="w-screen max-w-md xl:max-w-lg bg-white dark:bg-[#121316] border-l border-stone-200 dark:border-stone-800 shadow-2xl flex flex-col h-full animate-slideInRight">
+              <div className="p-3.5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-stone-50 dark:bg-[#0E0F12]">
+                <div className="flex items-center space-x-2">
+                  <Terminal className="h-4 w-4 text-amber-700 dark:text-amber-500" />
+                  <span className="font-serif font-bold text-xs text-stone-900 dark:text-stone-100">
+                    Acoustic Ledger & Diagnostic Stream
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowConsole(false)}
+                  className="p-1 rounded hover:bg-stone-200 dark:hover:bg-stone-800 text-stone-500"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <ConsoleLog
+                  logs={logs}
+                  onClear={() => setLogs([])}
+                  isRunning={isRunning}
+                  onToggleCollapse={() => setShowConsole(false)}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Action Pill for Console (when closed) */}
+      {!showConsole && (
+        <button
+          type="button"
+          onClick={() => setShowConsole(true)}
+          className="fixed bottom-6 right-6 z-40 bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950 px-3.5 py-2 rounded-full shadow-lg border border-stone-700 dark:border-stone-300 text-xs font-sans font-semibold flex items-center space-x-2 hover:scale-105 transition-all"
+        >
+          <Terminal className="h-3.5 w-3.5" />
+          <span>Ledger</span>
+          {logs.length > 0 && (
+            <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-amber-500 text-stone-950 font-mono font-bold">
+              {logs.length}
+            </span>
+          )}
+        </button>
+      )}
+
       {/* Editorial Monograph Footer */}
-      <footer className="border-t border-stone-200 bg-white dark:border-stone-800 dark:bg-[#121316] py-7 text-center text-xs text-stone-500 font-mono transition-colors">
+      <footer className="border-t border-stone-200 bg-white dark:border-stone-800 dark:bg-[#121316] py-7 text-center text-xs text-stone-500 font-sans transition-colors">
         <p className="tracking-wide">ALTAIR 1.0 • AUTOMATED LINEAR-PHASE TUNING & ACOUSTIC INVERSION ROUTINE</p>
-        <p className="text-[11px] text-stone-400 dark:text-stone-600 mt-1">
+        <p className="text-[11px] text-stone-400 dark:text-stone-600 mt-1 font-mono">
           Virtual Bass Array (VBA) • Tikhonov Regularized Deconvolution • 1-Cycle FDW Crossover Linearization
         </p>
       </footer>
