@@ -213,9 +213,11 @@ async def start_rew_background(
     executable_path: Optional[str] = None,
     port: int = 4735,
     timeout_s: float = 15.0,
+    show_window: bool = True,
 ) -> Dict[str, Any]:
     """
-    Launch REW with the -api flag in a detached background process and wait for API to become ready.
+    Launch REW with the -api flag in a background process and wait for API to become ready.
+    When show_window is True (default), REW displays its full graphical user interface window on the desktop.
     """
     if not executable_path:
         exe, _ = find_rew_executable()
@@ -238,31 +240,47 @@ async def start_rew_background(
         }
 
     cwd = os.path.dirname(executable_path)
+    cmd_args = [executable_path, "-api"]
+    if not show_window:
+        cmd_args.append("-nogui")
 
-    # Launch detached with -api flag
+    # Launch REW with visible GUI window
     try:
         if sys.platform == "win32":
-            # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP allows independent execution
-            creation_flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+            creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP
+            startupinfo = None
+            if show_window:
+                # SW_SHOWNORMAL = 1 explicitly orders Windows to show the GUI window normally
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                startupinfo.wShowWindow = 1
+            else:
+                creation_flags |= subprocess.DETACHED_PROCESS
+
             p = subprocess.Popen(
-                [executable_path, "-api"],
+                cmd_args,
                 cwd=cwd,
                 creationflags=creation_flags,
+                startupinfo=startupinfo,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                close_fds=True,
             )
         elif sys.platform == "darwin":
+            args = ["open", "-a", "REW.app"]
+            if not show_window:
+                args.extend(["--args", "-api", "-nogui"])
+            else:
+                args.extend(["--args", "-api"])
             p = subprocess.Popen(
-                ["open", "-a", "REW.app", "--args", "-api"],
+                args,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
         else:
             p = subprocess.Popen(
-                [executable_path, "-api"],
+                cmd_args,
                 cwd=cwd,
                 start_new_session=True,
                 stdin=subprocess.DEVNULL,

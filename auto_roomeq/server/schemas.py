@@ -23,6 +23,7 @@ class StatusResponse(BaseModel):
 class RewLaunchRequest(BaseModel):
     executable_path: Optional[str] = None
     auto_start_preference: Optional[bool] = None
+    show_window: bool = True
 
 
 class RewSettingsRequest(BaseModel):

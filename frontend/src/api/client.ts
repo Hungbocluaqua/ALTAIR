@@ -347,13 +347,18 @@ export async function detectRew(): Promise<any> {
   return resp.json();
 }
 
-export async function startRew(executablePath?: string, autoStartPreference?: boolean): Promise<any> {
+export async function startRew(
+  executablePath?: string,
+  autoStartPreference?: boolean,
+  showWindow: boolean = true
+): Promise<any> {
   const resp = await fetch(`${API_BASE}/rew/start`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       executable_path: executablePath || null,
       auto_start_preference: autoStartPreference !== undefined ? autoStartPreference : null,
+      show_window: showWindow,
     }),
   });
   if (!resp.ok) {

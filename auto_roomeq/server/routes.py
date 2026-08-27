@@ -334,14 +334,15 @@ async def rew_detect_endpoint():
 
 @router.post("/rew/start")
 async def rew_start_endpoint(req: Optional[RewLaunchRequest] = None):
-    """Launch Room EQ Wizard in the background with the -api flag."""
+    """Launch Room EQ Wizard with the -api flag (and visible GUI window by default)."""
     exe_path = req.executable_path if req else None
+    show_win = req.show_window if req and req.show_window is not None else True
     if req and req.auto_start_preference is not None:
         settings = load_altair_settings()
         settings["auto_start_rew"] = bool(req.auto_start_preference)
         save_altair_settings(settings)
 
-    result = await start_rew_background(executable_path=exe_path)
+    result = await start_rew_background(executable_path=exe_path, show_window=show_win)
     return result
 
 

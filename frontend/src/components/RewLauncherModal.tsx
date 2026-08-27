@@ -34,6 +34,7 @@ export const RewLauncherModal: React.FC<RewLauncherModalProps> = ({
   const [isStarting, setIsStarting] = useState<boolean>(false);
   const [customPath, setCustomPath] = useState<string>('');
   const [showCustomInput, setShowCustomInput] = useState<boolean>(false);
+  const [openAsWindow, setOpenAsWindow] = useState<boolean>(true);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -86,7 +87,7 @@ export const RewLauncherModal: React.FC<RewLauncherModalProps> = ({
     onLog?.('Launching Room EQ Wizard with -api flag...', 'info', 'REW');
 
     try {
-      const result = await startRew(customPath || undefined, autoStartPreference);
+      const result = await startRew(customPath || undefined, autoStartPreference, openAsWindow);
       if (result.connected) {
         setMessage('✓ Room EQ Wizard started and connected successfully on port 4735!');
         onLog?.(`Room EQ Wizard connected on port 4735 (${result.elapsed_s ?? 3}s)`, 'success', 'REW');
@@ -223,6 +224,24 @@ export const RewLauncherModal: React.FC<RewLauncherModalProps> = ({
                   ALTAIR will automatically launch REW in the background with the <code className="font-mono text-amber-700 dark:text-amber-400 font-bold">-api</code> flag enabled on port 4735 for automated sweeps and measurement ingestion.
                 </p>
               </div>
+
+              {/* Window vs Headless Display Option */}
+              <label className="flex items-center space-x-2.5 p-2 rounded hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={openAsWindow}
+                  onChange={(e) => setOpenAsWindow(e.target.checked)}
+                  className="rounded border-stone-300 text-amber-700 focus:ring-amber-500 h-4 w-4"
+                />
+                <div className="text-xs">
+                  <span className="font-semibold text-stone-800 dark:text-stone-200">
+                    Open REW as a visible desktop window
+                  </span>
+                  <span className="block text-[11px] text-stone-500 dark:text-stone-400">
+                    Displays REW's graphical interface on your screen (uncheck for headless mode)
+                  </span>
+                </div>
+              </label>
 
               {/* Auto-Start Preference Toggle */}
               <label className="flex items-center space-x-2.5 p-2 rounded hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer">
