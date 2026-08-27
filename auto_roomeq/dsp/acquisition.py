@@ -385,6 +385,7 @@ def coherent_impulse_stack(
     best_stacked_snr = baseline_snr
     best_correlations = []
     
+    candidate_attempts = []
     # Assess each repeat as reference candidate (as in AcoustiCX)
     for cand_idx, cand_ref in enumerate(norm_list):
         current_accepted = []
@@ -423,6 +424,13 @@ def coherent_impulse_stack(
             stacked_candidate = cand_ref
             candidate_snr = single_snrs[cand_idx]
             
+        candidate_attempts.append({
+            "candidate_ir": cand_idx + 1,
+            "accepted_count": len(current_accepted),
+            "total_count": len(norm_list),
+            "snr_db": round(float(candidate_snr), 2),
+        })
+
         if candidate_snr > best_stacked_snr or len(current_accepted) > len(best_accepted_irs):
             best_stacked_snr = candidate_snr
             best_candidate_idx = cand_idx
@@ -432,8 +440,8 @@ def coherent_impulse_stack(
             
     accepted_count = len(best_accepted_irs) if best_accepted_irs else len(norm_list)
     rejection_rate = float((len(norm_list) - accepted_count) / len(norm_list) * 100.0)
-    theoretical_max = float(10.0 * np.log10(max(1, accepted_count)))
-    effective_gain_db = round(theoretical_max, 2)
+    theoretical_max = float(10.0 * np.log10(max(1, len(norm_list))))
+    effective_gain_db = round(float(10.0 * np.log10(max(1, accepted_count))), 2)
     
     diagnostics = {
         "accepted_count": accepted_count,
@@ -444,6 +452,9 @@ def coherent_impulse_stack(
         "snr_improvement_db": effective_gain_db,
         "theoretical_max_snr_db": round(theoretical_max, 2),
         "best_reference_index": best_candidate_idx,
+        "best_candidate_repeat": best_candidate_idx + 1,
+        "decision": "Averaging provided a measurable improvement." if effective_gain_db > 0.0 else "Single measurement preserved.",
+        "candidate_attempts": candidate_attempts,
         "correlation_scores": [round(float(c), 3) for c in best_correlations],
     }
     

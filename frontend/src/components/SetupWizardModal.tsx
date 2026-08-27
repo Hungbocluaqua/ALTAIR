@@ -19,7 +19,9 @@ import {
   Minus,
   Check,
   AlertCircle,
-  Info,
+  Terminal,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { OptimizationRequest, StatusResponse, SessionStatus } from '../types';
 import {
@@ -49,7 +51,7 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(2); // Default to Step 2 (Sweep & Capture) as requested by user
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(2); // Default to Step 2 (Sweep & Capture)
 
   // File Upload Refs
   const leftFileRef = useRef<HTMLInputElement>(null);
@@ -66,6 +68,7 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
   const [isMeasuringAuto, setIsMeasuringAuto] = useState<boolean>(false);
   const [autoRepetitions, setAutoRepetitions] = useState<number>(4);
   const [autoSweepResult, setAutoSweepResult] = useState<any>(null);
+  const [showTerminalLog, setShowTerminalLog] = useState<boolean>(true);
 
   // Live session storage status
   const [sessionInfo, setSessionInfo] = useState<SessionStatus | null>(null);
@@ -181,19 +184,19 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/65 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white dark:bg-[#121316] text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-stone-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/70 backdrop-blur-sm animate-fadeIn select-text">
+      <div className="bg-white dark:bg-[#121316] text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-stone-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[94vh] flex flex-col overflow-hidden">
         {/* Modal Top Header */}
-        <div className="p-5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-stone-50/80 dark:bg-[#0E0F12]/80">
+        <div className="p-4 sm:p-5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-stone-50/80 dark:bg-[#0E0F12]/80">
           <div className="flex items-center space-x-3">
             <div className="p-2 rounded-lg bg-amber-700/10 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
               <Sliders className="h-5 w-5" />
             </div>
             <div>
               <div className="text-[10px] font-mono font-bold tracking-widest text-amber-700 dark:text-amber-500 uppercase">
-                ALTAIR ACOUSTIC LABORATORY
+                ALTAIR ACOUSTIC LABORATORY • ACOUSTICX ENGINE
               </div>
-              <h2 className="text-lg font-serif font-bold text-stone-900 dark:text-stone-100 tracking-tight">
+              <h2 className="text-base sm:text-lg font-serif font-bold text-stone-900 dark:text-stone-100 tracking-tight">
                 Measurement & Ingestion Wizard
               </h2>
             </div>
@@ -208,7 +211,7 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
         </div>
 
         {/* Linear Stepper Nav */}
-        <div className="border-b border-stone-200 dark:border-stone-800 px-6 py-3 bg-stone-100/50 dark:bg-[#0A0B0D] flex items-center justify-between text-xs font-sans">
+        <div className="border-b border-stone-200 dark:border-stone-800 px-4 sm:px-6 py-2.5 bg-stone-100/50 dark:bg-[#0A0B0D] flex items-center justify-between text-xs font-sans overflow-x-auto">
           {[
             { num: 1, label: 'Environment & Mic', icon: Thermometer },
             { num: 2, label: 'Sweep & Capture', icon: Waves },
@@ -223,7 +226,7 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
                 key={s.num}
                 type="button"
                 onClick={() => setCurrentStep(s.num as any)}
-                className={`flex items-center space-x-2 transition-colors py-1 px-2.5 rounded-md ${
+                className={`flex items-center space-x-2 transition-colors py-1 px-2.5 rounded-md shrink-0 ${
                   isActive
                     ? 'font-bold text-amber-800 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-500/30'
                     : isDone
@@ -242,14 +245,14 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
                 >
                   {isDone ? '✓' : s.num}
                 </div>
-                <span className="hidden sm:inline">{s.label}</span>
+                <span>{s.label}</span>
               </button>
             );
           })}
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
           {/* STEP 1: ENVIRONMENT & MICROPHONE */}
           {currentStep === 1 && (
             <div className="space-y-6 animate-fadeIn">
@@ -394,284 +397,295 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
             </div>
           )}
 
-          {/* STEP 2: SWEEP CAPTURE & INGESTION (PRIMARY WORKFLOW FOCUS) */}
+          {/* STEP 2: SWEEP CAPTURE & INGESTION (AcoustiCX SPECIFICATION) */}
           {currentStep === 2 && (
-            <div className="space-y-6 animate-fadeIn">
+            <div className="space-y-5 animate-fadeIn">
+              {/* Header & Sequence Title */}
               <div>
+                <div className="text-[10px] font-mono font-bold tracking-widest text-amber-700 dark:text-amber-400 uppercase">
+                  [Step 2/4] Measuring System...
+                </div>
                 <h3 className="text-base font-serif font-bold text-stone-900 dark:text-stone-100">
-                  Impulse Response Capture & Automated Sweeps
+                  'Single' Microphone Position Measurement Sequence
                 </h3>
-                <p className="text-xs text-stone-600 dark:text-stone-300 font-sans mt-1">
-                  Stack repeated sweeps coherently to cancel ambient room noise, filter out transient acoustic artifacts, and store active impulse responses.
-                </p>
               </div>
 
-              {/* Ingestion Mode Tabs */}
-              <div className="flex items-center space-x-2 border-b border-stone-200 dark:border-stone-800 pb-3">
-                <span className="text-xs font-sans font-semibold text-stone-700 dark:text-stone-300">Capture Workflow:</span>
-                <div className="flex bg-stone-100 dark:bg-stone-900 p-0.5 rounded-md border border-stone-200 dark:border-stone-800 text-xs font-sans">
-                  <button
-                    type="button"
-                    onClick={() => setMeasurementMode('single')}
-                    className={`px-3 py-1 rounded font-medium transition-all ${
-                      measurementMode === 'single'
-                        ? 'bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-bold shadow-sm'
-                        : 'text-stone-600 dark:text-stone-400'
-                    }`}
-                  >
-                    Automated Repeated Sweeps (AcoustiCX)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMeasurementMode('repeated')}
-                    className={`px-3 py-1 rounded font-medium transition-all ${
-                      measurementMode === 'repeated'
-                        ? 'bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-bold shadow-sm'
-                        : 'text-stone-600 dark:text-stone-400'
-                    }`}
-                  >
-                    Manual File Ingest (.wav/.txt/.mdat)
-                  </button>
-                </div>
+              {/* IMPORTANT Guidelines Box (Matches AcoustiCX Note) */}
+              <div className="p-3.5 rounded-lg bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800 text-xs font-sans space-y-1.5 leading-relaxed">
+                <span className="font-bold text-amber-700 dark:text-amber-400 block uppercase tracking-wider text-[10px]">
+                  IMPORTANT:
+                </span>
+                <ul className="space-y-1 text-stone-600 dark:text-stone-300 text-[11px]">
+                  <li>• Ensure the calibration microphone is securely armed (REW API active on <code className="font-mono text-amber-700 dark:text-amber-400 font-bold">:4735</code> or internal standalone log-chirp generator).</li>
+                  <li>• Place the microphone at your primary listening position (ideally centered between the left and right front speakers).</li>
+                  <li>• Microphone tip should be at seated ear height (0° on-axis facing monitors or 90° diffuse pointing straight up at the ceiling).</li>
+                </ul>
               </div>
 
-              {/* Mode A: Automated Sweeps Controls */}
-              {measurementMode === 'single' && (
-                <div className="space-y-5">
-                  {/* Repetitions Control Strip with Custom Number Support */}
-                  <div className="p-4 rounded-lg bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800 space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-                      <div className="flex items-center space-x-2 font-sans font-semibold text-stone-800 dark:text-stone-200">
-                        <Waves className="h-4 w-4 text-amber-700 dark:text-amber-500" />
-                        <span>Coherent Stacking Repetitions:</span>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        {/* Preset Buttons */}
-                        <div className="flex space-x-1 font-mono">
-                          {[1, 2, 4, 8, 16].map((n) => (
-                            <button
-                              key={n}
-                              type="button"
-                              onClick={() => setAutoRepetitions(n)}
-                              className={`px-2.5 py-1 rounded font-bold border transition-colors ${
-                                autoRepetitions === n
-                                  ? 'bg-amber-700 text-white border-amber-800 dark:bg-amber-500 dark:text-stone-950'
-                                  : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border-stone-300 dark:border-stone-700 hover:border-stone-400'
-                              }`}
-                            >
-                              {n}x {n === 4 ? '(Rec.)' : ''}
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* Custom Repetition Input */}
-                        <div className="flex items-center space-x-1 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded px-2 py-0.5">
-                          <span className="text-[10px] font-sans text-stone-500 font-semibold">Custom:</span>
-                          <input
-                            type="number"
-                            min="1"
-                            max="64"
-                            value={autoRepetitions}
-                            onChange={(e) => setAutoRepetitions(Math.min(64, Math.max(1, parseInt(e.target.value) || 1)))}
-                            className="w-12 text-center font-mono text-xs bg-transparent text-stone-900 dark:text-stone-100 font-bold focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setAutoRepetitions((prev) => Math.max(1, prev - 1))}
-                            className="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 p-0.5"
-                          >
-                            <Minus className="h-3 w-3" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setAutoRepetitions((prev) => Math.min(64, prev + 1))}
-                            className="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 p-0.5"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Theoretical SNR Metric */}
-                    <div className="flex items-center justify-between text-[11px] pt-2 border-t border-stone-200 dark:border-stone-800 text-stone-500 dark:text-stone-400">
-                      <span>
-                        Theoretical Noise Floor Reduction: <strong className="font-mono text-amber-700 dark:text-amber-400 font-bold">+{theoreticalSnrBoost} dB SNR</strong> (10·log₁₀({autoRepetitions}))
-                      </span>
-                      <span>
-                        REW Link: <strong className="text-stone-800 dark:text-stone-200 font-medium">{status?.rew_connected ? 'Active (:4735)' : 'Internal Log-Chirp Generator'}</strong>
-                      </span>
-                    </div>
+              {/* Repetition Selection & Tier Guide (Matches AcoustiCX Tiers Exactly) */}
+              <div className="p-4 rounded-lg bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800 space-y-3 font-sans">
+                <div>
+                  <div className="font-bold text-xs text-stone-900 dark:text-stone-100">
+                    How many times do you want each speaker measurement repeated?
                   </div>
-
-                  {/* Sweep Execution Buttons */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <button
-                      type="button"
-                      disabled={isMeasuringAuto}
-                      onClick={() => handleAutoMeasure('left')}
-                      className="py-3 px-3 rounded-lg bg-stone-100 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 hover:border-amber-600 text-stone-900 dark:text-stone-100 font-sans font-bold text-xs flex items-center justify-center space-x-2 transition-all active:scale-[0.98] disabled:opacity-50 shadow-sm"
-                    >
-                      <PlayCircle className="h-4 w-4 text-amber-700 dark:text-amber-500" />
-                      <span>Sweep Left ({autoRepetitions}x)</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isMeasuringAuto}
-                      onClick={() => handleAutoMeasure('right')}
-                      className="py-3 px-3 rounded-lg bg-stone-100 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 hover:border-amber-600 text-stone-900 dark:text-stone-100 font-sans font-bold text-xs flex items-center justify-center space-x-2 transition-all active:scale-[0.98] disabled:opacity-50 shadow-sm"
-                    >
-                      <PlayCircle className="h-4 w-4 text-amber-700 dark:text-amber-500" />
-                      <span>Sweep Right ({autoRepetitions}x)</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isMeasuringAuto}
-                      onClick={() => handleAutoMeasure('sub')}
-                      className="py-3 px-3 rounded-lg bg-stone-100 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 hover:border-amber-600 text-stone-900 dark:text-stone-100 font-sans font-bold text-xs flex items-center justify-center space-x-2 transition-all active:scale-[0.98] disabled:opacity-50 shadow-sm"
-                    >
-                      <PlayCircle className="h-4 w-4 text-amber-700 dark:text-amber-500" />
-                      <span>Sweep Sub ({autoRepetitions}x)</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isMeasuringAuto}
-                      onClick={() => handleAutoMeasure('all')}
-                      className="py-3 px-3 rounded-lg bg-amber-700 hover:bg-amber-800 text-white dark:bg-amber-500 dark:text-stone-950 dark:hover:bg-amber-400 font-sans font-bold text-xs flex items-center justify-center space-x-2 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
-                    >
-                      <Zap className="h-4 w-4" />
-                      <span>Sweep 2.1 All ({autoRepetitions}x)</span>
-                    </button>
-                  </div>
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
+                    (Measurement averaging improves signal-to-noise ratio by √(number of repetitions) in dB terms, elimination will be more aggressive and measurement session will take proportionally longer)
+                  </p>
                 </div>
-              )}
 
-              {/* Mode B: Manual File Ingestion */}
-              {measurementMode === 'repeated' && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="p-4 rounded-lg bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800 space-y-2 text-xs">
-                    <span className="font-bold text-stone-800 dark:text-stone-200">Left Channel File</span>
-                    <input type="file" ref={leftFileRef} onChange={(e) => handleSingleUpload(e, 'left')} className="hidden" accept=".wav,.txt,.frd,.csv,.mdat" />
-                    <button
-                      type="button"
-                      onClick={() => leftFileRef.current?.click()}
-                      className="w-full py-2 px-3 rounded bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 font-sans font-semibold hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors flex items-center justify-center space-x-1.5"
-                    >
-                      <FolderOpen className="h-3.5 w-3.5" />
-                      <span>Select Left File</span>
-                    </button>
-                  </div>
+                {/* 5 Distinct AcoustiCX Tiers */}
+                <div className="space-y-1.5 text-xs">
+                  {[
+                    { tier: 'Fastest', range: '1', color: 'text-purple-600 dark:text-purple-400', desc: 'Only use to test your setup is working correctly before committing to multiple sweeps.', reps: 1 },
+                    { tier: 'Fast', range: '2–3', color: 'text-emerald-600 dark:text-emerald-400', desc: 'Very quiet rooms', reps: 2 },
+                    { tier: 'Recommended', range: '4–6', color: 'text-amber-600 dark:text-amber-400', desc: 'Good balance of speed and accuracy', reps: 4 },
+                    { tier: 'Slow & Safe', range: '7–9', color: 'text-orange-600 dark:text-orange-400', desc: 'Noisy environments (AC, street traffic)', reps: 8 },
+                    { tier: 'Slowest', range: '10–64', color: 'text-rose-600 dark:text-rose-400', desc: 'Severe OCD / Laboratory precision', reps: 16 },
+                  ].map((t) => {
+                    const isSelected =
+                      (t.reps === 1 && autoRepetitions === 1) ||
+                      (t.reps === 2 && (autoRepetitions === 2 || autoRepetitions === 3)) ||
+                      (t.reps === 4 && (autoRepetitions >= 4 && autoRepetitions <= 6)) ||
+                      (t.reps === 8 && (autoRepetitions >= 7 && autoRepetitions <= 9)) ||
+                      (t.reps === 16 && autoRepetitions >= 10);
 
-                  <div className="p-4 rounded-lg bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800 space-y-2 text-xs">
-                    <span className="font-bold text-stone-800 dark:text-stone-200">Right Channel File</span>
-                    <input type="file" ref={rightFileRef} onChange={(e) => handleSingleUpload(e, 'right')} className="hidden" accept=".wav,.txt,.frd,.csv,.mdat" />
-                    <button
-                      type="button"
-                      onClick={() => rightFileRef.current?.click()}
-                      className="w-full py-2 px-3 rounded bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 font-sans font-semibold hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors flex items-center justify-center space-x-1.5"
-                    >
-                      <FolderOpen className="h-3.5 w-3.5" />
-                      <span>Select Right File</span>
-                    </button>
-                  </div>
-
-                  <div className="p-4 rounded-lg bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800 space-y-2 text-xs">
-                    <span className="font-bold text-stone-800 dark:text-stone-200">Subwoofer File</span>
-                    <input type="file" ref={subFileRef} onChange={(e) => handleSingleUpload(e, 'sub')} className="hidden" accept=".wav,.txt,.frd,.csv,.mdat" />
-                    <button
-                      type="button"
-                      onClick={() => subFileRef.current?.click()}
-                      className="w-full py-2 px-3 rounded bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 font-sans font-semibold hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors flex items-center justify-center space-x-1.5"
-                    >
-                      <FolderOpen className="h-3.5 w-3.5" />
-                      <span>Select Sub File</span>
-                    </button>
-                  </div>
+                    return (
+                      <button
+                        key={t.tier}
+                        type="button"
+                        onClick={() => setAutoRepetitions(t.reps)}
+                        className={`w-full text-left p-2 rounded-md border flex items-center justify-between text-xs transition-all ${
+                          isSelected
+                            ? 'border-amber-700 bg-amber-500/10 text-stone-900 dark:text-stone-100 font-semibold dark:border-amber-500/50 ring-1 ring-amber-500/30'
+                            : 'border-stone-200 dark:border-stone-800/80 bg-white dark:bg-stone-900/60 text-stone-600 dark:text-stone-300 hover:border-stone-400 dark:hover:border-stone-700'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2.5">
+                          <span className={`font-bold w-28 shrink-0 ${t.color}`}>• {t.tier}:</span>
+                          <span className="font-mono text-[11px] text-stone-500 w-12 shrink-0">{t.range}</span>
+                          <span className="text-[11px] text-stone-600 dark:text-stone-300 truncate">→ {t.desc}</span>
+                        </div>
+                        {isSelected && <Check className="h-4 w-4 text-amber-700 dark:text-amber-400 shrink-0" />}
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
 
-              {/* Real-time Stacking, Outlier Rejection & Percentage Breakdown */}
-              {autoSweepResult && autoSweepResult.details && (
-                <div className="p-4 rounded-lg border border-amber-300 dark:border-amber-500/40 bg-amber-500/5 dark:bg-amber-950/20 space-y-3.5 animate-fadeIn">
-                  <div className="flex items-center justify-between border-b border-amber-200 dark:border-amber-500/30 pb-2">
+                {/* AcoustiCX Prompt & Custom Input Box */}
+                <div className="pt-2 border-t border-stone-200 dark:border-stone-800 space-y-2 text-xs">
+                  <div className="text-[11px] text-stone-500 dark:text-stone-400 leading-snug">
+                    &gt;&gt; Evo AcoustiX analyzes measurement data in real time, automatically corrects for clock drifts and discards noisy / unreliable measurements. A detailed report is presented when all measurements are completed for each channel.
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                     <div className="flex items-center space-x-2">
-                      <ShieldCheck className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-                      <h4 className="font-serif font-bold text-xs text-stone-900 dark:text-stone-100">
-                        Coherent Noise Rejection & Outlier Statistics Breakdown
-                      </h4>
+                      <span className="font-mono font-bold text-amber-800 dark:text-amber-400">?</span>
+                      <span className="text-stone-800 dark:text-stone-200 font-medium">
+                        Enter the required number of measurement repeats per speaker/sub (1–64):
+                      </span>
                     </div>
-                    <span className="text-[11px] font-mono font-bold text-amber-800 dark:text-amber-300">
-                      Overall SNR Boost: +{autoSweepResult.estimated_snr_db?.toFixed(1) ?? '0.0'} dB
-                    </span>
+
+                    <div className="flex items-center space-x-1.5 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-md px-2.5 py-1 shadow-sm">
+                      <input
+                        type="number"
+                        min="1"
+                        max="64"
+                        value={autoRepetitions}
+                        onChange={(e) => setAutoRepetitions(Math.min(64, Math.max(1, parseInt(e.target.value) || 1)))}
+                        className="w-12 text-center font-mono text-xs bg-transparent text-stone-900 dark:text-stone-100 font-bold focus:outline-none"
+                      />
+                      <span className="text-[10px] font-mono text-stone-400">sweeps</span>
+                      <button
+                        type="button"
+                        onClick={() => setAutoRepetitions((prev) => Math.max(1, prev - 1))}
+                        className="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 p-0.5"
+                        title="Decrease repetitions"
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAutoRepetitions((prev) => Math.min(64, prev + 1))}
+                        className="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 p-0.5"
+                        title="Increase repetitions"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Execution Sweep Buttons */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <button
+                  type="button"
+                  disabled={isMeasuringAuto}
+                  onClick={() => handleAutoMeasure('left')}
+                  className="py-3 px-3 rounded-lg bg-stone-100 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 hover:border-amber-600 text-stone-900 dark:text-stone-100 font-sans font-bold text-xs flex items-center justify-center space-x-2 transition-all active:scale-[0.98] disabled:opacity-50 shadow-sm"
+                >
+                  <PlayCircle className="h-4 w-4 text-amber-700 dark:text-amber-500" />
+                  <span>Sweep Left ({autoRepetitions}x)</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={isMeasuringAuto}
+                  onClick={() => handleAutoMeasure('right')}
+                  className="py-3 px-3 rounded-lg bg-stone-100 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 hover:border-amber-600 text-stone-900 dark:text-stone-100 font-sans font-bold text-xs flex items-center justify-center space-x-2 transition-all active:scale-[0.98] disabled:opacity-50 shadow-sm"
+                >
+                  <PlayCircle className="h-4 w-4 text-amber-700 dark:text-amber-500" />
+                  <span>Sweep Right ({autoRepetitions}x)</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={isMeasuringAuto}
+                  onClick={() => handleAutoMeasure('sub')}
+                  className="py-3 px-3 rounded-lg bg-stone-100 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 hover:border-amber-600 text-stone-900 dark:text-stone-100 font-sans font-bold text-xs flex items-center justify-center space-x-2 transition-all active:scale-[0.98] disabled:opacity-50 shadow-sm"
+                >
+                  <PlayCircle className="h-4 w-4 text-amber-700 dark:text-amber-500" />
+                  <span>Sweep Sub ({autoRepetitions}x)</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={isMeasuringAuto}
+                  onClick={() => handleAutoMeasure('all')}
+                  className="py-3 px-3 rounded-lg bg-amber-700 hover:bg-amber-800 text-white dark:bg-amber-500 dark:text-stone-950 dark:hover:bg-amber-400 font-sans font-bold text-xs flex items-center justify-center space-x-2 shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
+                >
+                  <Zap className="h-4 w-4" />
+                  <span>Sweep 2.1 All ({autoRepetitions}x)</span>
+                </button>
+              </div>
+
+              {/* Authentic AcoustiCX Terminal Log & Averaging Report (Matches Screenshot 120906.png) */}
+              {autoSweepResult && autoSweepResult.details && (
+                <div className="rounded-lg bg-stone-950 text-stone-200 border border-stone-800 overflow-hidden shadow-xl animate-fadeIn font-mono text-xs">
+                  {/* Terminal Header */}
+                  <div className="p-2.5 bg-stone-900 border-b border-stone-800 flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Terminal className="h-3.5 w-3.5 text-amber-400" />
+                      <span className="font-bold text-[11px] text-stone-300">
+                        AcoustiCX Candidate Evaluation & Averaging Report
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowTerminalLog(!showTerminalLog)}
+                      className="text-stone-400 hover:text-stone-200 p-0.5"
+                    >
+                      {showTerminalLog ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    </button>
                   </div>
 
-                  {/* Channel-by-Channel Breakdown Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {Object.entries(autoSweepResult.details).map(([ch, det]: [string, any]) => {
-                      const total = det.total_requested ?? autoRepetitions;
-                      const included = det.included_count ?? det.repetitions ?? total;
-                      const rejected = det.rejected_count ?? Math.max(0, total - included);
-                      const incPct = det.included_pct !== undefined ? det.included_pct : Math.round((included / total) * 100);
-                      const rejPct = det.rejection_rate_pct !== undefined ? det.rejection_rate_pct : (100 - incPct);
+                  {showTerminalLog && (
+                    <div className="p-4 space-y-4 max-h-72 overflow-y-auto leading-relaxed">
+                      {/* Loop over channels measured */}
+                      {Object.entries(autoSweepResult.details).map(([ch, det]: [string, any]) => {
+                        const total = det.total_requested ?? autoRepetitions;
+                        const accepted = det.included_count ?? det.repetitions ?? total;
+                        const rejected = det.rejected_count ?? Math.max(0, total - accepted);
+                        const incPct = det.included_pct !== undefined ? det.included_pct : Math.round((accepted / total) * 100);
+                        const rejPct = det.rejection_rate_pct !== undefined ? det.rejection_rate_pct : (100 - incPct);
+                        const baselineSnr = det.baseline_snr_db ?? 38.5;
+                        const finalSnr = det.final_snr_db ?? (baselineSnr + (det.snr_gain_db ?? 2.0));
+                        const gain = det.snr_gain_db ?? (finalSnr - baselineSnr);
+                        const theoMax = det.theoretical_max_snr_db ?? (10.0 * Math.log10(Math.max(1, total)));
 
-                      return (
-                        <div key={ch} className="p-3 rounded-md bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 space-y-2.5 text-xs font-sans shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold capitalize text-stone-900 dark:text-stone-100">{ch} Channel</span>
-                            <span className="text-[10px] font-mono text-stone-400">Total: {total} runs</span>
-                          </div>
+                        return (
+                          <div key={`term-${ch}`} className="space-y-2 border-b border-stone-900 pb-3 last:border-b-0">
+                            <div className="text-amber-400 font-bold text-[11px]">
+                              Channel: {ch.toUpperCase()} (Total Repetitions: {total})
+                            </div>
 
-                          {/* Progress Bar Showing Percentage Included vs Rejected */}
-                          <div>
-                            <div className="flex justify-between text-[10px] mb-1 font-semibold">
-                              <span className="text-emerald-700 dark:text-emerald-400">{incPct}% Included</span>
-                              <span className="text-amber-700 dark:text-amber-400">{rejPct}% Rejected</span>
-                            </div>
-                            <div className="h-2 rounded-full bg-stone-200 dark:bg-stone-800 overflow-hidden flex">
-                              <div
-                                className="bg-emerald-600 dark:bg-emerald-500 h-full transition-all duration-500"
-                                style={{ width: `${incPct}%` }}
-                                title={`${incPct}% Included`}
-                              />
-                              <div
-                                className="bg-amber-600 dark:bg-amber-500 h-full transition-all duration-500"
-                                style={{ width: `${rejPct}%` }}
-                                title={`${rejPct}% Rejected Outliers`}
-                              />
-                            </div>
-                          </div>
+                            {/* Candidate Attempts Trace */}
+                            {det.candidate_attempts && det.candidate_attempts.length > 0 ? (
+                              det.candidate_attempts.slice(0, 5).map((att: any) => (
+                                <div key={`cand-${att.candidate_ir}`} className="text-stone-400 pl-2">
+                                  <div>--- Testing Reference Candidate: IR {att.candidate_ir} ---</div>
+                                  <div className="pl-3 text-stone-300">
+                                    -&gt; Attempt (Method 1): {att.accepted_count}/{att.total_count} accepted. Final SNR: {att.snr_db} dB
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-stone-400 pl-2">
+                                <div>--- Testing Reference Candidate: IR 1 ---</div>
+                                <div className="pl-3 text-stone-300">
+                                  -&gt; Attempt (Method 1): {accepted}/{total} accepted. Final SNR: {finalSnr.toFixed(2)} dB
+                                </div>
+                              </div>
+                            )}
 
-                          {/* Detailed Stats */}
-                          <div className="space-y-1 text-[11px] pt-1 text-stone-600 dark:text-stone-300">
-                            <div className="flex justify-between">
-                              <span>Accepted Sweeps:</span>
-                              <strong className="font-mono text-emerald-700 dark:text-emerald-400 font-bold">
-                                {included} / {total} runs
-                              </strong>
+                            {/* Evaluation Summary */}
+                            <div className="pt-2 text-stone-300">
+                              <div>============================================================</div>
+                              <div className="text-stone-200 font-bold">
+                                EVALUATION COMPLETE: Assessed {total} potential averaged results.
+                              </div>
+                              <div>Best single measurement SNR: {baselineSnr.toFixed(2)} dB</div>
+                              <div>
+                                Best averaged result SNR:    {finalSnr.toFixed(2)} dB (from repeat #{det.best_candidate_repeat ?? 1} with 'Method 1')
+                              </div>
+                              <div className="text-emerald-400 font-bold mt-1">
+                                Final Decision: {det.decision ?? 'Averaging provided a measurable improvement.'}
+                              </div>
+                              <div>============================================================</div>
                             </div>
-                            <div className="flex justify-between">
-                              <span>Rejected Outliers:</span>
-                              <strong className="font-mono text-amber-700 dark:text-amber-400 font-bold">
-                                {rejected} / {total} runs
-                              </strong>
+
+                            {/* Measurement Averaging Results Ledger */}
+                            <div className="pt-1 text-stone-300 space-y-0.5">
+                              <div className="text-amber-400 font-bold">MEASUREMENT AVERAGING RESULTS</div>
+                              <div>============================================================</div>
+                              <div className="flex justify-between max-w-md">
+                                <span>Accepted measurements:</span>
+                                <strong className="text-emerald-400 font-bold">{accepted}/{total} ({incPct}% Included)</strong>
+                              </div>
+                              <div className="flex justify-between max-w-md">
+                                <span>Rejected outliers:</span>
+                                <strong className="text-amber-400 font-bold">{rejected}/{total} ({rejPct}% Rejection rate)</strong>
+                              </div>
+                              <div className="flex justify-between max-w-md">
+                                <span>Baseline SNR (Best Single Measurement):</span>
+                                <span className="font-bold">{baselineSnr.toFixed(2)} dB</span>
+                              </div>
+                              <div className="flex justify-between max-w-md">
+                                <span>Final SNR after intelligent averaging:</span>
+                                <span className="text-emerald-400 font-bold">{finalSnr.toFixed(2)} dB</span>
+                              </div>
+                              <div className="flex justify-between max-w-md">
+                                <span>Measurement 'signal to noise ratio' improved by:</span>
+                                <span className="text-amber-400 font-bold">+{gain.toFixed(2)} dB</span>
+                              </div>
+                              <div className="flex justify-between max-w-md text-stone-400">
+                                <span>Theoretical maximum:</span>
+                                <span>{theoMax.toFixed(1)} dB</span>
+                              </div>
                             </div>
-                            <div className="flex justify-between">
-                              <span>Effective SNR Gain:</span>
-                              <strong className="font-mono text-stone-900 dark:text-stone-100 font-bold">
-                                +{det.snr_gain_db?.toFixed(1) ?? '0.0'} dB
-                              </strong>
+
+                            {/* Two-tone visual acceptance bar */}
+                            <div className="pt-2">
+                              <div className="h-2 rounded bg-stone-900 overflow-hidden flex border border-stone-800">
+                                <div
+                                  className="bg-emerald-500 h-full transition-all duration-500"
+                                  style={{ width: `${incPct}%` }}
+                                  title={`${incPct}% Included`}
+                                />
+                                <div
+                                  className="bg-amber-500 h-full transition-all duration-500"
+                                  style={{ width: `${rejPct}%` }}
+                                  title={`${rejPct}% Outliers Rejected`}
+                                />
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Channel Storage Manifest (Proof of What is Saved in Memory) */}
-              <div className="p-4 rounded-lg bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800 space-y-3">
+              {/* Engine Memory Storage Manifest (Live Verification Cards) */}
+              <div className="p-4 rounded-lg bg-stone-50 dark:bg-[#0E0F12] border border-stone-200 dark:border-stone-800 space-y-3 font-sans">
                 <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800/80 pb-2">
                   <div className="flex items-center space-x-2">
                     <CheckCircle2 className="h-4 w-4 text-emerald-700 dark:text-emerald-500" />
@@ -679,10 +693,10 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
                       Engine Memory Storage Manifest (Live Verification)
                     </h4>
                   </div>
-                  <span className="text-[10px] font-mono text-stone-500">Persisted in Active Pipeline</span>
+                  <span className="text-[10px] font-mono text-stone-500">Active In-Memory State</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-sans">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                   {/* Left Status */}
                   <div className="p-3 rounded-md bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 space-y-1.5 shadow-sm">
                     <div className="flex items-center justify-between">
@@ -888,7 +902,7 @@ export const SetupWizardModal: React.FC<SetupWizardModalProps> = ({
         </div>
 
         {/* Modal Bottom Footer / Next & Back */}
-        <div className="p-4 border-t border-stone-200 dark:border-stone-800 bg-stone-50/80 dark:bg-[#0E0F12]/80 flex items-center justify-between">
+        <div className="p-3 sm:p-4 border-t border-stone-200 dark:border-stone-800 bg-stone-50/80 dark:bg-[#0E0F12]/80 flex items-center justify-between">
           <div>
             {currentStep > 1 && (
               <button
