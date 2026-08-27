@@ -147,8 +147,15 @@ def optimize_multi_sub_matrix(
         return {"sub_count": 0, "alignments": []}
         
     sr = sub_measurements[0].sample_rate
-    n_fft = sub_measurements[0].n_fft
-    freqs = np.fft.rfftfreq(n_fft, d=1.0 / sr)
+    target_n_fft = max(m.n_fft for m in sub_measurements)
+    standardized_subs = []
+    for sub in sub_measurements:
+        if sub.n_fft != target_n_fft or sub.sample_rate != sr:
+            standardized_subs.append(Measurement(name=sub.name, ir=sub.ir, sample_rate=sr, n_fft=target_n_fft))
+        else:
+            standardized_subs.append(sub)
+            
+    freqs = np.fft.rfftfreq(target_n_fft, d=1.0 / sr)
     
     mask = (freqs >= 20.0) & (freqs <= crossover_freq * 1.5)
     band_freqs = freqs[mask]
@@ -157,7 +164,7 @@ def optimize_multi_sub_matrix(
     alignments = [
         {
             "sub_index": 0,
-            "name": sub_measurements[0].name,
+            "name": standardized_subs[0].name,
             "delay_ms": 0.0,
             "delay_samples": 0,
             "gain_db": 0.0,
@@ -165,9 +172,9 @@ def optimize_multi_sub_matrix(
         }
     ]
     
-    H_accum = np.copy(sub_measurements[0].H[mask])
+    H_accum = np.copy(standardized_subs[0].H[mask])
     
-    for i, sub in enumerate(sub_measurements[1:], start=1):
+    for i, sub in enumerate(standardized_subs[1:], start=1):
         H_sub = sub.H[mask]
         
         n_search = int((search_range_ms / 1000.0) * sr)

@@ -162,13 +162,15 @@ class OptimizationOrchestrator:
         
         # Apply polar mic calibration if 90-degree diffuse
         if mic_orientation_deg > 10.0:
-            meas_left.H = apply_polar_diffraction_calibration(meas_left.H, meas_left.freqs, mic_orientation_deg)
-            meas_left.ir = np.fft.irfft(meas_left.H, n=meas_left.n_fft)
+            cal_H = apply_polar_diffraction_calibration(meas_left.H, meas_left.freqs, mic_orientation_deg)
+            cal_ir = np.fft.irfft(cal_H, n=meas_left.n_fft)
+            meas_left = Measurement(name=meas_left.name, ir=cal_ir, sample_rate=sr, n_fft=meas_left.n_fft)
             
         if meas_right is not None:
             if mic_orientation_deg > 10.0:
-                meas_right.H = apply_polar_diffraction_calibration(meas_right.H, meas_right.freqs, mic_orientation_deg)
-                meas_right.ir = np.fft.irfft(meas_right.H, n=meas_right.n_fft)
+                cal_H_r = apply_polar_diffraction_calibration(meas_right.H, meas_right.freqs, mic_orientation_deg)
+                cal_ir_r = np.fft.irfft(cal_H_r, n=meas_right.n_fft)
+                meas_right = Measurement(name=meas_right.name, ir=cal_ir_r, sample_rate=sr, n_fft=meas_right.n_fft)
                 
             aligned_r, lag_r, lag_r_ms = cross_correlate_align(meas_left.ir, meas_right.ir, sample_rate=sr)
             meas_right = Measurement(name=meas_right.name, ir=aligned_r, sample_rate=sr, n_fft=meas_left.n_fft)
@@ -197,10 +199,10 @@ class OptimizationOrchestrator:
         idx_10k = np.argmin(np.abs(meas_left.freqs - 10000.0))
         air_loss_10k_db = float(air_loss[idx_10k])
         
-        # Auto-detect passive crossover points from group delay peaks
+        # Auto-detect passive crossover points from group delay peaks (only if <= 0)
         detected_crossovers = detect_group_delay_crossovers(meas_left.ir, sample_rate=sr)
         effective_xo_freq = crossover_freq
-        if (crossover_freq <= 0 or crossover_freq == 2500.0) and detected_crossovers:
+        if crossover_freq is not None and crossover_freq <= 0 and detected_crossovers:
             effective_xo_freq = detected_crossovers[0]["frequency_hz"]
             
         rec_sub_crossover = float(min(120.0, max(60.0, round(low_rolloff * 1.3 / 10.0) * 10.0)))
@@ -291,6 +293,7 @@ class OptimizationOrchestrator:
         # -------------------------------------------------------------
         sub_align_results = None
         sub_delay_ms = 0.0
+        sub_polarity = 1.0
         if meas_sub is not None:
             effective_sub_xo = sub_crossover_freq or rec_sub_crossover
             update("Subwoofer Integration", 84, f"Optimizing sub-mains acoustic summation at {effective_sub_xo} Hz")
@@ -300,6 +303,7 @@ class OptimizationOrchestrator:
                 crossover_freq=effective_sub_xo,
             )
             sub_delay_ms = sub_align_results["optimal_delay_ms"]
+            sub_polarity = sub_align_results.get("polarity_multiplier", 1.0)
             
         # -------------------------------------------------------------
         # STEP 8: Pre-Ringing Safeguard, True-Peak & Tap Trimming
@@ -343,18 +347,20 @@ class OptimizationOrchestrator:
         # -------------------------------------------------------------
         update("Packaging Exports", 96, "Building Equalizer APO, CamillaDSP, miniDSP, rePhase & WAV bundle")
         
-        # Synthesize miniDSP parametric PEQ biquads from modal peaks
-        biquads_l, _ = generate_hybrid_iir_fir_split(
+        # Synthesize miniDSP parametric PEQ biquads from modal peaks and compact FIR
+        biquads_l, h_compact_l = generate_hybrid_iir_fir_split(
             modal_peaks_dips=[{"freq_hz": p["freq"], "gain_db": -min(12.0, max(2.0, p.get("spl", 80.0) - 75.0)), "q": 3.5} for p in modal_info_l.get("peaks", []) if p.get("is_harmonic_match")],
             target_fir=fir_final_l,
             sample_rate=sr,
             max_biquads=8,
+            target_taps=4096,
         )
-        biquads_r, _ = generate_hybrid_iir_fir_split(
+        biquads_r, h_compact_r = generate_hybrid_iir_fir_split(
             modal_peaks_dips=[{"freq_hz": p["freq"], "gain_db": -min(12.0, max(2.0, p.get("spl", 80.0) - 75.0)), "q": 3.5} for p in modal_info_r.get("peaks", []) if p.get("is_harmonic_match")],
             target_fir=fir_final_r,
             sample_rate=sr,
             max_biquads=8,
+            target_taps=4096,
         )
         
         zip_bytes = create_export_bundle(
@@ -363,10 +369,13 @@ class OptimizationOrchestrator:
             preamp_db=global_preamp_db,
             sample_rate=sr,
             sub_delay_ms=sub_delay_ms if meas_sub is not None else None,
+            sub_polarity=sub_polarity if meas_sub is not None else None,
             crossover_freq=effective_xo_freq,
             crossover_order=crossover_order,
             biquads_left=biquads_l,
             biquads_right=biquads_r,
+            compact_fir_left=h_compact_l,
+            compact_fir_right=h_compact_r,
         )
         
         update("Completed", 100, "ALTAIR Digital Room Correction optimization complete!")

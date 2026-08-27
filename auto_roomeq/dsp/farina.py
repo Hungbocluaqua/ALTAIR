@@ -37,9 +37,6 @@ def farina_harmonic_separation(
         - "harmonics": Dict mapping harmonic order (2, 3, 4, 5) to isolated harmonic IRs.
         - "thd_percent": Estimated Total Harmonic Distortion metric.
     """
-    n_samples = len(recorded_sweep)
-    n_fft = max(65536, 2 ** int(np.ceil(np.log2(n_samples))))
-    
     # 1. Synthesize Farina Inverse Filter
     # Amplitude envelope of inverse filter decays by -6 dB / octave (+3 dB / oct on sweep)
     t = np.linspace(0, sweep_duration_s, int(sweep_duration_s * sample_rate), endpoint=False)
@@ -51,6 +48,11 @@ def farina_harmonic_separation(
     # Modulate amplitude proportional to instantaneous frequency (decay by 1/f)
     freq_curve = f_start * np.power(f_end / f_start, t / sweep_duration_s)
     inv_sweep = inv_sweep / np.maximum(freq_curve, 1.0)
+    
+    # Circular convolution wraparound prevention:
+    # Linear convolution requires at least len(recorded_sweep) + len(inv_sweep) - 1
+    min_conv_len = len(recorded_sweep) + len(inv_sweep) - 1
+    n_fft = max(65536, 2 ** int(np.ceil(np.log2(min_conv_len))))
     
     # Convolve recorded signal with inverse filter
     raw_ir = np.fft.irfft(

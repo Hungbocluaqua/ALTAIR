@@ -4,6 +4,7 @@ REST API Routes for AutoRoomEQ.
 
 from typing import Dict, Optional, List
 import io
+import asyncio
 import numpy as np
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Response
 from fastapi.responses import StreamingResponse
@@ -27,6 +28,7 @@ rew_client = RewApiClient()
 orchestrator = OptimizationOrchestrator(rew_client=rew_client)
 
 # In-memory storage for uploaded measurements and last generated zip
+state_lock = asyncio.Lock()
 current_measurements: Dict[str, Measurement] = {}
 latest_zip_bundle: Optional[bytes] = None
 latest_result_cache: Optional[Dict[str, any]] = None
@@ -192,8 +194,7 @@ async def upload_multi_seat_measurements(
 
 
 @router.get("/measurements/auto-sweep")
-@router.post("/measurements/auto-sweep")
-async def trigger_auto_sweep(
+async def download_test_sweep(
     channel: str = "left",
     duration_s: float = 10.0,
     repetitions: int = 2,
@@ -201,17 +202,51 @@ async def trigger_auto_sweep(
     sample_rate: int = 48000,
 ):
     """
-    Trigger automated sweep acquisition through REW REST API or generate downloadable test sweep.
+    Generate downloadable high-precision 24-bit test sweep audio file.
+    Always returns an audio/wav attachment for browser download.
     """
     from ..dsp.acquisition import generate_log_chirp
     import soundfile as sf
+
+    length_samples = int(float(duration_s) * int(sample_rate))
+    sweep, _ = generate_log_chirp(
+        f_start=10.0,
+        f_end=min(24000.0, float(sample_rate) * 0.48),
+        sample_rate=int(sample_rate),
+        length_samples=length_samples,
+        include_timing_ref=bool(include_timing_ref),
+    )
     
+    wav_buf = io.BytesIO()
+    sf.write(wav_buf, sweep, int(sample_rate), format="WAV", subtype="PCM_24")
+    wav_bytes = wav_buf.getvalue()
+    
+    return Response(
+        content=wav_bytes,
+        media_type="audio/wav",
+        headers={"Content-Disposition": f'attachment; filename="ALTAIR_Test_Sweep_{channel}_{sample_rate}Hz.wav"'},
+    )
+
+
+@router.post("/measurements/auto-sweep")
+async def trigger_auto_sweep_rew(
+    channel: str = "left",
+    duration_s: float = 10.0,
+    repetitions: int = 2,
+    sample_rate: int = 48000,
+):
+    """
+    Trigger automated sweep acquisition through REW REST API or return standalone sweep audio.
+    """
+    from ..dsp.acquisition import generate_log_chirp
+    import soundfile as sf
+
     rew_conn = await rew_client.check_connection()
     if rew_conn.get("connected"):
-        # REW is open, trigger measurement via REW API
+        sweep_k = min(1024, max(128, int(2 ** round(np.log2(duration_s * sample_rate / 1024)))))
         res = await rew_client.trigger_measurement(
             name=f"ALTAIR_{channel.upper()}_{repetitions}x",
-            sweep_length=512,
+            sweep_length=sweep_k,
             sample_rate=sample_rate,
         )
         if res:
@@ -222,21 +257,17 @@ async def trigger_auto_sweep(
                 "rew_response": res,
             }
             
-    # Standalone mode: generate high-precision test sweep audio
+    # Standalone mode: return 24-bit test sweep WAV audio
     length_samples = int(float(duration_s) * int(sample_rate))
     sweep, _ = generate_log_chirp(
         f_start=10.0,
         f_end=min(24000.0, float(sample_rate) * 0.48),
         sample_rate=int(sample_rate),
         length_samples=length_samples,
-        include_timing_ref=bool(include_timing_ref),
     )
-    
-    # Write to WAV buffer
     wav_buf = io.BytesIO()
     sf.write(wav_buf, sweep, int(sample_rate), format="WAV", subtype="PCM_24")
     wav_bytes = wav_buf.getvalue()
-    
     return Response(
         content=wav_bytes,
         media_type="audio/wav",
@@ -329,79 +360,105 @@ async def run_optimization(request: OptimizationRequest):
     """Execute the 1-Click Digital Room Correction optimization pipeline."""
     global latest_zip_bundle, latest_result_cache
     
-    # 1. Determine input measurements
-    if not request.use_demo_measurements and request.rew_measurement_ids and len(request.rew_measurement_ids) > 0:
-        # Pull from REW API by IDs
-        try:
-            left_id = request.rew_measurement_ids[0]
-            meas_l = await rew_client.get_measurement_data(left_id)
-            if meas_l is None:
-                raise ValueError(f"Could not load REW measurement {left_id}")
-                
-            meas_r = None
-            if len(request.rew_measurement_ids) > 1:
-                meas_r = await rew_client.get_measurement_data(request.rew_measurement_ids[1])
-                
-            meas_sub = None
-            if len(request.rew_measurement_ids) > 2:
-                meas_sub = await rew_client.get_measurement_data(request.rew_measurement_ids[2])
-        except Exception as e:
-            # Fall back to demo measurements with a note
+    async with state_lock:
+        # 1. Determine input measurements
+        if not request.use_demo_measurements:
+            if request.rew_measurement_ids and len(request.rew_measurement_ids) > 0:
+                try:
+                    left_id = request.rew_measurement_ids[0]
+                    meas_l = await rew_client.get_measurement_data(left_id)
+                    if meas_l is None:
+                        raise ValueError(f"Could not load REW measurement {left_id}")
+                        
+                    meas_r = None
+                    if len(request.rew_measurement_ids) > 1:
+                        meas_r = await rew_client.get_measurement_data(request.rew_measurement_ids[1])
+                        
+                    meas_sub = None
+                    if len(request.rew_measurement_ids) > 2:
+                        meas_sub = await rew_client.get_measurement_data(request.rew_measurement_ids[2])
+                except Exception as e:
+                    raise HTTPException(status_code=400, detail=f"Failed to fetch measurements from REW: {str(e)}")
+            elif "left" in current_measurements:
+                meas_l = current_measurements["left"]
+                meas_r = current_measurements.get("right", meas_l)
+                meas_sub = current_measurements.get("sub")
+            else:
+                # Try auto-querying open REW measurements
+                rew_conn = await rew_client.check_connection()
+                if rew_conn.get("connected"):
+                    rew_meas_list = await rew_client.get_measurements()
+                    if rew_meas_list and len(rew_meas_list) > 0:
+                        try:
+                            meas_l = await rew_client.get_measurement_data(rew_meas_list[0]["id"])
+                            meas_r = await rew_client.get_measurement_data(rew_meas_list[1]["id"]) if len(rew_meas_list) > 1 else meas_l
+                            meas_sub = await rew_client.get_measurement_data(rew_meas_list[2]["id"]) if len(rew_meas_list) > 2 else None
+                        except Exception as e:
+                            raise HTTPException(status_code=400, detail=f"Failed to pull active measurements from REW: {str(e)}")
+                    else:
+                        raise HTTPException(status_code=400, detail="No measurements found in REW or ALTAIR. Please capture a measurement in REW or upload sweep files.")
+                else:
+                    raise HTTPException(status_code=400, detail="No uploaded measurements available and REW is not connected. Please upload files or enable Demo mode.")
+        else:
             meas_l, meas_r, meas_sub = generate_demo_room_measurements()
-    elif not request.use_demo_measurements and "left" in current_measurements:
-        meas_l = current_measurements["left"]
-        meas_r = current_measurements.get("right", meas_l)
-        meas_sub = current_measurements.get("sub")
-    else:
-        meas_l, meas_r, meas_sub = generate_demo_room_measurements()
-        
-    try:
-        result = await orchestrator.run_pipeline(
-            meas_left=meas_l,
-            meas_right=meas_r,
-            meas_sub=meas_sub,
-            target_curve_name=request.target.name,
-            bass_boost_db=request.target.bass_boost_db,
-            bass_cutoff_hz=request.target.bass_cutoff_hz,
-            hf_slope_db_per_oct=request.target.hf_slope_db_per_oct,
-            hf_start_hz=request.target.hf_start_hz,
-            crossover_freq=request.crossover_freq_hz,
-            crossover_order=request.crossover_order,
-            sub_crossover_freq=request.sub_crossover_freq_hz,
-            target_taps=request.target_taps,
-            temp_celsius=request.temperature_celsius,
-            relative_humidity_pct=request.relative_humidity_pct,
-            pressure_kpa=request.pressure_kpa,
-            listening_distance_m=request.listening_distance_m,
-            mic_orientation_deg=request.mic_orientation_deg,
-        )
-        
-        latest_zip_bundle = result["zip_bundle_bytes"]
-        latest_result_cache = result
-        
-        intel = None
-        if "acoustic_intelligence" in result and result["acoustic_intelligence"]:
-            intel = AcousticIntelligence(**result["acoustic_intelligence"])
-        
-        return OptimizationResponse(
-            status=result["status"],
-            sample_rate=result["sample_rate"],
-            target_taps=result["target_taps"],
-            global_preamp_db=result["global_preamp_db"],
-            acoustic_intelligence=intel,
-            modal_info_left=result["modal_info_left"],
-            modal_info_right=result["modal_info_right"],
-            preringing_left=result["preringing_left"],
-            preringing_right=result["preringing_right"],
-            zwicker_masking_left=result.get("zwicker_masking_left"),
-            zwicker_masking_right=result.get("zwicker_masking_right"),
-            sub_alignment=result.get("sub_alignment"),
-            true_peak_left_dbfs=result.get("true_peak_left_dbfs"),
-            true_peak_right_dbfs=result.get("true_peak_right_dbfs"),
-            plots=PlotData(**result["plots"]),
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Optimization failed: {str(e)}")
+            
+        try:
+            result = await orchestrator.run_pipeline(
+                meas_left=meas_l,
+                meas_right=meas_r,
+                meas_sub=meas_sub,
+                target_curve_name=request.target.name,
+                bass_boost_db=request.target.bass_boost_db,
+                bass_cutoff_hz=request.target.bass_cutoff_hz,
+                hf_slope_db_per_oct=request.target.hf_slope_db_per_oct,
+                hf_start_hz=request.target.hf_start_hz,
+                crossover_freq=request.crossover_freq_hz,
+                crossover_order=request.crossover_order,
+                sub_crossover_freq=request.sub_crossover_freq_hz,
+                target_taps=request.target_taps,
+                temp_celsius=request.temperature_celsius,
+                relative_humidity_pct=request.relative_humidity_pct,
+                pressure_kpa=request.pressure_kpa,
+                listening_distance_m=request.listening_distance_m,
+                mic_orientation_deg=request.mic_orientation_deg,
+            )
+            
+            latest_zip_bundle = result["zip_bundle_bytes"]
+            latest_result_cache = result
+            
+            intel = None
+            if "acoustic_intelligence" in result and result["acoustic_intelligence"]:
+                intel = AcousticIntelligence(**result["acoustic_intelligence"])
+            
+            return OptimizationResponse(
+                status=result["status"],
+                sample_rate=result["sample_rate"],
+                target_taps=result["target_taps"],
+                global_preamp_db=result["global_preamp_db"],
+                acoustic_intelligence=intel,
+                modal_info_left=result["modal_info_left"],
+                modal_info_right=result["modal_info_right"],
+                preringing_left=result["preringing_left"],
+                preringing_right=result["preringing_right"],
+                zwicker_masking_left=result.get("zwicker_masking_left"),
+                zwicker_masking_right=result.get("zwicker_masking_right"),
+                sub_alignment=result.get("sub_alignment"),
+                true_peak_left_dbfs=result.get("true_peak_left_dbfs"),
+                true_peak_right_dbfs=result.get("true_peak_right_dbfs"),
+                plots=PlotData(**result["plots"]),
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Optimization failed: {str(e)}")
+
+
+@router.get("/optimization/latest")
+async def get_latest_optimization():
+    """Retrieve the cached result of the most recent optimization run."""
+    if latest_result_cache is None:
+        raise HTTPException(status_code=404, detail="No optimization has been run yet.")
+    return latest_result_cache
 
 
 @router.get("/export/bundle")
@@ -409,17 +466,18 @@ async def download_bundle():
     """Download the latest generated 1-Click ZIP bundle."""
     global latest_zip_bundle
     
-    # If not run yet, generate one with demo data
-    if latest_zip_bundle is None:
-        meas_l, meas_r, meas_sub = generate_demo_room_measurements()
-        res = await orchestrator.run_pipeline(meas_l, meas_r, meas_sub)
-        latest_zip_bundle = res["zip_bundle_bytes"]
-        
-    return StreamingResponse(
-        io.BytesIO(latest_zip_bundle),
-        media_type="application/zip",
-        headers={"Content-Disposition": 'attachment; filename="ALTAIR_Filters_Export.zip"'},
-    )
+    async with state_lock:
+        # If not run yet, generate one with demo data
+        if latest_zip_bundle is None:
+            meas_l, meas_r, meas_sub = generate_demo_room_measurements()
+            res = await orchestrator.run_pipeline(meas_l, meas_r, meas_sub)
+            latest_zip_bundle = res["zip_bundle_bytes"]
+            
+        return StreamingResponse(
+            io.BytesIO(latest_zip_bundle),
+            media_type="application/zip",
+            headers={"Content-Disposition": 'attachment; filename="ALTAIR_Filters_Export.zip"'},
+        )
 
 
 @router.post("/sub-alignment/simulate")

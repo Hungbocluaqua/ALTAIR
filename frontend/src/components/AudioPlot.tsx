@@ -227,7 +227,15 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
 
               {showFilter && (
                 <path
-                  d={makeSplPath(plots.freqs, plots.spl_filter_left.map((db) => db + 75))}
+                  d={makeSplPath(
+                    plots.freqs,
+                    plots.spl_filter_left.map((db) => {
+                      const refTarget = plots.spl_target_left && plots.spl_target_left.length > 0
+                        ? plots.spl_target_left[Math.floor(plots.spl_target_left.length / 2)]
+                        : 75.0;
+                      return db + refTarget;
+                    })
+                  )}
                   fill="none"
                   stroke="#06b6d4"
                   strokeWidth="1.8"
@@ -427,7 +435,7 @@ export const AudioPlot: React.FC<AudioPlotProps> = ({ plots, subAlignment }) => 
             }`}
           >
             <span className="h-2 w-2 rounded-full bg-cyan-500"></span>
-            <span>Synthesized FIR Filter (+75 dB ref)</span>
+            <span>FIR Correction Gain (Aligned to Target)</span>
             {showFilter ? <Eye className="h-3 w-3 ml-1" /> : <EyeOff className="h-3 w-3 ml-1" />}
           </button>
 

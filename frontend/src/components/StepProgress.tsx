@@ -14,7 +14,7 @@ export const StepProgress: React.FC<StepProgressProps> = ({ isRunning, result })
     {
       id: 1,
       title: 'Acoustic Timing & Ingestion',
-      detail: result ? `Cross-correlation aligned Left & Right (48 kHz)` : 'Aligning impulse timing references...',
+      detail: result ? `Cross-correlation aligned Left & Right (${result.sample_rate ? result.sample_rate / 1000 + ' kHz' : '48 kHz'})` : 'Aligning impulse timing references...',
     },
     {
       id: 2,
@@ -25,7 +25,7 @@ export const StepProgress: React.FC<StepProgressProps> = ({ isRunning, result })
       id: 3,
       title: 'Module 1: Virtual Bass Array (VBA)',
       detail: result
-        ? `Identified P1(${result.modal_info_left.f_1.toFixed(1)}Hz), 8th-order 48dB/oct LPF reflection canceller synthesized`
+        ? `Identified P1(${result.modal_info_left.f_1.toFixed(1)}Hz), 4th-order 24dB/oct LPF reflection canceller synthesized`
         : 'Scanning modal resonances with ±10% tolerance...',
     },
     {

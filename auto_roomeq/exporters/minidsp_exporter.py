@@ -7,16 +7,31 @@ from typing import List, Dict
 import numpy as np
 
 
+from scipy import signal
+
+
 def export_minidsp_fir(
     fir_coeffs: np.ndarray,
     max_taps: int = 4096,
 ) -> str:
     """
     Export FIR coefficients as line-separated float strings for miniDSP Flex / 2x4 HD.
+    Correctly extracts centered around the impulse peak if coeffs is longer than max_taps.
     """
     coeffs = np.asarray(fir_coeffs, dtype=np.float64)
     if len(coeffs) > max_taps:
-        coeffs = coeffs[:max_taps]
+        peak_idx = int(np.argmax(np.abs(coeffs)))
+        half = max_taps // 2
+        start = max(0, peak_idx - half)
+        end = start + max_taps
+        if end > len(coeffs):
+            end = len(coeffs)
+            start = max(0, end - max_taps)
+        cropped = coeffs[start:end].copy()
+        if len(cropped) < max_taps:
+            cropped = np.pad(cropped, (0, max_taps - len(cropped)))
+        win = signal.windows.tukey(max_taps, alpha=0.05)
+        coeffs = cropped * win
         
     lines = [f"{c:.10e}" for c in coeffs]
     return "\n".join(lines)

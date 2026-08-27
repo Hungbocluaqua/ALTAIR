@@ -209,11 +209,22 @@ def rms_magnitude_average(measurements: List[Measurement]) -> Tuple[np.ndarray, 
     if not measurements:
         raise ValueError("Cannot average empty measurement list.")
         
-    freqs = measurements[0].freqs
-    linear_powers = [10.0 ** (m.spl_db / 10.0) for m in measurements]
-    avg_power = np.mean(linear_powers, axis=0)
+    target_n_fft = max(m.n_fft for m in measurements)
+    sr = measurements[0].sample_rate
+    target_freqs = np.fft.rfftfreq(target_n_fft, d=1.0 / sr)
+    
+    interpolated_powers = []
+    for m in measurements:
+        if m.n_fft == target_n_fft and m.sample_rate == sr:
+            p = 10.0 ** (m.spl_db / 10.0)
+        else:
+            p_orig = 10.0 ** (m.spl_db / 10.0)
+            p = np.interp(target_freqs, m.freqs, p_orig)
+        interpolated_powers.append(p)
+        
+    avg_power = np.mean(interpolated_powers, axis=0)
     spl_avg_db = 10.0 * np.log10(np.maximum(avg_power, 1e-12))
-    return freqs, spl_avg_db
+    return target_freqs, spl_avg_db
 
 
 def hybrid_spatial_average(

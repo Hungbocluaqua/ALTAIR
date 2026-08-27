@@ -24,15 +24,15 @@ class TargetConfig(BaseModel):
 
 class OptimizationRequest(BaseModel):
     target: TargetConfig = Field(default_factory=TargetConfig)
-    crossover_freq_hz: float = 2500.0
-    crossover_order: int = 4
-    sub_crossover_freq_hz: float = 80.0
-    target_taps: int = 65536
-    temperature_celsius: float = 20.0
-    relative_humidity_pct: float = 50.0
-    pressure_kpa: float = 101.325
-    listening_distance_m: float = 3.0
-    mic_orientation_deg: float = 0.0  # 0.0 on-axis, 90.0 ceiling/diffuse
+    crossover_freq_hz: float = Field(2500.0, ge=10.0, le=20000.0)
+    crossover_order: int = Field(4, ge=1, le=8)
+    sub_crossover_freq_hz: float = Field(80.0, ge=20.0, le=500.0)
+    target_taps: int = Field(65536, ge=1024, le=131072)
+    temperature_celsius: float = Field(20.0, ge=-20.0, le=60.0)
+    relative_humidity_pct: float = Field(50.0, ge=0.0, le=100.0)
+    pressure_kpa: float = Field(101.325, ge=50.0, le=120.0)
+    listening_distance_m: float = Field(3.0, ge=0.1, le=30.0)
+    mic_orientation_deg: float = Field(0.0, ge=0.0, le=90.0)  # 0.0 on-axis, 90.0 ceiling/diffuse
     use_demo_measurements: bool = False
     rew_measurement_ids: Optional[List[int]] = None
 

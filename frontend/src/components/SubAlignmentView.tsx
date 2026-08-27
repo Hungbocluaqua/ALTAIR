@@ -12,11 +12,18 @@ export const SubAlignmentView: React.FC<SubAlignmentViewProps> = ({
   subAlignment,
   onUpdateSummation,
 }) => {
-  if (!subAlignment) return null;
-
-  const [currentDelay, setCurrentDelay] = useState(subAlignment.optimal_delay_ms);
-  const [currentPolarity, setCurrentPolarity] = useState(subAlignment.polarity_multiplier);
+  const [currentDelay, setCurrentDelay] = useState(subAlignment?.optimal_delay_ms ?? 0);
+  const [currentPolarity, setCurrentPolarity] = useState(subAlignment?.polarity_multiplier ?? 1.0);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (subAlignment) {
+      setCurrentDelay(subAlignment.optimal_delay_ms);
+      setCurrentPolarity(subAlignment.polarity_multiplier);
+    }
+  }, [subAlignment?.optimal_delay_ms, subAlignment?.polarity_multiplier]);
+
+  if (!subAlignment) return null;
 
   const runSimulation = async (val: number, pol: number) => {
     try {

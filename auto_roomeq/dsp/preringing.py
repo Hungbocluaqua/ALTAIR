@@ -114,10 +114,26 @@ def auto_attenuate_preringing(
     """
     current_q = initial_q
     current_beta = initial_beta
-    best_impulse = None
-    best_metrics = None
     
-    for iteration in range(max_iterations):
+    # Establish baseline
+    best_impulse = filter_gen_fn(current_q, current_beta)
+    best_metrics = evaluate_step_response_preringing(
+        best_impulse,
+        sample_rate=sample_rate,
+        max_amp_threshold=max_amp_threshold,
+    )
+    best_q = current_q
+    best_beta = current_beta
+    
+    if max_iterations <= 0 or best_metrics["passed"]:
+        best_metrics["iterations_needed"] = 1 if max_iterations > 0 else 0
+        best_metrics["auto_attenuated"] = False
+        return best_impulse, best_metrics, best_q, best_beta
+        
+    for iteration in range(1, max_iterations):
+        current_q *= 0.80
+        current_beta *= 1.30
+        
         impulse = filter_gen_fn(current_q, current_beta)
         metrics = evaluate_step_response_preringing(
             impulse,
@@ -127,19 +143,17 @@ def auto_attenuate_preringing(
         
         best_impulse = impulse
         best_metrics = metrics
+        best_q = current_q
+        best_beta = current_beta
         
         if metrics["passed"]:
             metrics["iterations_needed"] = iteration + 1
-            metrics["auto_attenuated"] = iteration > 0
-            return impulse, metrics, current_q, current_beta
+            metrics["auto_attenuated"] = True
+            return impulse, metrics, best_q, best_beta
             
-        # Attenuate Q-factor by 20% and increase regularization beta by 30%
-        current_q *= 0.80
-        current_beta *= 1.30
-        
     best_metrics["iterations_needed"] = max_iterations
     best_metrics["auto_attenuated"] = True
-    return best_impulse, best_metrics, current_q, current_beta
+    return best_impulse, best_metrics, best_q, best_beta
 
 
 def evaluate_zwicker_temporal_masking(
@@ -170,8 +184,8 @@ def evaluate_zwicker_temporal_masking(
     actual_pre_amp = norm_ir[mask_backward]
     
     # Zwicker backward masking threshold relative to peak (0 dB):
-    # -6 dB at -2ms, tapering down to -36 dB at -20ms (approx 1.5 dB/ms)
-    zwicker_thresh_db = -6.0 - 1.6 * np.abs(t_back)
+    # -6 dB at -2ms, tapering down to -36 dB at -20ms (approx 1.67 dB/ms)
+    zwicker_thresh_db = -6.0 - (1.667 * (np.abs(t_back) - 2.0))
     zwicker_thresh_linear = 10.0 ** (zwicker_thresh_db / 20.0)
     
     # Check if pre-echo exceeds masking curve

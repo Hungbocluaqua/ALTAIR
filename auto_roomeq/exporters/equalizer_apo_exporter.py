@@ -12,6 +12,7 @@ def export_equalizer_apo_config(
     left_wav_filename: Optional[str] = None,
     right_wav_filename: Optional[str] = None,
     sub_delay_ms: Optional[float] = None,
+    sub_polarity: Optional[float] = None,
 ) -> str:
     """
     Generate Equalizer APO configuration script for ALTAIR.
@@ -45,10 +46,29 @@ def export_equalizer_apo_config(
         ])
         
     if sub_delay_ms is not None and abs(sub_delay_ms) > 0.01:
+        if sub_delay_ms > 0:
+            # Subwoofer is acoustically leading; delay the subwoofer channel (LFE)
+            lines.extend([
+                "# Subwoofer Timing Delay Offset",
+                "Channel: LFE",
+                f"Delay: {sub_delay_ms:.2f} ms",
+                "",
+            ])
+        else:
+            # sub_delay_ms < 0: Subwoofer is lagging; EqAPO cannot accept negative delays.
+            # Compensate by delaying the stereo mains (L and R).
+            lines.extend([
+                "# Mains Delay Offset (Subwoofer Alignment Compensation)",
+                "Channel: L R",
+                f"Delay: {abs(sub_delay_ms):.2f} ms",
+                "",
+            ])
+
+    if sub_polarity is not None and sub_polarity < 0:
         lines.extend([
-            "# Subwoofer / LFE Acoustic Timing Delay Offset",
-            "Channel: C SUB",
-            f"Delay: {sub_delay_ms:.2f} ms",
+            "# Subwoofer Phase Polarity Inversion",
+            "Channel: LFE",
+            "Copy: LFE=-1*LFE",
             "",
         ])
         

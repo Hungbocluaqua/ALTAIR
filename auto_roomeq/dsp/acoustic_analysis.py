@@ -139,18 +139,17 @@ def detect_schroeder_statistical(
     variances = []
     test_freqs = []
     
-    curr_f = min_f
-    while curr_f < max_f:
+    # Use uniform linear grid so log_smoothed_fast's df = freqs[1] - freqs[0] assumption holds strictly
+    linear_grid = np.arange(min_f, max_f, 2.0)
+    for curr_f in linear_grid:
         f_low = curr_f / (2.0 ** (window_oct / 2.0))
         f_high = curr_f * (2.0 ** (window_oct / 2.0))
         
         idx = (freqs >= f_low) & (freqs <= f_high)
         if np.any(idx) and np.sum(idx) > 3:
             variances.append(float(np.std(mag_db[idx])))
-            test_freqs.append(curr_f)
+            test_freqs.append(float(curr_f))
             
-        curr_f *= 1.03
-        
     if not variances:
         return 220.0
         

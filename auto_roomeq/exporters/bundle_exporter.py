@@ -22,10 +22,13 @@ def create_export_bundle(
     preamp_db: float,
     sample_rate: int = 48000,
     sub_delay_ms: Optional[float] = None,
+    sub_polarity: Optional[float] = None,
     crossover_freq: float = 2500.0,
     crossover_order: int = 4,
     biquads_left: Optional[list] = None,
     biquads_right: Optional[list] = None,
+    compact_fir_left: Optional[np.ndarray] = None,
+    compact_fir_right: Optional[np.ndarray] = None,
     metadata: Optional[Dict[str, any]] = None,
 ) -> bytes:
     """
@@ -52,6 +55,7 @@ def create_export_bundle(
             left_wav_filename="ALTAIR_Left_FIR_32bit.wav",
             right_wav_filename="ALTAIR_Right_FIR_32bit.wav",
             sub_delay_ms=sub_delay_ms,
+            sub_polarity=sub_polarity,
         )
         zf.writestr("EqualizerAPO/config.txt", eq_apo_config)
         zf.writestr("EqualizerAPO/ALTAIR_Left_FIR_32bit.wav", wav_left_bytes)
@@ -64,14 +68,17 @@ def create_export_bundle(
             right_wav_filename="ALTAIR_Right_FIR_32bit.wav",
             sample_rate=sample_rate,
             sub_delay_ms=sub_delay_ms,
+            sub_polarity=sub_polarity,
         )
         zf.writestr("CamillaDSP/camilladsp.yml", camilla_config)
         zf.writestr("CamillaDSP/ALTAIR_Left_FIR_32bit.wav", wav_left_bytes)
         zf.writestr("CamillaDSP/ALTAIR_Right_FIR_32bit.wav", wav_right_bytes)
         
         # 4. miniDSP
-        minidsp_l = export_minidsp_fir(fir_left, max_taps=4096)
-        minidsp_r = export_minidsp_fir(fir_right, max_taps=4096)
+        target_fir_l = compact_fir_left if compact_fir_left is not None else fir_left
+        target_fir_r = compact_fir_right if compact_fir_right is not None else fir_right
+        minidsp_l = export_minidsp_fir(target_fir_l, max_taps=4096)
+        minidsp_r = export_minidsp_fir(target_fir_r, max_taps=4096)
         zf.writestr("miniDSP/fir_coeffs_left.txt", minidsp_l)
         zf.writestr("miniDSP/fir_coeffs_right.txt", minidsp_r)
         
@@ -91,7 +98,7 @@ def create_export_bundle(
         zf.writestr("rePhase/ALTAIR_Project.rephase", rephase_xml)
         
         # 6. Readme Quick Start Guide
-        sub_info = f"- Subwoofer Delay Offset: {sub_delay_ms:.2f} ms\n" if sub_delay_ms else ""
+        sub_info = f"- Subwoofer Delay Offset: {sub_delay_ms:.2f} ms\n" if sub_delay_ms is not None else ""
         readme_text = f"""========================================================================
 ALTAIR - Automated Linear-phase Tuning & Acoustic Inversion Routine
 Export Package

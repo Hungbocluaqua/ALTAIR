@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { QuickRunCard } from './components/QuickRunCard';
 import { StepProgress } from './components/StepProgress';
@@ -46,13 +46,15 @@ export const App: React.FC = () => {
     }
   };
 
+  const initialRunRef = useRef(false);
+
   const handleRun = async () => {
     setIsRunning(true);
     setError(null);
     try {
       const res = await runOptimization({
         ...config,
-        use_demo_measurements: inputSource === 'demo',
+        use_demo_measurements: mode === 'expert' ? config.use_demo_measurements : inputSource === 'demo',
       });
       setResult(res);
     } catch (e: any) {
@@ -65,7 +67,10 @@ export const App: React.FC = () => {
   // Initial load: check status and auto-run demo optimization for instant UI gratification!
   useEffect(() => {
     checkStatus();
-    handleRun();
+    if (!initialRunRef.current) {
+      initialRunRef.current = true;
+      handleRun();
+    }
   }, []);
 
   return (

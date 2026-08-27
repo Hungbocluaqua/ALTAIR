@@ -42,7 +42,7 @@ class RewApiClient:
                     }
                 else:
                     return {
-                        "connected": True,
+                        "connected": False,
                         "base_url": self.base_url,
                         "status_code": resp.status_code,
                         "message": f"REW responded with HTTP {resp.status_code}",

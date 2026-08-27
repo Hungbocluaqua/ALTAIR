@@ -91,9 +91,14 @@ def synthesize_crossover_phase_reversal(
     w = 2.0 * np.pi * freqs
     s = 1j * w
     
-    num_val = np.polyval(a_lp[::-1] * ((-1) ** np.arange(len(a_lp))), s)
-    den_val = np.polyval(a_lp[::-1], s)
-    H_ap = num_val / np.maximum(np.abs(den_val), 1e-12)
+    # a_lp is in descending order of s: a_lp[0]*s^N + a_lp[1]*s^(N-1) + ... + a_lp[N]
+    # For A(-s), the coefficient of s^(N-k) is a_lp[k] * (-1)^(N-k)
+    powers = np.arange(len(a_lp) - 1, -1, -1)
+    num_val = np.polyval(a_lp * ((-1) ** powers), s)
+    den_val = np.polyval(a_lp, s)
+    # Avoid zero division with small complex epsilon if necessary
+    den_val_safe = np.where(np.abs(den_val) < 1e-12, 1e-12, den_val)
+    H_ap = num_val / den_val_safe
     
     # Phase reversal: H_reversal(f) = conj(H_ap(f))
     # Apply linear phase delay tau = (n_fft // 2) / sample_rate to center the impulse
