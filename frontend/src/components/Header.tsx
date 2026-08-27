@@ -12,8 +12,6 @@ interface HeaderProps {
   consoleCount?: number;
   theme?: 'dark' | 'light';
   onToggleTheme?: () => void;
-  designStyle?: 'architectural' | 'tokyo' | 'ledger' | 'classic';
-  onChangeDesignStyle?: (style: 'architectural' | 'tokyo' | 'ledger' | 'classic') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -26,8 +24,6 @@ export const Header: React.FC<HeaderProps> = ({
   consoleCount,
   theme = 'dark',
   onToggleTheme,
-  designStyle = 'architectural',
-  onChangeDesignStyle,
 }) => {
   return (
     <header className="border-b border-slate-200/80 bg-white/90 text-slate-800 dark:border-slate-800/80 dark:bg-[#0b0f19]/90 dark:text-slate-100 backdrop-blur sticky top-0 z-50 transition-colors duration-200">
@@ -108,59 +104,6 @@ export const Header: React.FC<HeaderProps> = ({
               <span>Expert Studio</span>
             </button>
           </div>
-
-          {/* Editorial Variations Selector */}
-          {onChangeDesignStyle && (
-            <div className="hidden lg:flex bg-slate-100 p-1 rounded-lg border border-slate-200 dark:bg-slate-900/90 dark:border-slate-800 transition-colors text-xs font-mono">
-              <span className="text-[10px] text-amber-700 dark:text-amber-500 uppercase px-2 self-center font-bold">
-                Editorial:
-              </span>
-              <button
-                onClick={() => onChangeDesignStyle('architectural')}
-                title="Variation 1: Architectural Monograph (Swiss / Bauhaus 12-Column Grid)"
-                className={`px-2.5 py-1 rounded-md transition-all font-semibold ${
-                  designStyle === 'architectural'
-                    ? 'bg-stone-900 text-white dark:bg-amber-500 dark:text-stone-950 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                }`}
-              >
-                1: Architectural
-              </button>
-              <button
-                onClick={() => onChangeDesignStyle('tokyo')}
-                title="Variation 2: Tokyo Sound Archive (Japanese Audiophile Journal / Stereo Sound)"
-                className={`px-2.5 py-1 rounded-md transition-all font-semibold ${
-                  designStyle === 'tokyo'
-                    ? 'bg-stone-900 text-white dark:bg-amber-500 dark:text-stone-950 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                }`}
-              >
-                2: Tokyo Archive
-              </button>
-              <button
-                onClick={() => onChangeDesignStyle('ledger')}
-                title="Variation 3: Acoustic Research Ledger (AES Technical Preprint Paper)"
-                className={`px-2.5 py-1 rounded-md transition-all font-semibold ${
-                  designStyle === 'ledger'
-                    ? 'bg-stone-900 text-white dark:bg-blue-600 dark:text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                }`}
-              >
-                3: Research Ledger
-              </button>
-              <button
-                onClick={() => onChangeDesignStyle('classic')}
-                title="Classic ALTAIR Studio Layout"
-                className={`px-2.5 py-1 rounded-md transition-all font-semibold ${
-                  designStyle === 'classic'
-                    ? 'bg-stone-900 text-white dark:bg-emerald-500 dark:text-stone-950 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                }`}
-              >
-                Classic
-              </button>
-            </div>
-          )}
 
           {/* Console Log Toggle */}
           {onToggleConsole && (

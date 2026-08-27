@@ -8,9 +8,6 @@ import { SubAlignmentView } from './components/SubAlignmentView';
 import { ExportCard } from './components/ExportCard';
 import { ExpertStudio } from './components/ExpertStudio';
 import { ConsoleLog, ConsoleLogEntry } from './components/ConsoleLog';
-import { EditorialArchitecturalView } from './components/EditorialArchitecturalView';
-import { EditorialTokyoArchiveView } from './components/EditorialTokyoArchiveView';
-import { EditorialResearchLedgerView } from './components/EditorialResearchLedgerView';
 import { StatusResponse, OptimizationRequest, OptimizationResponse } from './types';
 import { fetchStatus, runOptimization } from './api/client';
 
@@ -22,21 +19,6 @@ export const App: React.FC = () => {
   const [result, setResult] = useState<OptimizationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showConsole, setShowConsole] = useState<boolean>(true);
-  
-  // Editorial Redesign Variations: 'architectural' (1), 'tokyo' (2), 'ledger' (3), 'classic' (Default)
-  const [designStyle, setDesignStyle] = useState<'architectural' | 'tokyo' | 'ledger' | 'classic'>(() => {
-    try {
-      const saved = localStorage.getItem('altair-editorial-style');
-      if (saved === 'architectural' || saved === 'tokyo' || saved === 'ledger' || saved === 'classic') return saved;
-    } catch (_) {}
-    return 'architectural';
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('altair-editorial-style', designStyle);
-    } catch (_) {}
-  }, [designStyle]);
   
   // Theme state: dark (Audiophile Midnight) or light (Clean Precision Studio)
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
@@ -217,11 +199,6 @@ export const App: React.FC = () => {
         consoleCount={logs.length}
         theme={theme}
         onToggleTheme={toggleTheme}
-        designStyle={designStyle}
-        onChangeDesignStyle={(s) => {
-          setDesignStyle(s);
-          addLog(`Switched UI redesign style to ${s.toUpperCase()}`, 'info', 'UI');
-        }}
       />
 
       {/* Main Content Area with Console Log on Right Side */}
@@ -238,107 +215,72 @@ export const App: React.FC = () => {
             </div>
           )}
 
-          {/* Conditional Editorial Redesign Views */}
-          {designStyle === 'architectural' ? (
-            <EditorialArchitecturalView
-              config={config}
-              onChangeConfig={setConfig}
-              result={result}
+          {/* Wizard or Expert Mode Switch */}
+          {mode === 'wizard' ? (
+            <QuickRunCard
+              target={config.target}
+              onTargetChange={(t) => setConfig({ ...config, target: t })}
+              inputSource={inputSource}
+              onInputSourceChange={setInputSource}
               isRunning={isRunning}
               onRun={handleRun}
-              status={status}
-              theme={theme}
-            />
-          ) : designStyle === 'tokyo' ? (
-            <EditorialTokyoArchiveView
-              config={config}
-              onChangeConfig={setConfig}
-              result={result}
-              isRunning={isRunning}
-              onRun={handleRun}
-              status={status}
-              theme={theme}
-            />
-          ) : designStyle === 'ledger' ? (
-            <EditorialResearchLedgerView
-              config={config}
-              onChangeConfig={setConfig}
-              result={result}
-              isRunning={isRunning}
-              onRun={handleRun}
-              status={status}
-              theme={theme}
+              rewConnected={status?.rew_connected || false}
             />
           ) : (
-            <>
-              {/* Wizard or Expert Mode Switch */}
-              {mode === 'wizard' ? (
-                <QuickRunCard
-                  target={config.target}
-                  onTargetChange={(t) => setConfig({ ...config, target: t })}
-                  inputSource={inputSource}
-                  onInputSourceChange={setInputSource}
-                  isRunning={isRunning}
-                  onRun={handleRun}
-                  rewConnected={status?.rew_connected || false}
-                />
-              ) : (
-                <ExpertStudio
-                  config={config}
-                  onChange={setConfig}
-                  onRun={handleRun}
-                  isRunning={isRunning}
-                  rewConnected={status?.rew_connected || false}
-                  onLog={addLog}
-                />
-              )}
+            <ExpertStudio
+              config={config}
+              onChange={setConfig}
+              onRun={handleRun}
+              isRunning={isRunning}
+              rewConnected={status?.rew_connected || false}
+              onLog={addLog}
+            />
+          )}
 
-              {/* Live Step Progress */}
-              <StepProgress isRunning={isRunning} result={result} />
+          {/* Live Step Progress */}
+          <StepProgress isRunning={isRunning} result={result} />
 
-              {/* Acoustic Intelligence Metrics */}
-              {result?.acoustic_intelligence && (
-                <AcousticIntelligenceBanner
-                  intel={result.acoustic_intelligence}
-                  truePeakDb={result.true_peak_left_dbfs}
-                  isZwickerMasked={result.zwicker_masking_left?.is_masked}
-                />
-              )}
+          {/* Acoustic Intelligence Metrics */}
+          {result?.acoustic_intelligence && (
+            <AcousticIntelligenceBanner
+              intel={result.acoustic_intelligence}
+              truePeakDb={result.true_peak_left_dbfs}
+              isZwickerMasked={result.zwicker_masking_left?.is_masked}
+            />
+          )}
 
-              {/* Interactive Audio Plots */}
-              <AudioPlot
-                plots={result?.plots || null}
-                subAlignment={result?.sub_alignment}
-                theme={theme}
-              />
+          {/* Interactive Audio Plots */}
+          <AudioPlot
+            plots={result?.plots || null}
+            subAlignment={result?.sub_alignment}
+            theme={theme}
+          />
 
-              {/* Subwoofer Alignment Interactive Tuning */}
-              {result?.sub_alignment && (
-                <SubAlignmentView
-                  subAlignment={result.sub_alignment}
-                  onUpdateSummation={(newSum) => {
-                    if (result && result.sub_alignment) {
-                      setResult({
-                        ...result,
-                        sub_alignment: {
-                          ...result.sub_alignment,
-                          spl_aligned_db: newSum,
-                        },
-                      });
-                    }
-                  }}
-                />
-              )}
+          {/* Subwoofer Alignment Interactive Tuning */}
+          {result?.sub_alignment && (
+            <SubAlignmentView
+              subAlignment={result.sub_alignment}
+              onUpdateSummation={(newSum) => {
+                if (result && result.sub_alignment) {
+                  setResult({
+                    ...result,
+                    sub_alignment: {
+                      ...result.sub_alignment,
+                      spl_aligned_db: newSum,
+                    },
+                  });
+                }
+              }}
+            />
+          )}
 
-              {/* 1-Click Multi-Platform Export Card */}
-              {result && (
-                <ExportCard
-                  preampDb={result.global_preamp_db}
-                  sampleRate={result.sample_rate}
-                  taps={result.target_taps}
-                />
-              )}
-            </>
+          {/* 1-Click Multi-Platform Export Card */}
+          {result && (
+            <ExportCard
+              preampDb={result.global_preamp_db}
+              sampleRate={result.sample_rate}
+              taps={result.target_taps}
+            />
           )}
         </div>
 
