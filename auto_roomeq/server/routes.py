@@ -255,7 +255,7 @@ async def trigger_auto_sweep_rew(
 
     rew_conn = await rew_client.check_connection()
     if rew_conn.get("connected"):
-        sweep_k = min(1024, max(128, int(2 ** round(np.log2(duration_s * sample_rate / 1024)))))
+        sweep_k = min(1024, max(32, int(2 ** round(np.log2(max(1.0, duration_s * sample_rate / 1024.0))))))
         res = await rew_client.trigger_measurement(
             name=f"ALTAIR_{channel.upper()}_{repetitions}x",
             sweep_length=sweep_k,
@@ -528,11 +528,11 @@ async def simulate_sub_delay(
     from scipy import signal
     
     async with state_lock:
-        if "left" in current_measurements and "sub" in current_measurements:
-            meas_l = current_measurements["left"]
-            meas_sub = current_measurements["sub"]
-        else:
-            meas_l, _, meas_sub = generate_demo_room_measurements()
+        meas_l = current_measurements.get("left")
+        meas_sub = current_measurements.get("sub")
+        
+    if meas_l is None or meas_sub is None:
+        meas_l, _, meas_sub = generate_demo_room_measurements()
         
     sr = meas_l.sample_rate
     n_fft = max(meas_l.n_fft, meas_sub.n_fft)

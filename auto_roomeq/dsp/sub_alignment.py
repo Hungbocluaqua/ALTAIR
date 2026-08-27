@@ -116,7 +116,7 @@ def optimize_sub_mains_alignment(
         "optimal_polarity": "Inverted (-)" if best_polarity < 0 else "Normal (+)",
         "polarity_multiplier": float(best_polarity),
         "crossover_freq_hz": float(crossover_freq),
-        "gain_improvement_db": round(max(0.0, improvement_db), 2),
+        "gain_improvement_db": round(improvement_db, 2),
         "freqs": disp_freqs.tolist(),
         "spl_aligned_db": spl_aligned_db.tolist(),
         "spl_unaligned_db": spl_unaligned_db.tolist(),
@@ -143,21 +143,28 @@ def optimize_multi_sub_matrix(
         return {"sub_count": 0, "alignments": []}
         
     sr = sub_measurements[0].sample_rate
-    target_n_fft = max(m.n_fft for m in sub_measurements)
-    standardized_subs = []
+    processed_irs = []
     for sub in sub_measurements:
         if sub.sample_rate != sr:
             from math import gcd
             g = gcd(sr, sub.sample_rate)
             up = sr // g
             down = sub.sample_rate // g
-            resampled_ir = signal.resample_poly(sub.ir, up, down)
-            standardized_subs.append(Measurement(name=sub.name, ir=resampled_ir, sample_rate=sr, n_fft=target_n_fft))
-        elif sub.n_fft != target_n_fft:
-            standardized_subs.append(Measurement(name=sub.name, ir=sub.ir, sample_rate=sr, n_fft=target_n_fft))
+            resampled = signal.resample_poly(sub.ir, up, down)
+            processed_irs.append((sub.name, resampled))
         else:
-            standardized_subs.append(sub)
+            processed_irs.append((sub.name, sub.ir))
             
+    # Guarantee target_n_fft never truncates upsampled/resampled IR tails
+    max_len = max(len(ir) for _, ir in processed_irs)
+    base_n_fft = max(m.n_fft for m in sub_measurements)
+    target_n_fft = max(base_n_fft, 2 ** int(np.ceil(np.log2(max(1, max_len)))))
+    
+    standardized_subs = [
+        Measurement(name=name, ir=ir, sample_rate=sr, n_fft=target_n_fft)
+        for name, ir in processed_irs
+    ]
+    
     freqs = np.fft.rfftfreq(target_n_fft, d=1.0 / sr)
     
     mask = (freqs >= 20.0) & (freqs <= crossover_freq * 1.5)

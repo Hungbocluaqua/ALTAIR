@@ -201,3 +201,44 @@ def test_new_optimization_latest_endpoint_and_bounds():
     # Max duration is 60s (+ ~55ms timing ref lead-in/out), so wav data is bounded
     assert len(sw_huge.content) <= (65 * 48000 * 3)
 
+
+def test_camilladsp_sub_preserved_at_zero_delay():
+    """Verify CamillaDSP retains channel 2 (3-channel config) even when sub_delay_ms is exactly 0.0."""
+    cfg = export_camilladsp_config(preamp_db=-3.0, sub_delay_ms=0.0, sub_polarity=1.0)
+    assert "channels: 3" in cfg
+    assert "channel: 2" in cfg
+    # Pipeline contains channel 2 with preamp_gain
+    assert "channel: 2\n    names:\n      - preamp_gain" in cfg
+
+
+def test_farina_peak_at_zero_impulse_preservation():
+    """Verify Farina deconvolution does not zero out sample 0 if peak is at the very beginning."""
+    ir = np.zeros(2048)
+    ir[0] = 1.0
+    # Simulate recorded sweep where deconvolution peak lands at index 0
+    res = farina_harmonic_separation(ir, sweep_duration_s=0.5, sample_rate=48000, f_start=20.0, f_end=10000.0)
+    linear_ir = res["linear_ir"]
+    assert linear_ir[0] != 0.0
+
+
+def test_multi_sub_resampling_n_fft_sizing():
+    """Verify multi-sub optimizer accommodates lengthened IRs upon resampling without tail truncation."""
+    from auto_roomeq.dsp.measurement import Measurement
+    from auto_roomeq.dsp.sub_alignment import optimize_multi_sub_matrix
+    
+    # 44.1 kHz sub measurement
+    ir_44k = np.zeros(8000)
+    ir_44k[100] = 1.0
+    ir_44k[7990] = 0.5  # Energy at the tail
+    meas_44k = Measurement("Sub44k", ir=ir_44k, sample_rate=44100, n_fft=8192)
+    
+    # 48 kHz sub measurement
+    ir_48k = np.zeros(8000)
+    ir_48k[100] = 1.0
+    meas_48k = Measurement("Sub48k", ir=ir_48k, sample_rate=48000, n_fft=8192)
+    
+    res = optimize_multi_sub_matrix([meas_48k, meas_44k], crossover_freq=80.0)
+    assert res["sub_count"] == 2
+    assert len(res["alignments"]) == 2
+
+

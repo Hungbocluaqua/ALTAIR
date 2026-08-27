@@ -99,9 +99,12 @@ def farina_harmonic_separation(
     linear_ir[:cutoff_idx] = 0.0
     
     # Smooth half-Hann fade-in at the cutoff boundary to prevent step discontinuity
-    if fade_len > 0 and cutoff_idx + fade_len <= len(linear_ir):
-        fade_in = 0.5 * (1.0 - np.cos(np.pi * np.arange(fade_len) / fade_len))
-        linear_ir[cutoff_idx : cutoff_idx + fade_len] *= fade_in
+    # Only apply fade-in if cutoff_idx > 0 to avoid attenuating the direct impulse if peak is near sample 0
+    if cutoff_idx > 0:
+        actual_fade_len = min(fade_len, len(linear_ir) - cutoff_idx)
+        if actual_fade_len > 0:
+            fade_in = 0.5 * (1.0 - np.cos(np.pi * np.arange(actual_fade_len) / max(1, fade_len)))
+            linear_ir[cutoff_idx : cutoff_idx + actual_fade_len] *= fade_in
         
     linear_energy = float(np.sum(linear_ir ** 2))
     thd_ratio = np.sqrt(total_distortion_energy / max(linear_energy, 1e-12))

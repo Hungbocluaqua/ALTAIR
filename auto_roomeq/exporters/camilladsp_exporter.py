@@ -19,16 +19,17 @@ def export_camilladsp_config(
     Generate CamillaDSP YAML configuration string.
     Correctly wires delay and polarity into the pipeline block.
     """
-    has_sub = sub_delay_ms is not None and abs(sub_delay_ms) > 0.01
+    has_sub = (sub_delay_ms is not None) or (sub_polarity is not None)
+    has_delay = sub_delay_ms is not None and abs(sub_delay_ms) > 0.01
     has_inversion = sub_polarity is not None and sub_polarity < 0
-    actual_channels = max(channels, 3 if (has_sub or has_inversion) else 2)
+    actual_channels = max(channels, 3 if has_sub else 2)
 
     extra_filters = []
     ch0_filters = ["preamp_gain", "fir_left"]
     ch1_filters = ["preamp_gain", "fir_right"]
     ch2_filters = ["preamp_gain"]
 
-    if has_sub:
+    if has_delay:
         if sub_delay_ms < 0:
             # Subwoofer is lagging: delay the mains channels
             extra_filters.append(f"""  mains_delay:
