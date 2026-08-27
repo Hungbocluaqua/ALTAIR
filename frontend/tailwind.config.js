@@ -22,6 +22,11 @@ export default {
           indigo: '#6366f1',
         }
       },
+      fontFamily: {
+        serif: ['"Newsreader"', '"Instrument Serif"', '"Playfair Display"', 'Georgia', 'serif'],
+        mono: ['"JetBrains Mono"', '"SF Mono"', 'monospace'],
+        sans: ['"Plus Jakarta Sans"', '"SF Pro Display"', '"Helvetica Neue"', 'sans-serif'],
+      },
     },
   },
   plugins: [],
