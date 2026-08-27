@@ -12,6 +12,8 @@ interface HeaderProps {
   consoleCount?: number;
   theme?: 'dark' | 'light';
   onToggleTheme?: () => void;
+  designStyle?: 'monolith' | 'editorial' | 'cyber' | 'classic';
+  onChangeDesignStyle?: (style: 'monolith' | 'editorial' | 'cyber' | 'classic') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -24,6 +26,8 @@ export const Header: React.FC<HeaderProps> = ({
   consoleCount,
   theme = 'dark',
   onToggleTheme,
+  designStyle = 'monolith',
+  onChangeDesignStyle,
 }) => {
   return (
     <header className="border-b border-slate-200/80 bg-white/90 text-slate-800 dark:border-slate-800/80 dark:bg-[#0b0f19]/90 dark:text-slate-100 backdrop-blur sticky top-0 z-50 transition-colors duration-200">
@@ -104,6 +108,59 @@ export const Header: React.FC<HeaderProps> = ({
               <span>Expert Studio</span>
             </button>
           </div>
+
+          {/* Redesign Style Selector */}
+          {onChangeDesignStyle && (
+            <div className="hidden lg:flex bg-slate-100 p-1 rounded-lg border border-slate-200 dark:bg-slate-900/90 dark:border-slate-800 transition-colors text-xs font-mono">
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase px-2 self-center font-bold">
+                Redesign:
+              </span>
+              <button
+                onClick={() => onChangeDesignStyle('monolith')}
+                title="Option A: Precision Studio Monolith (Hardware Rack Console)"
+                className={`px-2.5 py-1 rounded-md transition-all font-semibold ${
+                  designStyle === 'monolith'
+                    ? 'bg-slate-900 text-white dark:bg-sky-500 dark:text-slate-950 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                }`}
+              >
+                A: Monolith
+              </button>
+              <button
+                onClick={() => onChangeDesignStyle('editorial')}
+                title="Option B: Audiophile Editorial (Japanese Acoustic Journal)"
+                className={`px-2.5 py-1 rounded-md transition-all font-semibold ${
+                  designStyle === 'editorial'
+                    ? 'bg-slate-900 text-white dark:bg-amber-500 dark:text-slate-950 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                }`}
+              >
+                B: Editorial
+              </button>
+              <button
+                onClick={() => onChangeDesignStyle('cyber')}
+                title="Option C: Cyber-Acoustic Glass (Modern Floating HUD)"
+                className={`px-2.5 py-1 rounded-md transition-all font-semibold ${
+                  designStyle === 'cyber'
+                    ? 'bg-slate-900 text-white dark:bg-cyan-400 dark:text-slate-950 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                }`}
+              >
+                C: Cyber Glass
+              </button>
+              <button
+                onClick={() => onChangeDesignStyle('classic')}
+                title="Classic ALTAIR Studio Layout"
+                className={`px-2.5 py-1 rounded-md transition-all font-semibold ${
+                  designStyle === 'classic'
+                    ? 'bg-slate-900 text-white dark:bg-emerald-500 dark:text-slate-950 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                }`}
+              >
+                Classic
+              </button>
+            </div>
+          )}
 
           {/* Console Log Toggle */}
           {onToggleConsole && (
