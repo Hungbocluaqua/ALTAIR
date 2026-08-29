@@ -152,3 +152,7 @@ All **89 tests** verify DSP acquisition, deconvolution, vector averaging, Module
 - **DSP/export**: regularized excess-phase deconvolution in Module 3, hybrid IIR+FIR miniDSP setup file, and optional Warped FIR (WFIR) exports for embedded DSPs.
 - **System & UX**: live SSE progress streaming (`POST /api/optimize/stream`) into the UI, best-effort `.mdat` parsing, and JSON project session persistence (`altair_project.json`).
 See `ARCHITECTURE_ANALYSIS.md` for the complete architecture reference.
+
+---
+
+[Support me on Ko-fi](https://ko-fi.com/hungchayqua)
